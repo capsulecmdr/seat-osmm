@@ -31,31 +31,38 @@ class OsmmServiceProvider extends AbstractSeatPlugin
                 ->name('osmm.home'); // optional
         });
 
+        $widgets = [];
+
+        // Helper to push widgets into config array
+        $addWidgets = function ($row, $count) use (&$widgets) {
+            for ($i = 1; $i <= $count; $i++) {
+                $widgets[] = [
+                    'row'   => $row,
+                    'order' => $i,
+                    'html'  => view('seat-osmm::partials.test-widget', [
+                        'title' => "Test Widget R{$row}-#{$i}",
+                        'text'  => "This is test widget #{$i} in row {$row}.",
+                    ])->render(),
+                ];
+            }
+        };
+
+        // Row 1 - 8 widgets
+        $addWidgets(1, 8);
+
+        // Row 2 - 5 widgets
+        $addWidgets(2, 5);
+
+        // Row 3 - 4 widgets
+        $addWidgets(3, 4);
+
+        // Row 4 - 3 widgets
+        $addWidgets(4, 3);
 
         config([
-            'osmm.home_elements' => array_merge(config('osmm.home_elements', []), [
-                [
-                    'row' => 1,
-                    'order' => 1,
-                    'html' => view('seat-osmm::partials.test-widget', ['col' => 2])->render(),
-                ],
-                [
-                    'row' => 2,
-                    'order' => 1,
-                    'html' => view('seat-osmm::partials.test-widget', ['col' => 3])->render(),
-                ],
-                [
-                    'row' => 3,
-                    'order' => 1,
-                    'html' => view('seat-osmm::partials.test-widget', ['col' => 6])->render(),
-                ],
-                [
-                    'row' => 4,
-                    'order' => 1,
-                    'html' => view('seat-osmm::partials.test-widget', ['col' => 12])->render(),
-                ],
-            ]),
+            'osmm.home_elements' => $widgets
         ]);
+        
     }
     
     private function addPublications(): void
