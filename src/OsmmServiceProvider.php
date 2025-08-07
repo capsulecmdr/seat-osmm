@@ -7,6 +7,18 @@ use Seat\Services\AbstractSeatPlugin;
 
 class OsmmServiceProvider extends AbstractSeatPlugin
 {
+
+    public function boot(): void
+    {
+        $this->add_routes();
+        $this->add_views();
+        $this->add_translations();
+        
+        $this->addPublications();
+        
+        $this->addMigrations();
+    }
+    
     private function addPublications(): void
     {
         // $this->publishes([
