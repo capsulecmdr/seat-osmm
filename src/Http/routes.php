@@ -7,5 +7,5 @@ Route::group([
     'as' => 'osmm.',
 ], function () {
     //routes here
-    Route::get('/',[HomeOverrideController::class, 'index'])->name('home.index');
+    Route::get('/home',[HomeOverrideController::class, 'index'])->name('home.index');
 });
