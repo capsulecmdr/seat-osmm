@@ -36,6 +36,7 @@ class OsmmServiceProvider extends AbstractSeatPlugin
             'osmm.home_elements' => array_merge(config('osmm.home_elements', []), [
                 [
                     'order' => 1,
+                    'row' => 2,
                     'html' => view('seat-osmm::partials.test-widget')->render(),
                 ],
             ]),
