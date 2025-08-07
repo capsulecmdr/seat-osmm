@@ -17,6 +17,15 @@ class OsmmServiceProvider extends AbstractSeatPlugin
         $this->addPublications();
         
         $this->addMigrations();
+
+        config([
+            'osmm.home_elements' => array_merge(config('osmm.home_elements', []), [
+                [
+                    'order' => 1,
+                    'html' => view('seat-osmm::partials.test-widget')->render(),
+                ],
+            ]),
+        ]);
     }
     
     private function addPublications(): void

@@ -11,15 +11,15 @@ return [
     | These will be displayed on the custom homepage.
     |
     */
-    'osmm_home_elements' => [
-        // Example:
-        // [
-        //     'order' => 10,
-        //     'html' => view('someplugin::partials.widget')->render(),
-        // ],
-        [
-            'order' => 1,
-            'html' => view('seat-osmm::partials.test-widget')->render(),
-        ],
-    ],
+    // 'osmm_home_elements' => [
+    //     // Example:
+    //     // [
+    //     //     'order' => 10,
+    //     //     'html' => view('someplugin::partials.widget')->render(),
+    //     // ],
+    //     [
+    //         'order' => 1,
+    //         'html' => view('seat-osmm::partials.test-widget')->render(),
+    //     ],
+    // ],
 ];
