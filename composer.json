@@ -1,0 +1,17 @@
+{
+    "name": "capsulecmdr/seat-osmm",
+    "description": "SeAT-OSMM (Orsiki's SeAT Mod Master)",
+    "type": "seat-plugin",
+    "autoload": {
+        "psr-4": {
+            "Capsulecmdr\\SeatOsmm\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "That Guy",
+            "email": "60452132+Gadgetwhir@users.noreply.github.com"
+        }
+    ],
+    "require": {}
+}
