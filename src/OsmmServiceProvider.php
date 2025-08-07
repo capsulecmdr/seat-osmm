@@ -21,11 +21,10 @@ class OsmmServiceProvider extends AbstractSeatPlugin
 
         // ⏱ Delay route override until all other providers are booted
         app()->booted(function () {
-            Route::get('/', [HomeOverrideController::class, 'index'])
+            Route::get('/', [Http\Controllers\HomeOverrideController::class, 'index'])
                 ->middleware(['web', 'auth'])
                 ->name('home');
-
-            Route::get('/home', [HomeOverrideController::class, 'index'])
+            Route::get('/home', [Http\Controllers\HomeOverrideController::class, 'index'])
                 ->middleware(['web', 'auth'])
                 ->name('home.alias');
         });
