@@ -1,4 +1,7 @@
-<?php 
+<?php
+
+\Log::info('[OSMM] routes.php was loaded.');
+
 use Illuminate\Support\Facades\Route;
 use CapsuleCmdr\SeatOsmm\Http\Controllers\HomeOverrideController;
 
