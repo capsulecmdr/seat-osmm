@@ -5,6 +5,7 @@ namespace CapsuleCmdr\SeatOsmm;
 use Illuminate\Support\ServiceProvider;
 use Seat\Services\AbstractSeatPlugin;
 use Illuminate\Support\Facades\Route;
+use CapsuleCmdr\SeatOsmm\Http\Controllers\HomeOverrideController;
 
 class OsmmServiceProvider extends AbstractSeatPlugin
 {
@@ -21,11 +22,13 @@ class OsmmServiceProvider extends AbstractSeatPlugin
 
         // ⏱ Delay route override until all other providers are booted
         app()->booted(function () {
-            Route::get('/', [Http\Controllers\HomeOverrideController::class, 'index'])
+            Route::get('/', [HomeOverrideController::class, 'index'])
                 ->middleware(['web', 'auth'])
                 ->name('home');
-                
-            Route::redirect('/home', '/')->middleware(['web', 'auth']);
+
+            Route::get('/home', [HomeOverrideController::class, 'index'])
+                ->middleware(['web', 'auth'])
+                ->name('home.alias');
         });
 
 
