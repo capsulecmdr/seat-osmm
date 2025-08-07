@@ -4,14 +4,21 @@
     "type": "seat-plugin",
     "autoload": {
         "psr-4": {
-            "Capsulecmdr\\SeatOsmm\\": "src/"
+            "CapsuleCmdr\\SeatOsmm\\": "src/"
         }
     },
     "authors": [
         {
-            "name": "That Guy",
-            "email": "60452132+Gadgetwhir@users.noreply.github.com"
+            "name": "Orsiki",
+            "email": "jwlittle13@gmail.com"
         }
     ],
-    "require": {}
+    "require": {},
+    "extra": {
+        "laravel": {
+            "providers": [
+                "CapsuleCmdr\\SeatOsmm\\OsmmServiceProvider"
+            ]
+        }
+    }
 }
