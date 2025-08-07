@@ -72,7 +72,7 @@ class OsmmServiceProvider extends AbstractSeatPlugin
     public function register(): void
     {
         //merge config
-        $this->mergeConfigFrom(__DIR__.'/config/config.php','config');
+        $this->mergeConfigFrom(__DIR__.'/config/config.php','osmm');
 
         //merge sidebar
         $this->mergeConfigFrom(__DIR__.'/config/sidebar.php','package.sidebar');
