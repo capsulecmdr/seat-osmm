@@ -4,6 +4,7 @@ namespace CapsuleCmdr\SeatOsmm;
 
 use Illuminate\Support\ServiceProvider;
 use Seat\Services\AbstractSeatPlugin;
+use Illuminate\Support\Facades\Route;
 
 class OsmmServiceProvider extends AbstractSeatPlugin
 {
