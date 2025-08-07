@@ -24,6 +24,8 @@ class OsmmServiceProvider extends AbstractSeatPlugin
             Route::get('/', [Http\Controllers\HomeOverrideController::class, 'index'])
                 ->middleware(['web', 'auth'])
                 ->name('home');
+                
+            Route::redirect('/home', '/')->middleware(['web', 'auth']);
         });
 
 
