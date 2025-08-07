@@ -24,11 +24,11 @@ class OsmmServiceProvider extends AbstractSeatPlugin
         app()->booted(function () {
             Route::get('/', [HomeOverrideController::class, 'index'])
                 ->middleware(['web', 'auth'])
-                ->name('home');
+                ->name('seatcore::home');
 
             Route::get('/home', [HomeOverrideController::class, 'index'])
                 ->middleware(['web', 'auth'])
-                ->name('home.alias');
+                ->name('osmm.home'); // optional
         });
 
 
