@@ -91,6 +91,29 @@
           <div class="cc-head">Current Eve Time</div>
           <div class="cc-body">
             <div class="cc-time">Aug 8 2025 14:25:53</div>
+            <script>
+                function updateUtcTime() {
+                    const now = new Date();
+                    const options = {
+                        month: 'short',  // Aug
+                        day: 'numeric',  // 8
+                        year: 'numeric', // 2025
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                        hour12: false,
+                        timeZone: 'UTC'
+                    };
+
+                    // Format the date and remove comma for your desired format
+                    const formatted = now.toLocaleString('en-US', options).replace(',', '');
+                    document.getElementById('cc-time').textContent = formatted;
+                }
+
+                // Update immediately and then every second
+                updateUtcTime();
+                setInterval(updateUtcTime, 1000);
+                </script>
           </div>
         </div>
       </div>
