@@ -121,7 +121,31 @@
         <div class="cc-card">
           <div class="cc-head">Downtime</div>
           <div class="cc-body">
-            <div class="cc-time">T minus 12:35:04</div>
+            <div id='dt-time' class="cc-time">T minus 12:35:04</div>
+            <script>
+                function updateCountdown() {
+                    const now = new Date();
+                    const target = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 11, 0, 0));
+
+                    // If it's already past 11:00 UTC today, target tomorrow
+                    if (now.getUTCHours() >= 11) {
+                        target.setUTCDate(target.getUTCDate() + 1);
+                    }
+
+                    const diff = target - now;
+
+                    const hours = Math.floor(diff / (1000 * 60 * 60));
+                    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+                    document.getElementById('dd-time').textContent =
+                        `T minus ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                }
+
+                // Update immediately and then every second
+                updateCountdown();
+                setInterval(updateCountdown, 1000);
+            </script>
           </div>
         </div>
       </div>
