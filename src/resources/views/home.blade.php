@@ -87,7 +87,7 @@
       <div class="row">
         <div class="col-lg-6 mb-3">
           <div class="card">
-            <div class="card-header font-weight-bold">Online Players</div>
+            <div class="card-header font-weight-bold">Online Players <sub>last updated: <span id="onlinePlayers_lastUpdated"></span></sub></div>
             <div class="card-body p-0">
                 
                 <div id="chart_online_players_div" style="width:100%; height:150px;"></div>
@@ -97,6 +97,15 @@
                     google.charts.setOnLoadCallback(initChart);
 
                     function initChart() {
+
+                        const now = new Date();
+                        const options = {
+                        hour: '2-digit', minute: '2-digit', second: '2-digit',
+                        hour12: false, timeZone: 'UTC'
+                        };
+                        const formatted = now.toLocaleString('en-US', options).replace(',', '');
+                        document.getElementById('onlinePlayers_lastUpdated').textContent = formatted;
+
                         // Draw immediately
                         fetchAndDraw();
 
