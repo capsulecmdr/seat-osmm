@@ -74,7 +74,7 @@
 <div class="home-wrap">
 
   {{-- ALERT BANNER --}}
-    @if($atWar)
+    @if($atWar === false)
     <div class="alert alert-danger alert-dismissible fade show" role="alert">
         <i class="fas fa-crosshairs mr-2"></i>
         You are currently At War!
