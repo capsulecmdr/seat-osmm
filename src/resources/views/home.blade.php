@@ -88,8 +88,8 @@
         <div class="col-lg-6 mb-3">
           <div class="card">
             <div class="card-header font-weight-bold">Online Players</div>
-            <div class="card-body">
-              <div class="bg-light border rounded w-100 h-100">
+            <div class="card-body p-0">
+                
                 <div id="chart_online_players_div" style="width:100%; height:150px;"></div>
                 <script>
                     // Load Google Charts
@@ -206,7 +206,7 @@
                         return checks > 0 && hits === checks;
                     }
                     </script>
-              </div>
+              
             </div>
           </div>
         </div>
