@@ -107,7 +107,7 @@
                         hour12: false, timeZone: 'UTC'
                         };
                         const formatted = now.toLocaleString('en-US', options).replace(',', '');
-                        document.getElementById('onlinePlayers_lastUpdated').textContent = formatted;
+                        document.getElementById('onlinePlayers_lastUpdated').textContent = "last updated: " + formatted;
 
                         // Draw immediately
                         fetchAndDraw();
