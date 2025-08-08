@@ -145,17 +145,26 @@
 
                         const options = {
                             legend: 'none',
+                            chartArea: {
+                                left: 0,
+                                top: 0,
+                                right: 0,
+                                bottom: 0,
+                                width: '100%',
+                                height: '100%'
+                            },
                             hAxis: {
-                            textStyle: { color: 'transparent' }, // hide labels similar to your Chart.js config
-                            viewWindowMode: 'pretty',
-                            format: 'HH:mm' // only used if datetime axis
+                                textPosition: 'none',   // hide horizontal axis labels
+                                gridlines: { count: 0 },
+                                baselineColor: 'transparent'
                             },
                             vAxis: {
-                            textStyle: { color: 'transparent' } // hide labels
+                                textPosition: 'none',   // hide vertical axis labels
+                                gridlines: { count: 0 },
+                                baselineColor: 'transparent'
                             },
-                            // light trendline like Chart.js smoothing
                             trendlines: { 0: {} }
-                        };
+                            };
 
                         const chart = new google.visualization.LineChart(document.getElementById('chart_online_players_div'));
                         chart.draw(dataTable, options);
