@@ -231,14 +231,113 @@
           </div>
         </div>
         <div class="col-lg-6 mb-3">
-          <div class="card">
-            <div class="card-header font-weight-bold">ESI Response Times</div>
-            <div class="card-body">
-              <div class="bg-light border rounded w-100" style="height:150px;"></div>
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span class="font-weight-bold">ESI Response Times</span>
+                    <small class="text-muted" id="esi-last-updated">—</small>
+                </div>
+                <div class="card-body p-0">
+                    <div id="chart_esi_response_div" style="width:100%; height:150px;"></div>
+                    <script>
+                        google.charts.load('current', { packages: ['corechart', 'line'] });
+                        google.charts.setOnLoadCallback(initEsiChart);
+
+                        function initEsiChart() {
+                        // Draw immediately
+                        fetchAndDrawEsi();
+                        // Refresh every 60 seconds
+                        setInterval(fetchAndDrawEsi, 60000);
+                        }
+
+                        function fetchAndDrawEsi() {
+                        $.getJSON("{{ route('seatcore::home.chart.serverresponse') }}", function (payload) {
+                            const dataTable = new google.visualization.DataTable();
+
+                            // Detect x type: time or index
+                            const looksLikeLabels = Array.isArray(payload?.labels) && payload?.datasets?.[0]?.data;
+                            const looksLikePoints = Array.isArray(payload) && payload.length && (payload[0].t !== undefined || payload[0].x !== undefined);
+
+                            if (looksLikeLabels && isTimestampSeries(payload.labels)) {
+                            dataTable.addColumn('datetime', 'Time (UTC)');
+                            } else if (looksLikePoints && isTimestampSeries(payload.map(p => p.t ?? p.x))) {
+                            dataTable.addColumn('datetime', 'Time (UTC)');
+                            } else {
+                            dataTable.addColumn('number', 'X');
+                            }
+
+                            dataTable.addColumn('number', 'Response Time (ms)');
+
+                            let rows = [];
+                            if (looksLikeLabels) {
+                            const xs = payload.labels;
+                            const ys = payload.datasets[0].data;
+                            const useTime = isTimestampSeries(xs);
+                            rows = xs.map((x, i) => [useTime ? toUtcDate(x) : i, toNum(ys[i])]);
+                            } else if (looksLikePoints) {
+                            rows = payload.map(p => {
+                                const xVal = p.t ?? p.x;
+                                const useTime = isTimestamp(xVal);
+                                return [useTime ? toUtcDate(xVal) : toNum(xVal), toNum(p.y)];
+                            });
+                            }
+
+                            dataTable.addRows(rows);
+
+                            const options = {
+                            legend: 'none',
+                            chartArea: { left: 0, top: 0, right: 0, bottom: 0, width: '100%', height: '100%' },
+                            hAxis: { textPosition: 'none', gridlines: { count: 0 }, baselineColor: 'transparent', ticks: [] },
+                            vAxis: { textPosition: 'none', gridlines: { count: 0 }, baselineColor: 'transparent', ticks: [] },
+                            lineWidth: 1,
+                            pointSize: 0
+                            };
+
+                            new google.visualization.LineChart(document.getElementById('chart_esi_response_div'))
+                            .draw(dataTable, options);
+
+                            // Update "last updated" text
+                            const now = new Date();
+                            document.getElementById('esi-last-updated').textContent = `Updated ${now.toUTCString()}`;
+                        });
+                        }
+
+                        // --- helpers ---
+                        function toNum(v) {
+                        const n = Number(v);
+                        return Number.isFinite(n) ? n : null;
+                        }
+
+                        function toUtcDate(x) {
+                        if (x == null) return null;
+                        if (typeof x === 'number') {
+                            const ms = x > 1e12 ? x : (x < 1e11 ? x * 1000 : x);
+                            return new Date(ms);
+                        }
+                        const iso = ('' + x).match(/[zZ]|[+-]\d{2}:\d{2}$/) ? x : x + 'Z';
+                        return new Date(iso);
+                        }
+
+                        function isTimestamp(val) {
+                        return (typeof val === 'number') || (typeof val === 'string' && !isNaN(Date.parse(val + (/[zZ]|[+-]\d{2}:\d{2}$/.test(val) ? '' : 'Z'))));
+                        }
+
+                        function isTimestampSeries(arr) {
+                        if (!Array.isArray(arr) || !arr.length) return false;
+                        let checks = 0, hits = 0;
+                        for (let i = 0; i < arr.length && checks < 5; i++) {
+                            if (arr[i] !== undefined && arr[i] !== null) {
+                            checks++;
+                            if (isTimestamp(arr[i])) hits++;
+                            }
+                        }
+                        return checks > 0 && hits === checks;
+                        }
+
+                    </script>
+                </div>
             </div>
-          </div>
         </div>
-      </div>
+    </div>
 
       {{-- MONTHLY KILLMAILS / MINING --}}
       <div class="row">
