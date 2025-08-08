@@ -14,21 +14,30 @@ class HomeOverrideController extends Controller
     {
         $user = Auth::user();
 
-        // Loop through main + alts
+        /** @var Eseye $esi */
+        $esi = app(Eseye::class); // Public ESI client, no auth needed
+
+        $atWar = false;
+
         foreach ($user->characters as $character) {
-
-            /** @var Eseye $esi */
-            $esi = $character->getEsi(); // built-in helper
-
-            // corp ID and alliance ID come from the character’s record
+            // Prefer DB values; if missing, fall back to public /characters/{id}
             $corpId     = $character->corporation_id;
             $allianceId = $character->alliance_id ?? null;
 
-            if ($this->isAtWar($esi, $corpId, $allianceId)) {
+            if (!$corpId) {
+                $pub = $esi->invoke('get', '/characters/{character_id}/', [
+                    'character_id' => (int) $character->character_id,
+                ]);
+                $corpId     = isset($pub->corporation_id) ? (int) $pub->corporation_id : null;
+                $allianceId = isset($pub->alliance_id)    ? (int) $pub->alliance_id    : null;
+            }
+
+            if ($corpId && $this->isAtWar($esi, (int) $corpId, $allianceId ? (int) $allianceId : null)) {
                 $atWar = true;
                 break;
             }
         }
+
 
         $homeElements = collect(config('osmm.home_elements', []))->sortBy('order');
 
