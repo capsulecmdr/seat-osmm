@@ -123,7 +123,8 @@ class OsmmServiceProvider extends AbstractSeatPlugin
 
         // Bind Eseye with explicit PSR-18 and PSR-17 factories
         $this->app->singleton(Eseye::class, function () {
-            $psr17Factory = new Psr17Factory();
+            // Use Guzzle's PSR-17 HttpFactory
+            $psr17Factory = new HttpFactory();
 
             return new Eseye([
                 'http'            => new GuzzleAdapter(new GuzzleClient([
