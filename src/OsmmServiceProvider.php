@@ -6,10 +6,6 @@ use Illuminate\Support\ServiceProvider;
 use Seat\Services\AbstractSeatPlugin;
 use Illuminate\Support\Facades\Route;
 use CapsuleCmdr\SeatOsmm\Http\Controllers\HomeOverrideController;
-use Seat\Eseye\Eseye;
-use GuzzleHttp\Client as GuzzleClient;
-use GuzzleHttp\Psr7\HttpFactory;
-use CapsuleCmdr\SeatOsmm\Support\GuzzlePsr18Client;
 
 class OsmmServiceProvider extends AbstractSeatPlugin
 {
@@ -120,21 +116,6 @@ class OsmmServiceProvider extends AbstractSeatPlugin
 
         //register permissions
         $this->registerPermissions(__DIR__ . '/config/Permissions/permissions.php','osmm');
-
-        // Bind Eseye with explicit PSR-18 and PSR-17 factories
-        $this->app->singleton(Eseye::class, function () {
-            $psr17Factory = new HttpFactory();
-
-            return new Eseye([
-                'http'            => new GuzzlePsr18Client(new GuzzleClient([
-                    'timeout'         => 10,
-                    'connect_timeout' => 5,
-                ])),
-                'request_factory' => $psr17Factory,
-                'stream_factory'  => $psr17Factory,
-                'base_uri'        => 'https://esi.evetech.net/latest/',
-            ]);
-        });
     }
 
     private function addMigrations()
