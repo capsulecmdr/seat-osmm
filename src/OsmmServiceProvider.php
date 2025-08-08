@@ -8,8 +8,8 @@ use Illuminate\Support\Facades\Route;
 use CapsuleCmdr\SeatOsmm\Http\Controllers\HomeOverrideController;
 use Seat\Eseye\Eseye;
 use GuzzleHttp\Client as GuzzleClient;
-use Http\Adapter\Guzzle7\Client as GuzzleAdapter;
 use GuzzleHttp\Psr7\HttpFactory;
+use CapsuleCmdr\SeatOsmm\Support\GuzzlePsr18Client;
 
 class OsmmServiceProvider extends AbstractSeatPlugin
 {
@@ -123,11 +123,10 @@ class OsmmServiceProvider extends AbstractSeatPlugin
 
         // Bind Eseye with explicit PSR-18 and PSR-17 factories
         $this->app->singleton(Eseye::class, function () {
-            // Use Guzzle's PSR-17 HttpFactory
             $psr17Factory = new HttpFactory();
 
             return new Eseye([
-                'http'            => new GuzzleAdapter(new GuzzleClient([
+                'http'            => new GuzzlePsr18Client(new GuzzleClient([
                     'timeout'         => 10,
                     'connect_timeout' => 5,
                 ])),
