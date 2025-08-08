@@ -89,7 +89,7 @@
           <div class="card">
             <div class="card-header font-weight-bold">Online Players</div>
             <div class="card-body">
-              <div class="bg-light border rounded w-100" style="height:150px;">
+              <div class="bg-light border rounded w-100 h-100">
                 <div id="chart_online_players_div"></div>
                 <script>
                     // Load Google Charts
