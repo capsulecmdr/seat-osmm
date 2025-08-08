@@ -6,7 +6,6 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Seat\Eseye\Eseye;
-use Seat\Eveapi\Esi\Client\EsiClient;
 
 class HomeOverrideController extends Controller
 {
@@ -18,20 +17,19 @@ class HomeOverrideController extends Controller
 
         // Loop through each character
         foreach ($user->characters as $char) {
+
+
+            $esi = new Eseye();
+
+            $info = $esi->invoke('get', '/characters/{character_id}/', [
+                'character_id' => $char->character_id,
+            ]);
+
             // Get an authenticated Eseye client from SeAT
             $esi = $char->getEsi();
 
-            $corpId     = $char->corporation_id;
-            $allianceId = $char->alliance_id ?: null;
-
-            // Fallback to public data if IDs are missing
-            if (!$corpId) {
-                $pub = $esi->invoke('get', '/characters/{character_id}/', [
-                    'character_id' => (int) $char->character_id,
-                ]);
-                $corpId     = isset($pub->corporation_id) ? (int) $pub->corporation_id : null;
-                $allianceId = isset($pub->alliance_id)    ? (int) $pub->alliance_id    : null;
-            }
+            $corpId     = $info->corporation_id;
+            $allianceId = property_exists($info, 'alliance_id') ? $info->alliance_id : null;
 
             if ($corpId && $this->isAtWar($esi, $corpId, $allianceId)) {
                 $atWar = true;
