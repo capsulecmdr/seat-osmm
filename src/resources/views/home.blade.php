@@ -90,7 +90,7 @@
             <div class="card-header font-weight-bold">Online Players</div>
             <div class="card-body">
               <div class="bg-light border rounded w-100 h-100">
-                <div id="chart_online_players_div"></div>
+                <div id="chart_online_players_div" style="width:100%; height:150px;"></div>
                 <script>
                     // Load Google Charts
                     google.charts.load('current', { packages: ['corechart', 'line'] });
@@ -151,7 +151,7 @@
                                 right: 0,
                                 bottom: 0,
                                 width: '100%',
-                                height: '150px'
+                                height: '100%'
                             },
                             hAxis: {
                                 textPosition: 'none',   // hide horizontal axis labels
