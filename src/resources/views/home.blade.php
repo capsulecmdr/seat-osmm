@@ -5,6 +5,8 @@
 
 @section('content')
 
+<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+
 <div class="container-fluid">
   <div class="row">
     {{-- MAIN --}}
@@ -87,7 +89,115 @@
           <div class="card">
             <div class="card-header font-weight-bold">Online Players</div>
             <div class="card-body">
-              <div class="bg-light border rounded w-100" style="height:150px;"></div>
+              <div class="bg-light border rounded w-100" style="height:150px;">
+                <div id="chart_online_players_div"></div>
+                <script>
+                    // Load Google Charts
+                    google.charts.load('current', { packages: ['corechart', 'line'] });
+                    google.charts.setOnLoadCallback(fetchAndDraw);
+
+                    function fetchAndDraw() {
+                        $.getJSON("{{ route('seatcore::home.chart.serverstatus') }}", function (payload) {
+                        const dataTable = new google.visualization.DataTable();
+
+                        // Detect x type: time or index
+                        const looksLikeLabels = Array.isArray(payload?.labels) && payload?.datasets?.[0]?.data;
+                        const looksLikePoints  = Array.isArray(payload) && payload.length && (payload[0].t !== undefined || payload[0].x !== undefined);
+
+                        // Choose X column type (UTC time if timestamps present, else numeric index)
+                        if (looksLikeLabels && isTimestampSeries(payload.labels)) {
+                            dataTable.addColumn('datetime', 'Time (UTC)');
+                        } else if (looksLikePoints && isTimestampSeries(payload.map(p => p.t ?? p.x))) {
+                            dataTable.addColumn('datetime', 'Time (UTC)');
+                        } else {
+                            dataTable.addColumn('number', 'X');
+                        }
+
+                        dataTable.addColumn('number', 'Concurrent Players');
+
+                        // Build rows
+                        let rows = [];
+
+                        if (looksLikeLabels) {
+                            const xs = payload.labels;
+                            const ys = payload.datasets[0].data;
+                            const useTime = isTimestampSeries(xs);
+
+                            rows = xs.map((x, i) => [
+                            useTime ? toUtcDate(x) : i,
+                            toNum(ys[i])
+                            ]);
+                        } else if (looksLikePoints) {
+                            // Supports Chart.js points as {t: ISO/epoch, y: value} or {x, y}
+                            rows = payload.map(p => {
+                            const xVal = p.t ?? p.x;
+                            const useTime = isTimestamp(xVal);
+                            return [
+                                useTime ? toUtcDate(xVal) : toNum(xVal),
+                                toNum(p.y)
+                            ];
+                            });
+                        } else {
+                            console.warn('Unexpected payload shape for serverstatus route:', payload);
+                        }
+
+                        dataTable.addRows(rows);
+
+                        const options = {
+                            legend: 'none',
+                            hAxis: {
+                            textStyle: { color: 'transparent' }, // hide labels similar to your Chart.js config
+                            viewWindowMode: 'pretty',
+                            format: 'HH:mm' // only used if datetime axis
+                            },
+                            vAxis: {
+                            textStyle: { color: 'transparent' } // hide labels
+                            },
+                            // light trendline like Chart.js smoothing
+                            trendlines: { 0: {} }
+                        };
+
+                        const chart = new google.visualization.LineChart(document.getElementById('chart_online_players_div'));
+                        chart.draw(dataTable, options);
+                        });
+                    }
+
+                    // --- helpers ---
+                    function toNum(v) {
+                        const n = Number(v);
+                        return Number.isFinite(n) ? n : null;
+                    }
+
+                    // Accepts ISO string, epoch ms, or epoch s
+                    function toUtcDate(x) {
+                        if (x == null) return null;
+                        if (typeof x === 'number') {
+                        // heuristic: treat 13-digit as ms, 10-digit as seconds
+                        const ms = x > 1e12 ? x : (x < 1e11 ? x * 1000 : x);
+                        return new Date(ms);
+                        }
+                        // If backend sends ISO without timezone, force UTC by appending 'Z'
+                        const iso = ('' + x).match(/[zZ]|[+-]\d{2}:\d{2}$/) ? x : x + 'Z';
+                        return new Date(iso);
+                    }
+
+                    function isTimestamp(val) {
+                        return (typeof val === 'number') || (typeof val === 'string' && !isNaN(Date.parse(val + (/[zZ]|[+-]\d{2}:\d{2}$/.test(val) ? '' : 'Z'))));
+                    }
+
+                    function isTimestampSeries(arr) {
+                        if (!Array.isArray(arr) || !arr.length) return false;
+                        let checks = 0, hits = 0;
+                        for (let i = 0; i < arr.length && checks < 5; i++) {
+                        if (arr[i] !== undefined && arr[i] !== null) {
+                            checks++;
+                            if (isTimestamp(arr[i])) hits++;
+                        }
+                        }
+                        return checks > 0 && hits === checks;
+                    }
+                    </script>
+              </div>
             </div>
           </div>
         </div>
