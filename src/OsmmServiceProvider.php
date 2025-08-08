@@ -9,7 +9,7 @@ use CapsuleCmdr\SeatOsmm\Http\Controllers\HomeOverrideController;
 use Seat\Eseye\Eseye;
 use GuzzleHttp\Client as GuzzleClient;
 use Http\Adapter\Guzzle7\Client as GuzzleAdapter;
-use Nyholm\Psr7\Factory\Psr17Factory;
+use GuzzleHttp\Psr7\HttpFactory;
 
 class OsmmServiceProvider extends AbstractSeatPlugin
 {
