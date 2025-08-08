@@ -74,9 +74,15 @@
 <div class="home-wrap">
 
   {{-- ALERT BANNER --}}
-  <div class="alert alert-danger text-center py-2 mb-2">
-    <i class="fas fa-times mr-2"></i> You are currently At War!
-  </div>
+    @if($war['at_war'])
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="fas fa-crosshairs mr-2"></i>
+        You are currently At War!
+        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+        <span aria-hidden="true">&times;</span>
+        </button>
+    </div>
+    @endif
 
   <div class="home-main">
     {{-- CURRENT TIME / DOWNTIME --}}
