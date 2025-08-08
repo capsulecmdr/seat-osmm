@@ -73,7 +73,8 @@
 
 <div class="home-wrap">
 
-  {{-- ALERT BANNER --}}
+  <div class="home-main">
+    {{-- ALERT BANNER --}}
     @if($atWar === false)
     <div class="alert alert-danger alert-dismissible fade show" role="alert">
         <i class="fas fa-crosshairs mr-2"></i>
@@ -83,8 +84,6 @@
         </button>
     </div>
     @endif
-
-  <div class="home-main">
     {{-- CURRENT TIME / DOWNTIME --}}
     <div class="row mb-18">
       <div class="col-lg-6 mb-3 mb-lg-0">
