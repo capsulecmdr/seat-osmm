@@ -90,7 +90,7 @@
         <div class="cc-card">
           <div class="cc-head">Current Eve Time</div>
           <div class="cc-body">
-            <div class="cc-time">Aug 8 2025 14:25:53</div>
+            <div id="cc-time" class="cc-time">Aug 8 2025 14:25:53</div>
             <script>
                 function updateUtcTime() {
                     const now = new Date();
