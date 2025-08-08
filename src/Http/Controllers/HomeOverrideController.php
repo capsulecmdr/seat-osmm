@@ -3,6 +3,9 @@
 namespace CapsuleCmdr\SeatOsmm\Http\Controllers;
 
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
+use Seat\Eseye\Eseye;
 
 class HomeOverrideController extends Controller
 {
