@@ -289,7 +289,8 @@
                             hAxis: { textPosition: 'none', gridlines: { count: 0 }, baselineColor: 'transparent', ticks: [] },
                             vAxis: { textPosition: 'none', gridlines: { count: 0 }, baselineColor: 'transparent', ticks: [] },
                             lineWidth: 1,
-                            pointSize: 0
+                            pointSize: 0,                            
+                            trendlines: { 0: {} }
                             };
 
                             new google.visualization.LineChart(document.getElementById('chart_esi_response_div'))
