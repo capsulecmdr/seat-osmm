@@ -89,7 +89,7 @@
           <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <span class="font-weight-bold">Online Players</span>
-                <small class="text-muted" id="chart-last-updated">—</small>
+                <small class="text-muted" id="onlinePlayers_lastUpdated">—</small>
             </div>
             <div class="card-body p-0">
                 
