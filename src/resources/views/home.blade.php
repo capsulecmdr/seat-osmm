@@ -87,7 +87,10 @@
       <div class="row">
         <div class="col-lg-6 mb-3">
           <div class="card">
-            <div class="card-header font-weight-bold">Online Players <sub>last updated: <span id="onlinePlayers_lastUpdated"></span></sub></div>
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span class="font-weight-bold">Online Players</span>
+                <small class="text-muted" id="chart-last-updated">—</small>
+            </div>
             <div class="card-body p-0">
                 
                 <div id="chart_online_players_div" style="width:100%; height:150px;"></div>
