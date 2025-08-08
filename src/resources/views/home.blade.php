@@ -94,7 +94,15 @@
                 <script>
                     // Load Google Charts
                     google.charts.load('current', { packages: ['corechart', 'line'] });
-                    google.charts.setOnLoadCallback(fetchAndDraw);
+                    google.charts.setOnLoadCallback(initChart);
+
+                    function initChart() {
+                        // Draw immediately
+                        fetchAndDraw();
+
+                        // Refresh every 60 seconds
+                        setInterval(fetchAndDraw, 60000);
+                        }
 
                     function fetchAndDraw() {
                         $.getJSON("{{ route('seatcore::home.chart.serverstatus') }}", function (payload) {
