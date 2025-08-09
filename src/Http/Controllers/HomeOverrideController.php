@@ -255,6 +255,11 @@ class HomeOverrideController extends Controller
             $cumISK[] = $running;
         }
 
+        // NEW: average ISK/day across days elapsed (avoid dividing by 0)
+        $days_elapsed   = max(0, min($today_day, $days_in_month));
+        $mtd_isk        = $running; // same as end($cumISK)
+        $avg_isk_per_day = $days_elapsed > 0 ? ($mtd_isk / $days_elapsed) : 0.0;
+
         return [
             'month'    => sprintf('%04d-%02d', $year, $month),
             'days'     => $days,
@@ -262,6 +267,7 @@ class HomeOverrideController extends Controller
             'ice'      => $ice,
             'moon'     => $moon,
             'cum_isk'  => $cumISK,
+            'avg_isk_per_day' => $avg_isk_per_day,
         ];
     }
 
