@@ -482,69 +482,46 @@
       chart.draw(data, options);
     }
 
-    google.charts.setOnLoadCallback(drawWaterfall);
+    google.charts.setOnLoadCallback(drawMining);
 
-    function drawWaterfall() {
-      const days = @json($km['days']);       // [1..EOM]
-      const cumWins = @json($km['cum_wins']);   // cumulative wins by day index
-      const cumTotal = @json($km['cum_total']);  // cumulative (wins + losses)
+    function drawMining() {
+      const days     = @json($mining['days']);
+      const asteroid = @json($mining['asteroid']);
+      const ice      = @json($mining['ice']);
+      const moon     = @json($mining['moon']);
+      const cumISK   = @json($mining['cum_isk']);
 
-      // Derive per-day wins, totals, losses, and net delta (wins - losses)
-      const perWins = [];
-      const perTotal = [];
-      const perLoss = [];
-      const delta = [];
-
-      for (let i = 0; i < days.length; i++) {
-      const w = cumWins[i] - (i > 0 ? cumWins[i - 1] : 0);
-      const t = cumTotal[i] - (i > 0 ? cumTotal[i - 1] : 0);
-      const l = Math.max(0, t - w);         // guard against negatives
-      const d = w - l;                      // net for the day
-
-      perWins.push(w);
-      perTotal.push(t);
-      perLoss.push(l);
-      delta.push(d);
-      }
-
-      // Waterfall candlestick: [label, low, open, close, high]
-      // where open = running total before the day, close = after applying delta
       const data = new google.visualization.DataTable();
-      data.addColumn('string', 'Day');
-      data.addColumn('number', 'Low');
-      data.addColumn('number', 'Open');
-      data.addColumn('number', 'Close');
-      data.addColumn('number', 'High');
+      data.addColumn('number', 'Day');
+      data.addColumn('number', 'Asteroid');
+      data.addColumn('number', 'Ice');
+      data.addColumn('number', 'Moon');
+      data.addColumn('number', 'Cumulative ISK');
 
-      let running = 0;
-      for (let i = 0; i < days.length; i++) {
-      const open = running;
-      const close = running + delta[i];
-      const low = Math.min(open, close);
-      const high = Math.max(open, close);
+      const rows = days.map((d, i) => [d, asteroid[i], ice[i], moon[i], cumISK[i]]);
+      data.addRows(rows);
 
-      data.addRow([String(days[i]), low, open, close, high]);
-
-      running = close; // advance
-      }
-
-      // Optional: add a final "Total" bar
-      data.addRow(['Total', Math.min(0, running), 0, running, Math.max(0, running)]);
+      // Format ISK (line series)
+      new google.visualization.NumberFormat({
+        prefix: 'ISK ', groupingSymbol: ',', fractionDigits: 0
+      }).format(data, 4);
 
       const options = {
-      legend: 'none',
-      chartArea: { left: 0, top: 0, right: 0, bottom: 0, width: '100%', height: '100%' },
-      bar: { groupWidth: '85%' },
-      hAxis: { textPosition: 'none', gridlines: { count: 0 }, baselineColor: 'transparent', ticks: [] },
-      vAxis: { textPosition: 'none', gridlines: { count: 0 }, baselineColor: 'transparent', ticks: [] },
-      candlestick: {
-        hollowIsRising: false,               // solid up bars
-        fallingColor: { strokeWidth: 0, fill: '#ef4444' }, // red for net losses
-        risingColor: { strokeWidth: 0, fill: '#22c55e' }  // green for net wins
-      }
+        legend: { position: 'top' },
+        chartArea: { left:0, top:0, right:0, bottom:0, width:'100%', height:'100%' },
+        isStacked: false,            // grouped bars
+        seriesType: 'bars',
+        bar: { groupWidth: '75%' },
+        hAxis: { textPosition:'none', gridlines:{ count:0 }, baselineColor:'transparent', ticks:[] },
+        vAxes: { 0: { textPosition:'none' }, 1: { textPosition:'none' } },
+        series: {
+          3: { type: 'line', targetAxisIndex: 1 } // line uses right axis
+        },
+        trendlines: { 3: {} }
       };
 
-      const chart = new google.visualization.CandlestickChart(document.getElementById('waterfall_div'));
+      const el = document.getElementById('chart_mining_div');
+      const chart = new google.visualization.ComboChart(el);
       google.visualization.events.addListener(chart, 'ready', () => chart.setSelection([]));
       chart.draw(data, options);
     }
