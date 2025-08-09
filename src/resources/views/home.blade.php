@@ -113,7 +113,7 @@
         <div class="col-lg-6 mb-3">
           <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
-              <span class="font-weight-bold">Killmails ({{ $km['month'] }})</span>
+              <span class="font-weight-bold">KillMails <small>month to date</small></span>
             </div>
             <div class="card-body p-0">
               <div id="waterfall_div" style="width:100%; height:150px;"></div>
