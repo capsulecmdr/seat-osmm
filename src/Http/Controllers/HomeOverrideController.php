@@ -10,6 +10,11 @@ use Carbon\Carbon;
 use Seat\Eveapi\Models\Killmails\KillmailDetail as KD;
 use Seat\Eveapi\Models\Killmails\KillmailAttacker as KA;
 use Seat\Eveapi\Models\Killmails\KillmailVictim as KV;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Seat\Eveapi\Models\Industry\CharacterMining as CM;
+use Seat\Eveapi\Models\Sde\InvType as InvType;
+use Seat\Eveapi\Models\Sde\InvGroup as InvGroup;
 
 class HomeOverrideController extends Controller
 {
