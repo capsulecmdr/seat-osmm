@@ -44,9 +44,11 @@ class HomeOverrideController extends Controller
 
         $km = $this->buildMonthlyKillmailCumulative();
 
+        $mining = $this->buildMonthlyMiningMtd();
+
         $homeElements = collect(config('osmm.home_elements', []))->sortBy('order');
 
-        return view('seat-osmm::home', compact('homeElements','atWar','km'));
+        return view('seat-osmm::home', compact('homeElements','atWar','km','mining'));
     }
     private function isAtWar(Eseye $esi, int $corpId, ?int $allianceId): bool
     {
@@ -161,5 +163,143 @@ class HomeOverrideController extends Controller
     public function monthlyKillmailSeries()
     {
         return response()->json($this->buildMonthlyKillmailCumulative());
+    }
+
+    private function buildMonthlyMiningMtd(): array
+    {
+        $user = Auth::user();
+
+        // All linked character IDs (disambiguate to avoid ambiguous select)
+        $char_ids = $user->characters()
+            ->select('character_infos.character_id')
+            ->distinct()
+            ->pluck('character_infos.character_id');
+
+        $now = Carbon::now('UTC');
+        $year = $now->year;
+        $month = $now->month;
+        $days_in_month = $now->copy()->endOfMonth()->day;
+        $today_day = $now->day;
+
+        // Pull this month’s mining rows
+        $rows = CM::whereIn('character_id', $char_ids)
+            ->where('year', $year)
+            ->where('month', $month)
+            ->get(['date', 'type_id', 'quantity']);
+
+        if ($rows->isEmpty()) {
+            return [
+                'month'    => sprintf('%04d-%02d', $year, $month),
+                'days'     => range(1, $days_in_month),
+                'asteroid' => array_fill(0, $days_in_month, 0),
+                'ice'      => array_fill(0, $days_in_month, 0),
+                'moon'     => array_fill(0, $days_in_month, 0),
+                'cum_isk'  => array_fill(0, $days_in_month, 0.0),
+            ];
+        }
+
+        // ----- Category mapping via SDE groups -----
+        $type_ids = $rows->pluck('type_id')->unique();
+        $types  = InvType::whereIn('typeID', $type_ids)->get(['typeID', 'groupID']);
+        $groups = InvGroup::whereIn('groupID', $types->pluck('groupID')->unique())
+            ->get(['groupID', 'groupName'])
+            ->keyBy('groupID');
+
+        $categoryOf = function (int $type_id) use ($types, $groups): string {
+            $t = $types->firstWhere('typeID', $type_id);
+            $g = $t ? $groups->get($t->groupID) : null;
+            $name = strtolower($g->groupName ?? '');
+            if (strpos($name, 'ice') !== false)  return 'Ice';
+            if (strpos($name, 'moon') !== false) return 'Moon';
+            return 'Asteroid';
+        };
+
+        // ----- Price map from universe_prices/market_prices -----
+        $priceMap = $this->priceMapForTypeIds($type_ids);
+
+        // Per-day buckets
+        $perDayUnits = array_fill(1, $days_in_month, ['Asteroid' => 0, 'Ice' => 0, 'Moon' => 0]);
+        $perDayIsk   = array_fill(1, $days_in_month, 0.0);
+
+        foreach ($rows as $r) {
+            $day = Carbon::parse($r->date, 'UTC')->day; // 1..EOM
+            $qty = (int) $r->quantity;
+            $cat = $categoryOf((int) $r->type_id);
+
+            $perDayUnits[$day][$cat] += $qty;
+
+            $px = (float) ($priceMap[(int) $r->type_id] ?? 0.0);
+            $perDayIsk[$day] += $px * $qty;
+        }
+
+        // Build series (bars visible through today; line is cumulative ISK through today)
+        $days     = range(1, $days_in_month);
+        $asteroid = []; $ice = []; $moon = []; $cumISK = [];
+        $running  = 0.0;
+
+        foreach ($days as $d) {
+            $a = $perDayUnits[$d]['Asteroid'];
+            $i = $perDayUnits[$d]['Ice'];
+            $m = $perDayUnits[$d]['Moon'];
+
+            $asteroid[] = ($d <= $today_day) ? $a : 0;
+            $ice[]      = ($d <= $today_day) ? $i : 0;
+            $moon[]     = ($d <= $today_day) ? $m : 0;
+
+            if ($d <= $today_day) $running += $perDayIsk[$d];
+            $cumISK[] = $running;
+        }
+
+        return [
+            'month'    => sprintf('%04d-%02d', $year, $month),
+            'days'     => $days,
+            'asteroid' => $asteroid,
+            'ice'      => $ice,
+            'moon'     => $moon,
+            'cum_isk'  => $cumISK,
+        ];
+    }
+
+    /**
+     * Price helper: returns type_id => price (float).
+     * Uses the same DB connection as CharacterMining; prefers universe_prices, else market_prices.
+     * Picks: average_price -> adjusted_price -> average -> sell_price -> buy_price.
+     */
+    private function priceMapForTypeIds($type_ids)
+    {
+        $ids = collect($type_ids)->unique()->values();
+        if ($ids->isEmpty()) return collect();
+
+        $conn  = (new CM)->getConnectionName();
+
+        $table = Schema::connection($conn)->hasTable('universe_prices')
+            ? 'universe_prices'
+            : (Schema::connection($conn)->hasTable('market_prices') ? 'market_prices' : null);
+
+        if (!$table) {
+            return collect()->mapWithKeys(fn ($id) => [(int) $id => 0.0]);
+        }
+
+        $cacheKey = 'price_map:'.$table.':'.md5($ids->implode(','));
+
+        return Cache::remember($cacheKey, now()->addHours(6), function () use ($ids, $conn, $table) {
+            $rows = DB::connection($conn)->table($table)
+                ->whereIn('type_id', $ids)
+                ->get(['type_id', 'average_price', 'adjusted_price', 'average', 'sell_price', 'buy_price'])
+                ->keyBy('type_id');
+
+            return $ids->mapWithKeys(function ($id) use ($rows) {
+                $r = $rows->get($id);
+                $v = 0.0;
+                if ($r) {
+                    $v = !is_null($r->average_price)  ? (float) $r->average_price
+                       : (!is_null($r->adjusted_price) ? (float) $r->adjusted_price
+                       : (!is_null($r->average)        ? (float) $r->average
+                       : (!is_null($r->sell_price)     ? (float) $r->sell_price
+                       : (!is_null($r->buy_price)      ? (float) $r->buy_price : 0.0))));
+                }
+                return [(int) $id => $v];
+            });
+        });
     }
 }
