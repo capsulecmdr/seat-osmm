@@ -5,8 +5,6 @@
 
 @section('content')
 
-<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
-
 <div class="container-fluid">
   <div class="row">
     {{-- MAIN --}}
@@ -93,140 +91,7 @@
             </div>
             <div class="card-body p-0">
                 
-                <div id="chart_online_players_div" style="width:100%; height:150px;"></div>
-                <script>
-                    // Load Google Charts
-                    google.charts.load('current', { packages: ['corechart', 'line'] });
-                    google.charts.setOnLoadCallback(initChart);
-
-                    function initChart() {
-
-                        const now = new Date();
-                        const options = {
-                        hour: '2-digit', minute: '2-digit', second: '2-digit',
-                        hour12: false, timeZone: 'UTC'
-                        };
-                        const formatted = now.toLocaleString('en-US', options).replace(',', '');
-                        document.getElementById('onlinePlayers_lastUpdated').textContent = "last updated: " + formatted;
-
-                        // Draw immediately
-                        fetchAndDraw();
-
-                        // Refresh every 60 seconds
-                        setInterval(fetchAndDraw, 60000);
-                        }
-
-                    function fetchAndDraw() {
-                        $.getJSON("{{ route('seatcore::home.chart.serverstatus') }}", function (payload) {
-                        const dataTable = new google.visualization.DataTable();
-
-                        // Detect x type: time or index
-                        const looksLikeLabels = Array.isArray(payload?.labels) && payload?.datasets?.[0]?.data;
-                        const looksLikePoints  = Array.isArray(payload) && payload.length && (payload[0].t !== undefined || payload[0].x !== undefined);
-
-                        // Choose X column type (UTC time if timestamps present, else numeric index)
-                        if (looksLikeLabels && isTimestampSeries(payload.labels)) {
-                            dataTable.addColumn('datetime', 'Time (UTC)');
-                        } else if (looksLikePoints && isTimestampSeries(payload.map(p => p.t ?? p.x))) {
-                            dataTable.addColumn('datetime', 'Time (UTC)');
-                        } else {
-                            dataTable.addColumn('number', 'X');
-                        }
-
-                        dataTable.addColumn('number', 'Concurrent Players');
-
-                        // Build rows
-                        let rows = [];
-
-                        if (looksLikeLabels) {
-                            const xs = payload.labels;
-                            const ys = payload.datasets[0].data;
-                            const useTime = isTimestampSeries(xs);
-
-                            rows = xs.map((x, i) => [
-                            useTime ? toUtcDate(x) : i,
-                            toNum(ys[i])
-                            ]);
-                        } else if (looksLikePoints) {
-                            // Supports Chart.js points as {t: ISO/epoch, y: value} or {x, y}
-                            rows = payload.map(p => {
-                            const xVal = p.t ?? p.x;
-                            const useTime = isTimestamp(xVal);
-                            return [
-                                useTime ? toUtcDate(xVal) : toNum(xVal),
-                                toNum(p.y)
-                            ];
-                            });
-                        } else {
-                            console.warn('Unexpected payload shape for serverstatus route:', payload);
-                        }
-
-                        dataTable.addRows(rows);
-
-                        const options = {
-                            legend: 'none',
-                            chartArea: {
-                                left: 0,
-                                top: 0,
-                                right: 0,
-                                bottom: 0,
-                                width: '100%',
-                                height: '100%'
-                            },
-                            hAxis: {
-                                textPosition: 'none',   // hide horizontal axis labels
-                                gridlines: { count: 0 },
-                                baselineColor: 'transparent'
-                            },
-                            vAxis: {
-                                textPosition: 'none',   // hide vertical axis labels
-                                gridlines: { count: 0 },
-                                baselineColor: 'transparent'
-                            },
-                            trendlines: { 0: {} }
-                            };
-
-                        const chart = new google.visualization.LineChart(document.getElementById('chart_online_players_div'));
-                        chart.draw(dataTable, options);
-                        });
-                    }
-
-                    // --- helpers ---
-                    function toNum(v) {
-                        const n = Number(v);
-                        return Number.isFinite(n) ? n : null;
-                    }
-
-                    // Accepts ISO string, epoch ms, or epoch s
-                    function toUtcDate(x) {
-                        if (x == null) return null;
-                        if (typeof x === 'number') {
-                        // heuristic: treat 13-digit as ms, 10-digit as seconds
-                        const ms = x > 1e12 ? x : (x < 1e11 ? x * 1000 : x);
-                        return new Date(ms);
-                        }
-                        // If backend sends ISO without timezone, force UTC by appending 'Z'
-                        const iso = ('' + x).match(/[zZ]|[+-]\d{2}:\d{2}$/) ? x : x + 'Z';
-                        return new Date(iso);
-                    }
-
-                    function isTimestamp(val) {
-                        return (typeof val === 'number') || (typeof val === 'string' && !isNaN(Date.parse(val + (/[zZ]|[+-]\d{2}:\d{2}$/.test(val) ? '' : 'Z'))));
-                    }
-
-                    function isTimestampSeries(arr) {
-                        if (!Array.isArray(arr) || !arr.length) return false;
-                        let checks = 0, hits = 0;
-                        for (let i = 0; i < arr.length && checks < 5; i++) {
-                        if (arr[i] !== undefined && arr[i] !== null) {
-                            checks++;
-                            if (isTimestamp(arr[i])) hits++;
-                        }
-                        }
-                        return checks > 0 && hits === checks;
-                    }
-                    </script>
-              
+                <div id="chart_online_players_div" style="width:100%; height:150px;"></div>              
             </div>
           </div>
         </div>
@@ -238,103 +103,6 @@
                 </div>
                 <div class="card-body p-0">
                     <div id="chart_esi_response_div" style="width:100%; height:150px;"></div>
-                    <script>
-                        google.charts.load('current', { packages: ['corechart', 'line'] });
-                        google.charts.setOnLoadCallback(initEsiChart);
-
-                        function initEsiChart() {
-                        // Draw immediately
-                        fetchAndDrawEsi();
-                        // Refresh every 60 seconds
-                        setInterval(fetchAndDrawEsi, 60000);
-                        }
-
-                        function fetchAndDrawEsi() {
-                        $.getJSON("{{ route('seatcore::home.chart.serverresponse') }}", function (payload) {
-                            const dataTable = new google.visualization.DataTable();
-
-                            // Detect x type: time or index
-                            const looksLikeLabels = Array.isArray(payload?.labels) && payload?.datasets?.[0]?.data;
-                            const looksLikePoints = Array.isArray(payload) && payload.length && (payload[0].t !== undefined || payload[0].x !== undefined);
-
-                            if (looksLikeLabels && isTimestampSeries(payload.labels)) {
-                            dataTable.addColumn('datetime', 'Time (UTC)');
-                            } else if (looksLikePoints && isTimestampSeries(payload.map(p => p.t ?? p.x))) {
-                            dataTable.addColumn('datetime', 'Time (UTC)');
-                            } else {
-                            dataTable.addColumn('number', 'X');
-                            }
-
-                            dataTable.addColumn('number', 'Response Time (ms)');
-
-                            let rows = [];
-                            if (looksLikeLabels) {
-                            const xs = payload.labels;
-                            const ys = payload.datasets[0].data;
-                            const useTime = isTimestampSeries(xs);
-                            rows = xs.map((x, i) => [useTime ? toUtcDate(x) : i, toNum(ys[i])]);
-                            } else if (looksLikePoints) {
-                            rows = payload.map(p => {
-                                const xVal = p.t ?? p.x;
-                                const useTime = isTimestamp(xVal);
-                                return [useTime ? toUtcDate(xVal) : toNum(xVal), toNum(p.y)];
-                            });
-                            }
-
-                            dataTable.addRows(rows);
-
-                            const options = {
-                            legend: 'none',
-                            chartArea: { left: 0, top: 0, right: 0, bottom: 0, width: '100%', height: '100%' },
-                            hAxis: { textPosition: 'none', gridlines: { count: 0 }, baselineColor: 'transparent', ticks: [] },
-                            vAxis: { textPosition: 'none', gridlines: { count: 0 }, baselineColor: 'transparent', ticks: [] },
-                            lineWidth: 1,
-                            pointSize: 0,                            
-                            trendlines: { 0: {} }
-                            };
-
-                            new google.visualization.LineChart(document.getElementById('chart_esi_response_div'))
-                            .draw(dataTable, options);
-
-                            // Update "last updated" text
-                            const now = new Date();
-                            document.getElementById('esi-last-updated').textContent = `Updated ${now.toUTCString()}`;
-                        });
-                        }
-
-                        // --- helpers ---
-                        function toNum(v) {
-                        const n = Number(v);
-                        return Number.isFinite(n) ? n : null;
-                        }
-
-                        function toUtcDate(x) {
-                        if (x == null) return null;
-                        if (typeof x === 'number') {
-                            const ms = x > 1e12 ? x : (x < 1e11 ? x * 1000 : x);
-                            return new Date(ms);
-                        }
-                        const iso = ('' + x).match(/[zZ]|[+-]\d{2}:\d{2}$/) ? x : x + 'Z';
-                        return new Date(iso);
-                        }
-
-                        function isTimestamp(val) {
-                        return (typeof val === 'number') || (typeof val === 'string' && !isNaN(Date.parse(val + (/[zZ]|[+-]\d{2}:\d{2}$/.test(val) ? '' : 'Z'))));
-                        }
-
-                        function isTimestampSeries(arr) {
-                        if (!Array.isArray(arr) || !arr.length) return false;
-                        let checks = 0, hits = 0;
-                        for (let i = 0; i < arr.length && checks < 5; i++) {
-                            if (arr[i] !== undefined && arr[i] !== null) {
-                            checks++;
-                            if (isTimestamp(arr[i])) hits++;
-                            }
-                        }
-                        return checks > 0 && hits === checks;
-                        }
-
-                    </script>
                 </div>
             </div>
         </div>
@@ -471,5 +239,172 @@
     </aside>
   </div>
 </div>
+
+
+
+<!-- ONE loader include only -->
+<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+<script>
+  // ---- Load once ----
+  google.charts.load('current', { packages: ['corechart', 'line'] });
+  google.charts.setOnLoadCallback(initCharts);
+
+  function initCharts() {
+    // Draw immediately
+    drawOnlinePlayers();
+    drawEsiResponse();
+
+    // Refresh every 60s
+    setInterval(() => { if (!hovering.online) drawOnlinePlayers(); }, 60000);
+    setInterval(() => { if (!hovering.esi) drawEsiResponse(); }, 60000);
+
+    // Handle window resizes (optional)
+    window.addEventListener('resize', debounce(() => {
+      drawOnlinePlayers();
+      drawEsiResponse();
+    }, 200));
+  }
+
+  // ---- Hover guards to avoid stuck tooltips on redraw ----
+  const hovering = { online: false, esi: false };
+  const onlineEl = document.getElementById('chart_online_players_div');
+  const esiEl    = document.getElementById('chart_esi_response_div');
+
+  if (onlineEl) {
+    onlineEl.addEventListener('mouseenter', () => hovering.online = true);
+    onlineEl.addEventListener('mouseleave', () => hovering.online = false);
+  }
+  if (esiEl) {
+    esiEl.addEventListener('mouseenter', () => hovering.esi = true);
+    esiEl.addEventListener('mouseleave', () => hovering.esi = false);
+  }
+
+  // ---- Shared helpers (define once) ----
+  function toNum(v) {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+  function toUtcDate(x) {
+    if (x == null) return null;
+    if (typeof x === 'number') {
+      const ms = x > 1e12 ? x : (x < 1e11 ? x * 1000 : x);
+      return new Date(ms);
+    }
+    const iso = ('' + x).match(/[zZ]|[+-]\d{2}:\d{2}$/) ? x : x + 'Z';
+    return new Date(iso);
+  }
+  function isTimestamp(val) {
+    return (typeof val === 'number') ||
+           (typeof val === 'string' && !isNaN(Date.parse(val + (/[zZ]|[+-]\d{2}:\d{2}$/.test(val) ? '' : 'Z'))));
+  }
+  function isTimestampSeries(arr) {
+    if (!Array.isArray(arr) || !arr.length) return false;
+    let checks = 0, hits = 0;
+    for (let i = 0; i < arr.length && checks < 5; i++) {
+      if (arr[i] != null) { checks++; if (isTimestamp(arr[i])) hits++; }
+    }
+    return checks > 0 && hits === checks;
+  }
+  function debounce(fn, wait) {
+    let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn.apply(this, args), wait); };
+  }
+
+  // ---- Common chart options (zero padding, sparkline look) ----
+  const baseOptions = {
+    legend: 'none',
+    chartArea: { left:0, top:0, right:0, bottom:0, width:'100%', height:'100%' },
+    hAxis: { textPosition:'none', gridlines:{ count:0 }, baselineColor:'transparent', ticks:[] },
+    vAxis: { textPosition:'none', gridlines:{ count:0 }, baselineColor:'transparent', ticks:[] },
+    lineWidth: 1,
+    pointSize: 0,
+    tooltip: { isHtml: false },
+    animation: { duration: 0, startup: false }
+  };
+
+  // ---- Online Players ----
+  function drawOnlinePlayers() {
+    $.getJSON("{{ route('seatcore::home.chart.serverstatus') }}", function (payload) {
+      const dt = new google.visualization.DataTable();
+
+      const looksLikeLabels = Array.isArray(payload?.labels) && payload?.datasets?.[0]?.data;
+      const looksLikePoints = Array.isArray(payload) && payload.length && (payload[0].t !== undefined || payload[0].x !== undefined);
+
+      if (looksLikeLabels && isTimestampSeries(payload.labels)) {
+        dt.addColumn('datetime', 'Time (UTC)');
+      } else if (looksLikePoints && isTimestampSeries(payload.map(p => p.t ?? p.x))) {
+        dt.addColumn('datetime', 'Time (UTC)');
+      } else {
+        dt.addColumn('number', 'X');
+      }
+      dt.addColumn('number', 'Concurrent Players');
+
+      let rows = [];
+      if (looksLikeLabels) {
+        const xs = payload.labels;
+        const ys = payload.datasets[0].data;
+        const useTime = isTimestampSeries(xs);
+        rows = xs.map((x, i) => [useTime ? toUtcDate(x) : i, toNum(ys[i])]);
+      } else if (looksLikePoints) {
+        rows = payload.map(p => {
+          const xVal = p.t ?? p.x;
+          const useTime = isTimestamp(xVal);
+          return [useTime ? toUtcDate(xVal) : toNum(xVal), toNum(p.y)];
+        });
+      }
+      dt.addRows(rows);
+
+      const chart = new google.visualization.LineChart(onlineEl);
+      google.visualization.events.addListener(chart, 'ready', () => chart.setSelection([]));
+      chart.draw(dt, baseOptions);
+
+      // Update last updated (UTC hh:mm:ss)
+      const now = new Date();
+      document.getElementById('onlinePlayers_lastUpdated').textContent =
+        'Updated ' + now.toUTCString();
+    });
+  }
+
+  // ---- ESI Response Times ----
+  function drawEsiResponse() {
+    $.getJSON("{{ route('seatcore::home.chart.serverresponse') }}", function (payload) {
+      const dt = new google.visualization.DataTable();
+
+      const looksLikeLabels = Array.isArray(payload?.labels) && payload?.datasets?.[0]?.data;
+      const looksLikePoints = Array.isArray(payload) && payload.length && (payload[0].t !== undefined || payload[0].x !== undefined);
+
+      if (looksLikeLabels && isTimestampSeries(payload.labels)) {
+        dt.addColumn('datetime', 'Time (UTC)');
+      } else if (looksLikePoints && isTimestampSeries(payload.map(p => p.t ?? p.x))) {
+        dt.addColumn('datetime', 'Time (UTC)');
+      } else {
+        dt.addColumn('number', 'X');
+      }
+      dt.addColumn('number', 'Response Time (ms)');
+
+      let rows = [];
+      if (looksLikeLabels) {
+        const xs = payload.labels;
+        const ys = payload.datasets[0].data;
+        const useTime = isTimestampSeries(xs);
+        rows = xs.map((x, i) => [useTime ? toUtcDate(x) : i, toNum(ys[i])]);
+      } else if (looksLikePoints) {
+        rows = payload.map(p => {
+          const xVal = p.t ?? p.x;
+          const useTime = isTimestamp(xVal);
+          return [useTime ? toUtcDate(xVal) : toNum(xVal), toNum(p.y)];
+        });
+      }
+      dt.addRows(rows);
+
+      const chart = new google.visualization.LineChart(esiEl);
+      google.visualization.events.addListener(chart, 'ready', () => chart.setSelection([]));
+      chart.draw(dt, baseOptions);
+
+      const now = new Date();
+      document.getElementById('esi-last-updated').textContent =
+        'Updated ' + now.toUTCString();
+    });
+  }
+</script>
 
 @endsection
