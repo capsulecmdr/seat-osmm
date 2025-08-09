@@ -297,12 +297,11 @@ class HomeOverrideController extends Controller
                 $r = $rows->get($id);
                 $v = 0.0;
                 if ($r) {
-                    $v = (float) $r->adjusted_price;
-                    // $v = !is_null($r->average_price)  ? (float) $r->average_price
-                    //    : (!is_null($r->adjusted_price) ? (float) $r->adjusted_price
-                    //    : (!is_null($r->average)        ? (float) $r->average
-                    //    : (!is_null($r->sell_price)     ? (float) $r->sell_price
-                    //    : (!is_null($r->buy_price)      ? (float) $r->buy_price : 0.0))));
+                    $v = !is_null($r->average_price)  ? (float) $r->average_price
+                       : (!is_null($r->adjusted_price) ? (float) $r->adjusted_price
+                       : (!is_null($r->average)        ? (float) $r->average
+                       : (!is_null($r->sell_price)     ? (float) $r->sell_price
+                       : (!is_null($r->buy_price)      ? (float) $r->buy_price : 0.0))));
                 }
                 return [(int) $id => $v];
             });
