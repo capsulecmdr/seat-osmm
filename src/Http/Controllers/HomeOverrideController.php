@@ -270,41 +270,36 @@ class HomeOverrideController extends Controller
      * Uses the same DB connection as CharacterMining; prefers universe_prices, else market_prices.
      * Picks: average_price -> adjusted_price -> average -> sell_price -> buy_price.
      */
-    private function priceMapForTypeIds($type_ids)
-    {
-        $ids = collect($type_ids)->unique()->values();
-        if ($ids->isEmpty()) return collect();
+    private function priceMapForTypeIds($type_ids, array $preference = ['sell_price','average_price','adjusted_price','average','buy_price'])
+{
+    $ids = collect($type_ids)->unique()->values();
+    if ($ids->isEmpty()) return collect();
 
-        $conn  = (new CM)->getConnectionName();
+    $conn  = (new CM)->getConnectionName();
+    $table = \Schema::connection($conn)->hasTable('universe_prices') ? 'universe_prices'
+           : (\Schema::connection($conn)->hasTable('market_prices')   ? 'market_prices'   : null);
 
-        $table = Schema::connection($conn)->hasTable('universe_prices')
-            ? 'universe_prices'
-            : (Schema::connection($conn)->hasTable('market_prices') ? 'market_prices' : null);
+    if (!$table) return collect()->mapWithKeys(fn($id)=>[(int)$id=>0.0]);
 
-        if (!$table) {
-            return collect()->mapWithKeys(fn ($id) => [(int) $id => 0.0]);
-        }
+    $cols = array_unique(array_merge(['type_id'], $preference)); // only fetch what we use
+    $rows = \DB::connection($conn)->table($table)
+        ->whereIn('type_id', $ids)
+        ->get($cols)
+        ->keyBy('type_id');
 
-        $cacheKey = 'price_map:'.$table.':'.md5($ids->implode(','));
-
-        return Cache::remember($cacheKey, now()->addHours(6), function () use ($ids, $conn, $table) {
-            $rows = DB::connection($conn)->table($table)
-                ->whereIn('type_id', $ids)
-                ->get(['type_id', 'average_price', 'adjusted_price', 'average', 'sell_price', 'buy_price'])
-                ->keyBy('type_id');
-
-            return $ids->mapWithKeys(function ($id) use ($rows) {
-                $r = $rows->get($id);
-                $v = 0.0;
-                if ($r) {
-                    $v = !is_null($r->average_price)  ? (float) $r->average_price
-                       : (!is_null($r->adjusted_price) ? (float) $r->adjusted_price
-                       : (!is_null($r->average)        ? (float) $r->average
-                       : (!is_null($r->sell_price)     ? (float) $r->sell_price
-                       : (!is_null($r->buy_price)      ? (float) $r->buy_price : 0.0))));
+    return $ids->mapWithKeys(function ($id) use ($rows, $preference) {
+        $r = $rows->get($id);
+        $price = 0.0;
+        if ($r) {
+            foreach ($preference as $col) {
+                if (isset($r->{$col}) && $r->{$col} !== null) {
+                    $candidate = (float) $r->{$col};
+                    // optional: skip zeros/negatives
+                    if ($candidate > 0) { $price = $candidate; break; }
                 }
-                return [(int) $id => $v];
-            });
-        });
-    }
+            }
+        }
+        return [(int)$id => $price];
+    });
+}
 }
