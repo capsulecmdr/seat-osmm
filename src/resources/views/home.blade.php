@@ -9,18 +9,6 @@
   <div class="row">
     {{-- MAIN --}}
     <div class="col-xl-8">
-
-      {{-- ALERT BANNER --}}
-      @if($atWar === false)
-      <div class="alert alert-danger alert-dismissible fade show" role="alert">
-        <i class="fas fa-crosshairs mr-2"></i>
-        You are currently At War!
-        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-      @endif
-
       {{-- CURRENT TIME / DOWNTIME --}}
       <div class="row">
         <div class="col-lg-6 mb-3">
@@ -78,6 +66,17 @@
           </div>
         </div>
       </div>
+
+      {{-- ALERT BANNER --}}
+      @if($atWar === false)
+      <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="fas fa-crosshairs mr-2"></i>
+        You are currently At War!
+        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      @endif
 
       <hr class="my-4">
 
