@@ -220,7 +220,7 @@ class HomeOverrideController extends Controller
         };
 
         // ----- Price map from universe_prices/market_prices -----
-        $priceMap = $this->priceMapForTypeIds($type_ids,['average_price']);
+        $priceMap = $this->priceMapForTypeIds($type_ids,['buy_price']);
 
         // Per-day buckets
         $perDayUnits = array_fill(1, $days_in_month, ['Asteroid' => 0, 'Ice' => 0, 'Moon' => 0]);
