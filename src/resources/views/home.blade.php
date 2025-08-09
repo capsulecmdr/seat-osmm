@@ -112,11 +112,14 @@
       <div class="row">
         <div class="col-lg-6 mb-3">
           <div class="card">
-            <div class="card-header font-weight-bold">Monthly Killmails</div>
-            <div class="card-body">
-              <div class="bg-light border rounded w-100" style="height:150px;"></div>
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <span class="font-weight-bold">Killmails ({{ $km['month'] }})</span>
+            </div>
+            <div class="card-body p-0">
+              <div id="waterfall_div" style="width:100%; height:150px;"></div>
             </div>
           </div>
+
         </div>
         <div class="col-lg-6 mb-3">
           <div class="card">
@@ -405,6 +408,73 @@
       document.getElementById('esi-last-updated').textContent =
         'Updated ' + now.toUTCString();
     });
+
+    google.charts.setOnLoadCallback(drawWaterfall);
+
+                function drawWaterfall() {
+                  const days     = @json($km['days']);       // [1..EOM]
+                  const cumWins  = @json($km['cum_wins']);   // cumulative wins by day index
+                  const cumTotal = @json($km['cum_total']);  // cumulative (wins + losses)
+
+                  // Derive per-day wins, totals, losses, and net delta (wins - losses)
+                  const perWins  = [];
+                  const perTotal = [];
+                  const perLoss  = [];
+                  const delta    = [];
+
+                  for (let i = 0; i < days.length; i++) {
+                    const w  = cumWins[i]  - (i > 0 ? cumWins[i-1]  : 0);
+                    const t  = cumTotal[i] - (i > 0 ? cumTotal[i-1] : 0);
+                    const l  = Math.max(0, t - w);         // guard against negatives
+                    const d  = w - l;                      // net for the day
+
+                    perWins.push(w);
+                    perTotal.push(t);
+                    perLoss.push(l);
+                    delta.push(d);
+                  }
+
+                  // Waterfall candlestick: [label, low, open, close, high]
+                  // where open = running total before the day, close = after applying delta
+                  const data = new google.visualization.DataTable();
+                  data.addColumn('string', 'Day');
+                  data.addColumn('number', 'Low');
+                  data.addColumn('number', 'Open');
+                  data.addColumn('number', 'Close');
+                  data.addColumn('number', 'High');
+
+                  let running = 0;
+                  for (let i = 0; i < days.length; i++) {
+                    const open  = running;
+                    const close = running + delta[i];
+                    const low   = Math.min(open, close);
+                    const high  = Math.max(open, close);
+
+                    data.addRow([String(days[i]), low, open, close, high]);
+
+                    running = close; // advance
+                  }
+
+                  // Optional: add a final "Total" bar
+                  data.addRow(['Total', Math.min(0, running), 0, running, Math.max(0, running)]);
+
+                  const options = {
+                    legend: 'none',
+                    chartArea: { left:0, top:0, right:0, bottom:0, width:'100%', height:'100%' },
+                    bar: { groupWidth: '85%' },
+                    hAxis: { textPosition: 'none', gridlines: { count: 0 }, baselineColor: 'transparent', ticks: [] },
+                    vAxis: { textPosition: 'none', gridlines: { count: 0 }, baselineColor: 'transparent', ticks: [] },
+                    candlestick: {
+                      hollowIsRising: false,               // solid up bars
+                      fallingColor: { strokeWidth: 0, fill: '#ef4444' }, // red for net losses
+                      risingColor:  { strokeWidth: 0, fill: '#22c55e' }  // green for net wins
+                    }
+                  };
+
+                  const chart = new google.visualization.CandlestickChart(document.getElementById('waterfall_div'));
+                  google.visualization.events.addListener(chart, 'ready', () => chart.setSelection([]));
+                  chart.draw(data, options);
+                }
   }
 </script>
 
