@@ -42,9 +42,11 @@ class HomeOverrideController extends Controller
         // }
 
 
+        $km = $this->buildMonthlyKillmailCumulative();
+
         $homeElements = collect(config('osmm.home_elements', []))->sortBy('order');
 
-        return view('seat-osmm::home', compact('homeElements','atWar'));
+        return view('seat-osmm::home', compact('homeElements','atWar','km'));
     }
     private function isAtWar(Eseye $esi, int $corpId, ?int $allianceId): bool
     {
