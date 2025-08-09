@@ -318,7 +318,8 @@
     lineWidth: 1,
     pointSize: 0,
     tooltip: { isHtml: false },
-    animation: { duration: 0, startup: false }
+    animation: { duration: 0, startup: false },
+    trendlines: { 0: {} }
   };
 
   // ---- Online Players ----
