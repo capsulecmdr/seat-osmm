@@ -53,11 +53,11 @@ class HomeOverrideController extends Controller
 
         $mining = $this->buildMonthlyMiningMtd();
 
-        $wallet30 = $this->buildWalletBalanceLast30d();
+        $walletBalance30 = $this->buildWalletBalanceLast30d();
 
         $homeElements = collect(config('osmm.home_elements', []))->sortBy('order');
 
-        return view('seat-osmm::home', compact('homeElements','atWar','km','mining','wallet30'));
+        return view('seat-osmm::home', compact('homeElements','atWar','km','mining','walletBalance30'));
     }
     private function isAtWar(Eseye $esi, int $corpId, ?int $allianceId): bool
     {
