@@ -314,11 +314,11 @@ class HomeOverrideController extends Controller
         });
     }
 
-    private function buildWalletLast30d(): array
+    private function buildWalletBalanceLast30d(): array
     {
         $user = Auth::user();
 
-        // All linked character IDs
+        // All linked character IDs (disambiguate)
         $char_ids = $user->characters()
             ->select('character_infos.character_id')
             ->distinct()
@@ -327,39 +327,38 @@ class HomeOverrideController extends Controller
         $end   = Carbon::now('UTC')->endOfDay();
         $start = Carbon::now('UTC')->subDays(29)->startOfDay();
 
-        // Day indexer (YYYY-MM-DD -> 0..29) and arrays
+        // Build day index (YYYY-MM-DD -> 0..29)
         $period = new \DatePeriod($start, new \DateInterval('P1D'), $end->copy()->addDay());
         $days = [];
-        $indexByDate = [];
+        $ix = [];
         $i = 0;
         foreach ($period as $d) {
             $key = $d->format('Y-m-d');
             $days[] = $key;
-            $indexByDate[$key] = $i++;
+            $ix[$key] = $i++;
         }
         $per_day = array_fill(0, count($days), 0.0);
 
         if ($char_ids->isNotEmpty()) {
-            // Journal rows in window — adjust 'date' -> 'ref_date' if your schema uses that
+            // If your journal uses ref_date instead of date, change the select below to ['ref_date as date','amount']
             $rows = CWJ::whereIn('character_id', $char_ids)
                 ->whereBetween('date', [$start->toDateTimeString(), $end->toDateTimeString()])
-                ->get(['date', 'amount']);
+                ->get(['date','amount']);
 
             foreach ($rows as $r) {
                 $k = Carbon::parse($r->date, 'UTC')->format('Y-m-d');
-                if (isset($indexByDate[$k])) {
-                    $per_day[$indexByDate[$k]] += (float) $r->amount;
+                if (isset($ix[$k])) {
+                    $per_day[$ix[$k]] += (float) $r->amount; // inflow +, outflow -
                 }
             }
         }
 
-        // Current total balance (sum across all linked chars)
-        // If your model/table differs, swap CWB for your balance source.
+        // Today's real total (sum across characters)
         $today_total = $char_ids->isNotEmpty()
             ? (float) CWB::whereIn('character_id', $char_ids)->sum('balance')
             : 0.0;
 
-        // Reconstruct absolute balance series
+        // Reconstruct absolute balance series that ends at today's total
         $sum_last30 = array_sum($per_day);
         $start_balance = $today_total - $sum_last30;
 
@@ -371,10 +370,10 @@ class HomeOverrideController extends Controller
         }
 
         return [
-            'days'      => $days,        // ['2025-07-12', ... '2025-08-10']
-            'balances'  => $balances,    // absolute total balance per day
-            'updated'   => Carbon::now('UTC')->toIso8601String(),
-            'today'     => $today_total, // convenience
+            'days'     => $days,        // e.g. ['2025-07-12', ... '2025-08-10']
+            'balances' => $balances,    // absolute total per day
+            'today'    => $today_total, // convenience for header
+            'updated'  => Carbon::now('UTC')->toIso8601String(),
         ];
     }
 

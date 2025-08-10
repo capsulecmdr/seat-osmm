@@ -532,17 +532,14 @@
       chart.draw(data, options);
     }
 
-    google.charts.setOnLoadCallback(drawWalletLast30);
+    google.charts.setOnLoadCallback(drawWalletBalance30);
 
-    function drawWalletLast30() {
+    function drawWalletBalance30() {
       const balances = @json($walletBalance30['balances']); // absolute totals
-      // Simple index X to hide axis cleanly (0..29)
       const dt = new google.visualization.DataTable();
-      dt.addColumn('number', 'X');
+      dt.addColumn('number', 'X');              // simple index for minimal padding
       dt.addColumn('number', 'Total Balance');
-
-      const rows = balances.map((y, i) => [i, y]);
-      dt.addRows(rows);
+      dt.addRows(balances.map((y, i) => [i, y]));
 
       const opts = {
         legend: 'none',
