@@ -577,68 +577,48 @@ class HomeOverrideController extends Controller
     {
         if (empty($ids)) return [];
 
-        // Normalize
         $ids    = array_values(array_unique(array_map('strval', $ids)));
         $idInts = array_map('intval', $ids);
 
-        // Connections: EVE (same as assets) vs SDE
+        // Same connection as assets/universe_* tables
         $eveConn = (new CA)->getConnectionName();
-        $sdeConn = (new \Seat\Eveapi\Models\Sde\InvType)->getConnectionName();
 
         $names = [];
 
-        // 1) Upwell structures (requires esi-universe.read_structures.v1 to be populated)
+        // 1) Upwell structures (if you have esi-universe.read_structures.v1 and they’re hydrated)
         if (Schema::connection($eveConn)->hasTable('universe_structures')) {
             try {
-                $struct = DB::connection($eveConn)->table('universe_structures')
+                $rows = DB::connection($eveConn)->table('universe_structures')
                     ->whereIn('structure_id', $idInts)
                     ->pluck('name', 'structure_id');
-                foreach ($struct as $k => $v) $names[(string)$k] = $v;
-            } catch (\Throwable $e) { /* ignore */ }
+                foreach ($rows as $k => $v) $names[(string)$k] = $v;
+            } catch (\Throwable $e) {}
         }
 
-        // 2) NPC stations: classic 60000000..63999999 -> SDE sta_stations
-        $stationIds = [];
-        foreach ($idInts as $n) {
-            if ($n >= 60000000 && $n < 64000000 && !isset($names[(string)$n])) $stationIds[] = $n;
-        }
-        if (!empty($stationIds) && Schema::connection($sdeConn)->hasTable('sta_stations')) {
+        // 2) NPC stations via universe_stations (ESI-hydrated)
+        if (Schema::connection($eveConn)->hasTable('universe_stations')) {
             try {
-                $sta = DB::connection($sdeConn)->table('sta_stations')
-                    ->whereIn('stationID', $stationIds)
-                    ->pluck('stationName', 'stationID');
-                foreach ($sta as $k => $v) $names[(string)$k] = $v;
-            } catch (\Throwable $e) { /* ignore */ }
+                $rows = DB::connection($eveConn)->table('universe_stations')
+                    ->whereIn('station_id', $idInts)
+                    ->pluck('name', 'station_id');
+                foreach ($rows as $k => $v) $names[(string)$k] = $v;
+            } catch (\Throwable $e) {}
         }
 
-        // 3) Solar systems: 30000000..32999999 -> SDE mapSolarSystems
-        $systemIds = [];
-        foreach ($idInts as $n) {
-            if ($n >= 30000000 && $n < 33000000 && !isset($names[(string)$n])) $systemIds[] = $n;
-        }
-        if (!empty($systemIds) && Schema::connection($sdeConn)->hasTable('mapSolarSystems')) {
-            try {
-                $sys = DB::connection($sdeConn)->table('mapSolarSystems')
-                    ->whereIn('solarSystemID', $systemIds)
-                    ->pluck('solarSystemName', 'solarSystemID');
-                foreach ($sys as $k => $v) $names[(string)$k] = $v;
-            } catch (\Throwable $e) { /* ignore */ }
-        }
-
-        // 4) Fallback: universe_names on EVE connection (works for many ids, not all structures)
+        // 3) Fallback: universe_names (covers many entity IDs)
         if (Schema::connection($eveConn)->hasTable('universe_names')) {
             $missing = array_values(array_diff($ids, array_keys($names)));
             if (!empty($missing)) {
                 try {
-                    $nm = DB::connection($eveConn)->table('universe_names')
+                    $rows = DB::connection($eveConn)->table('universe_names')
                         ->whereIn('entity_id', array_map('intval', $missing))
                         ->pluck('name', 'entity_id');
-                    foreach ($nm as $k => $v) $names[(string)$k] = $v;
-                } catch (\Throwable $e) { /* ignore */ }
+                    foreach ($rows as $k => $v) $names[(string)$k] = $v;
+                } catch (\Throwable $e) {}
             }
         }
 
-        // Anything still unresolved: readable fallback
+        // Readable fallback for anything still unresolved
         foreach ($ids as $id) {
             if (!isset($names[$id])) $names[$id] = 'Location ' . $id;
         }
