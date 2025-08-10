@@ -653,9 +653,13 @@ class HomeOverrideController extends Controller
             "Subsystems","Targeting","Trade"
         ];
 
-        // All skill types from these groups (SDE categoryID=16 == Skills)
-        $groups = InvGroup::whereIn('groupName', $labels)->pluck('groupID','groupName');
-        $typesByGroup = InvType::where('categoryID', 16)
+        $groups = \Seat\Eveapi\Models\Sde\InvGroup::query()
+            ->where('categoryID', 16)
+            ->whereIn('groupName', $labels)
+            ->pluck('groupID', 'groupName');  // ['Armor' => 331, ...]
+
+        // All skill types within those groups
+        $typesByGroup = \Seat\Eveapi\Models\Sde\InvType::query()
             ->whereIn('groupID', $groups->values())
             ->get(['typeID','groupID'])
             ->groupBy('groupID');
