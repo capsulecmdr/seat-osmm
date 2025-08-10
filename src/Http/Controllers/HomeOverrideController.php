@@ -55,9 +55,11 @@ class HomeOverrideController extends Controller
 
         $walletBalance30 = $this->buildWalletBalanceLast30d();
 
+        $walletByChar = $this->buildWalletPerCharacter();
+
         $homeElements = collect(config('osmm.home_elements', []))->sortBy('order');
 
-        return view('seat-osmm::home', compact('homeElements','atWar','km','mining','walletBalance30'));
+        return view('seat-osmm::home', compact('homeElements','atWar','km','mining','walletBalance30','walletByChar'));
     }
     private function isAtWar(Eseye $esi, int $corpId, ?int $allianceId): bool
     {
@@ -374,6 +376,44 @@ class HomeOverrideController extends Controller
             'balances' => $balances,    // absolute total per day
             'today'    => $today_total, // convenience for header
             'updated'  => Carbon::now('UTC')->toIso8601String(),
+        ];
+    }
+
+    private function buildWalletPerCharacter(): array
+    {
+        $user = Auth::user();
+
+        // Linked character IDs (disambiguate the column)
+        $charIds = $user->characters()
+            ->select('character_infos.character_id')
+            ->distinct()
+            ->pluck('character_infos.character_id');
+
+        if ($charIds->isEmpty()) {
+            return ['rows' => [], 'updated' => now('UTC')->toIso8601String()];
+        }
+
+        // Grab balances
+        $balances = CWB::whereIn('character_id', $charIds)
+            ->get(['character_id', 'balance']);
+
+        // Get names from character_infos on the same connection as CWB
+        $conn = (new CWB)->getConnectionName();
+        $names = DB::connection($conn)
+            ->table('character_infos')
+            ->whereIn('character_id', $balances->pluck('character_id'))
+            ->pluck('name', 'character_id');
+
+        // Build rows: [ "Character Name", balance ]
+        $rows = $balances
+            ->map(fn ($r) => [ (string) ($names[$r->character_id] ?? $r->character_id), (float) $r->balance ])
+            ->sortByDesc(fn ($row) => $row[1])
+            ->values()
+            ->all();
+
+        return [
+            'rows'    => $rows,
+            'updated' => now('UTC')->toIso8601String(),
         ];
     }
 

@@ -152,10 +152,13 @@
       </div>
       <div class="col-lg-6 mb-3">
       <div class="card">
-      <div class="card-header font-weight-bold">Wallet Balances</div>
-      <div class="card-body">
-        <div class="bg-light border rounded w-100" style="height:150px;"></div>
-      </div>
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span class="font-weight-bold">Wallet Balances</span>
+          <small class="text-muted">Updated {{ \Carbon\Carbon::parse($walletByChar['updated'])->toDayDateTimeString() }} UTC</small>
+        </div>
+        <div class="card-body p-0">
+          <div id="chart_wallet_by_char_div" style="width:100%; height:150px;"></div>
+        </div>
       </div>
       </div>
       </div>
@@ -555,6 +558,36 @@
       const chart = new google.visualization.LineChart(el);
       google.visualization.events.addListener(chart, 'ready', () => chart.setSelection([]));
       chart.draw(dt, opts);
+    }
+
+    google.charts.setOnLoadCallback(drawWallets);
+
+    function drawWallets() {
+      const rows = @json($walletByChar['rows']); // [ [name, balance], ... ]
+
+      const data = new google.visualization.DataTable();
+      data.addColumn('string', 'Character');
+      data.addColumn('number', 'Wallet (ISK)');
+      data.addRows(rows);
+
+      // Format ISK with commas, no decimals
+      new google.visualization.NumberFormat({
+        prefix: 'ISK ',
+        groupingSymbol: ',',
+        fractionDigits: 0
+      }).format(data, 1);
+
+      const options = {
+        legend: { position: 'none' },
+        bar: { groupWidth: '70%' },
+        chartArea: { left: 0, right: 0, top: 10, bottom: 0, width: '100%', height: '100%' },
+        hAxis: { textStyle: { fontSize: 10 } },   // show names
+        vAxis: { minValue: 0, textPosition: 'none', gridlines: { count: 0 }, baselineColor: 'transparent' }
+      };
+
+      const chart = new google.visualization.ColumnChart(document.getElementById('chart_wallet_by_char_div'));
+      google.visualization.events.addListener(chart, 'ready', () => chart.setSelection([]));
+      chart.draw(data, options);
     }
 
     </script>
