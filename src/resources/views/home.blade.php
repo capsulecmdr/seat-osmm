@@ -140,13 +140,13 @@
       <div class="col-lg-6 mb-3">
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <span class="font-weight-bold">Wallet (Last 30 Days)</span>
-          <small class="text-muted" id="wallet_last_updated">
-            Updated {{ \Carbon\Carbon::parse($wallet30['updated'])->toDayDateTimeString() }} UTC
+          <span class="font-weight-bold">Total Wallet (Last 30 Days)</span>
+          <small class="text-muted">
+            Today: ISK {{ number_format((int) round($walletBalance30['today'] ?? 0)) }}
           </small>
         </div>
         <div class="card-body p-0">
-          <div id="chart_wallet_last30_div" style="width:100%; height:150px;"></div>
+          <div id="chart_wallet_balance_30d" style="width:100%; height:150px;"></div>
         </div>
       </div>
       </div>
@@ -535,15 +535,13 @@
     google.charts.setOnLoadCallback(drawWalletLast30);
 
     function drawWalletLast30() {
-      const days    = @json($wallet30['days']);    // ['2025-07-12', ...]
-      const cumNet  = @json($wallet30['cum_net']); // [0, 1_250_000, ...]
-      // If you prefer a **daily** net line instead, use wallet30['per_day']
-
+      const balances = @json($walletBalance30['balances']); // absolute totals
+      // Simple index X to hide axis cleanly (0..29)
       const dt = new google.visualization.DataTable();
-      dt.addColumn('number', 'X');                 // simple index for sparkline (hide axis)
-      dt.addColumn('number', 'Net ISK (cum)');
+      dt.addColumn('number', 'X');
+      dt.addColumn('number', 'Total Balance');
 
-      const rows = cumNet.map((y, i) => [i, y]);
+      const rows = balances.map((y, i) => [i, y]);
       dt.addRows(rows);
 
       const opts = {
@@ -556,7 +554,7 @@
         trendlines: { 0: {} }
       };
 
-      const el = document.getElementById('chart_wallet_last30_div');
+      const el = document.getElementById('chart_wallet_balance_30d');
       const chart = new google.visualization.LineChart(el);
       google.visualization.events.addListener(chart, 'ready', () => chart.setSelection([]));
       chart.draw(dt, opts);
