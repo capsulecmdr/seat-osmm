@@ -187,74 +187,112 @@
       </div>
     </div>
 
+
+    <style>
+      :root{ --rail-gap: 18px; }
+
+      /* Make the right rail stick & scroll */
+      .right-rail{
+        position: sticky;
+        top: var(--rail-gap);
+        max-height: calc(100vh - (var(--rail-gap) * 2));
+        overflow: auto;
+        padding-bottom: 6px; /* avoid last card cutoff */
+      }
+
+      /* Nice card spacing inside a scroll container */
+      .right-rail .card{ border-radius: .5rem; }
+
+      /* Keep table headers visible while scrolling the rail */
+      .right-rail thead th{
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: #f8f9fa; /* matches .thead-light */
+      }
+
+      /* On <1200px, the rail becomes full width — disable sticky */
+      @media (max-width: 1199.98px){
+        .right-rail{
+          position: static;
+          max-height: none;
+          overflow: visible;
+        }
+      }
+    </style>
     {{-- RIGHT SIDEBAR --}}
     <aside class="col-xl-4">
-      {{-- Upcoming Events --}}
-      <div class="card mb-3">
-      <div class="card-header font-weight-bold">Upcoming Events</div>
-      <div class="card-body p-0">
-      <table class="table table-sm mb-0">
-      <thead class="thead-light">
-        <tr><th style="width:40%">Date</th><th>Event</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>8/8/25 06:23</td><td>PVP Fleet</td></tr>
-        <tr><td>8/8/25 06:23</td><td>Mining Day</td></tr>
-        <tr><td>8/8/25 06:23</td><td>PI Runs</td></tr>
-        <tr><td>8/8/25 06:23</td><td>PI Runs</td></tr>
-        <tr><td>8/8/25 06:23</td><td>Merc Dens</td></tr>
-      </tbody>
-      </table>
-      </div>
-      </div>
+      <div class="right-rail">
+        {{-- Upcoming Events --}}
+        <div class="card mb-3">
+          <div class="card-header font-weight-bold">Upcoming Events</div>
+          <div class="card-body p-0">
+            <table class="table table-sm mb-0">
+              <thead class="thead-light">
+                <tr><th style="width:40%">Date</th><th>Event</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>8/8/25 06:23</td><td>PVP Fleet</td></tr>
+                <tr><td>8/8/25 06:23</td><td>Mining Day</td></tr>
+                <tr><td>8/8/25 06:23</td><td>PI Runs</td></tr>
+                <tr><td>8/8/25 06:23</td><td>PI Runs</td></tr>
+                <tr><td>8/8/25 06:23</td><td>Merc Dens</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
 
-      {{-- ToDo List --}}
-      <div class="card mb-3">
-      <div class="card-header font-weight-bold">ToDo List</div>
-      <div class="card-body">
-      <div class="input-group input-group-sm mb-2">
-      <input class="form-control" placeholder="New task to do">
-      <div class="input-group-append">
-        <button class="btn btn-primary" type="button">Create</button>
-      </div>
-      </div>
-      <div class="custom-control custom-radio mb-1">
-      <input type="radio" id="t1" name="todo" class="custom-control-input">
-      <label class="custom-control-label" for="t1">Task #1</label>
-      </div>
-      <div class="custom-control custom-radio mb-1">
-      <input type="radio" id="t2" name="todo" class="custom-control-input">
-      <label class="custom-control-label" for="t2">Task #2</label>
-      </div>
-      <div class="custom-control custom-radio mb-1">
-      <input type="radio" id="t3" name="todo" class="custom-control-input">
-      <label class="custom-control-label" for="t3">Task #3</label>
-      </div>
-      <div class="custom-control custom-radio mb-1">
-      <input type="radio" id="t4" name="todo" class="custom-control-input">
-      <label class="custom-control-label" for="t4">Task #4</label>
-      </div>
-      </div>
-      </div>
+        {{-- ToDo List --}}
+        <div class="card mb-3">
+          <div class="card-header font-weight-bold">ToDo List</div>
+          <div class="card-body">
+            <div class="input-group input-group-sm mb-2">
+              <input id="todo-input" class="form-control" placeholder="New task to do">
+              <div class="input-group-append">
+                <button id="todo-create" class="btn btn-primary" type="button">Create</button>
+              </div>
+            </div>
+            <div id="todo-list">
+              <div class="custom-control custom-radio mb-1">
+                <input type="radio" id="t1" name="todo" class="custom-control-input">
+                <label class="custom-control-label" for="t1">Task #1</label>
+              </div>
+              <div class="custom-control custom-radio mb-1">
+                <input type="radio" id="t2" name="todo" class="custom-control-input">
+                <label class="custom-control-label" for="t2">Task #2</label>
+              </div>
+              <div class="custom-control custom-radio mb-1">
+                <input type="radio" id="t3" name="todo" class="custom-control-input">
+                <label class="custom-control-label" for="t3">Task #3</label>
+              </div>
+              <div class="custom-control custom-radio mb-1">
+                <input type="radio" id="t4" name="todo" class="custom-control-input">
+                <label class="custom-control-label" for="t4">Task #4</label>
+              </div>
+            </div>
+          </div>
+        </div>
 
-      {{-- Unread Mail --}}
-      <div class="card">
-      <div class="card-header font-weight-bold">Unread Mail</div>
-      <div class="card-body p-0">
-      <table class="table table-sm mb-0">
-      <thead class="thead-light">
-        <tr><th style="width:40%">Received</th><th>Subject</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>8/8/25 06:23</td><td>Re: That thing we talked about</td></tr>
-        <tr><td>8/8/25 06:23</td><td>Re: That thing we talked about</td></tr>
-        <tr><td>8/8/25 06:23</td><td>Re: That thing we talked about</td></tr>
-        <tr><td>8/8/25 06:23</td><td>Re: That thing we talked about</td></tr>
-      </tbody>
-      </table>
-      </div>
+        {{-- Unread Mail --}}
+        <div class="card">
+          <div class="card-header font-weight-bold">Unread Mail</div>
+          <div class="card-body p-0">
+            <table class="table table-sm mb-0">
+              <thead class="thead-light">
+                <tr><th style="width:40%">Received</th><th>Subject</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>8/8/25 06:23</td><td>Re: That thing we talked about</td></tr>
+                <tr><td>8/8/25 06:23</td><td>Re: That thing we talked about</td></tr>
+                <tr><td>8/8/25 06:23</td><td>Re: That thing we talked about</td></tr>
+                <tr><td>8/8/25 06:23</td><td>Re: That thing we talked about</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </aside>
+
     </div>
     </div>
 
