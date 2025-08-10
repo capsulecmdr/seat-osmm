@@ -53,7 +53,7 @@ class HomeOverrideController extends Controller
 
         $mining = $this->buildMonthlyMiningMtd();
 
-        $wallet30 = $this->buildWalletLast30d();
+        $wallet30 = $this->buildWalletBalanceLast30d();
 
         $homeElements = collect(config('osmm.home_elements', []))->sortBy('order');
 
