@@ -267,6 +267,7 @@ class HomeOverrideController extends Controller
             'ice'      => $ice,
             'moon'     => $moon,
             'cum_isk'  => $cumISK,
+            'mtd_isk' => $mtd_isk,
             'avg_isk_per_day' => $avg_isk_per_day,
         ];
     }
