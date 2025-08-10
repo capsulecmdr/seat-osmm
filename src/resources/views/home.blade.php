@@ -139,10 +139,15 @@
       <div class="row">
       <div class="col-lg-6 mb-3">
       <div class="card">
-      <div class="card-header font-weight-bold">Total Monthly Wallet</div>
-      <div class="card-body">
-        <div class="bg-light border rounded w-100" style="height:150px;"></div>
-      </div>
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span class="font-weight-bold">Wallet (Last 30 Days)</span>
+          <small class="text-muted" id="wallet_last_updated">
+            Updated {{ \Carbon\Carbon::parse($wallet30['updated'])->toDayDateTimeString() }} UTC
+          </small>
+        </div>
+        <div class="card-body p-0">
+          <div id="chart_wallet_last30_div" style="width:100%; height:150px;"></div>
+        </div>
       </div>
       </div>
       <div class="col-lg-6 mb-3">
@@ -525,6 +530,36 @@
       const chart = new google.visualization.ComboChart(el);
       google.visualization.events.addListener(chart, 'ready', () => chart.setSelection([]));
       chart.draw(data, options);
+    }
+
+    google.charts.setOnLoadCallback(drawWalletLast30);
+
+    function drawWalletLast30() {
+      const days    = @json($wallet30['days']);    // ['2025-07-12', ...]
+      const cumNet  = @json($wallet30['cum_net']); // [0, 1_250_000, ...]
+      // If you prefer a **daily** net line instead, use wallet30['per_day']
+
+      const dt = new google.visualization.DataTable();
+      dt.addColumn('number', 'X');                 // simple index for sparkline (hide axis)
+      dt.addColumn('number', 'Net ISK (cum)');
+
+      const rows = cumNet.map((y, i) => [i, y]);
+      dt.addRows(rows);
+
+      const opts = {
+        legend: 'none',
+        chartArea: { left:0, top:0, right:0, bottom:0, width:'100%', height:'100%' },
+        hAxis: { textPosition:'none', gridlines:{count:0}, baselineColor:'transparent', ticks:[] },
+        vAxis: { textPosition:'none', gridlines:{count:0}, baselineColor:'transparent', ticks:[] },
+        lineWidth: 1,
+        pointSize: 0,
+        trendlines: { 0: {} }
+      };
+
+      const el = document.getElementById('chart_wallet_last30_div');
+      const chart = new google.visualization.LineChart(el);
+      google.visualization.events.addListener(chart, 'ready', () => chart.setSelection([]));
+      chart.draw(dt, opts);
     }
 
     </script>

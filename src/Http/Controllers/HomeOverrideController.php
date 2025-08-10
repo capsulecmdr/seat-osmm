@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Schema;
 use Seat\Eveapi\Models\Industry\CharacterMining as CM;
 use Seat\Eveapi\Models\Sde\InvType as InvType;
 use Seat\Eveapi\Models\Sde\InvGroup as InvGroup;
+use Seat\Eveapi\Models\Wallet\CharacterWalletJournal as CWJ;
 
 class HomeOverrideController extends Controller
 {
@@ -51,9 +52,11 @@ class HomeOverrideController extends Controller
 
         $mining = $this->buildMonthlyMiningMtd();
 
+        $wallet30 = $this->buildWalletLast30d();
+
         $homeElements = collect(config('osmm.home_elements', []))->sortBy('order');
 
-        return view('seat-osmm::home', compact('homeElements','atWar','km','mining'));
+        return view('seat-osmm::home', compact('homeElements','atWar','km','mining','wallet30'));
     }
     private function isAtWar(Eseye $esi, int $corpId, ?int $allianceId): bool
     {
@@ -278,35 +281,94 @@ class HomeOverrideController extends Controller
      * Picks: average_price -> adjusted_price -> average -> sell_price -> buy_price.
      */
     private function priceMapForTypeIds($type_ids, array $preference = ['sell_price','average_price','adjusted_price','average','buy_price'])
-{
-    $ids = collect($type_ids)->unique()->values();
-    if ($ids->isEmpty()) return collect();
+    {
+        $ids = collect($type_ids)->unique()->values();
+        if ($ids->isEmpty()) return collect();
 
-    $conn  = (new CM)->getConnectionName();
-    $table = \Schema::connection($conn)->hasTable('universe_prices') ? 'universe_prices'
-           : (\Schema::connection($conn)->hasTable('market_prices')   ? 'market_prices'   : null);
+        $conn  = (new CM)->getConnectionName();
+        $table = \Schema::connection($conn)->hasTable('universe_prices') ? 'universe_prices'
+            : (\Schema::connection($conn)->hasTable('market_prices')   ? 'market_prices'   : null);
 
-    if (!$table) return collect()->mapWithKeys(fn($id)=>[(int)$id=>0.0]);
+        if (!$table) return collect()->mapWithKeys(fn($id)=>[(int)$id=>0.0]);
 
-    $cols = array_unique(array_merge(['type_id'], $preference)); // only fetch what we use
-    $rows = \DB::connection($conn)->table($table)
-        ->whereIn('type_id', $ids)
-        ->get($cols)
-        ->keyBy('type_id');
+        $cols = array_unique(array_merge(['type_id'], $preference)); // only fetch what we use
+        $rows = \DB::connection($conn)->table($table)
+            ->whereIn('type_id', $ids)
+            ->get($cols)
+            ->keyBy('type_id');
 
-    return $ids->mapWithKeys(function ($id) use ($rows, $preference) {
-        $r = $rows->get($id);
-        $price = 0.0;
-        if ($r) {
-            foreach ($preference as $col) {
-                if (isset($r->{$col}) && $r->{$col} !== null) {
-                    $candidate = (float) $r->{$col};
-                    // optional: skip zeros/negatives
-                    if ($candidate > 0) { $price = $candidate; break; }
+        return $ids->mapWithKeys(function ($id) use ($rows, $preference) {
+            $r = $rows->get($id);
+            $price = 0.0;
+            if ($r) {
+                foreach ($preference as $col) {
+                    if (isset($r->{$col}) && $r->{$col} !== null) {
+                        $candidate = (float) $r->{$col};
+                        // optional: skip zeros/negatives
+                        if ($candidate > 0) { $price = $candidate; break; }
+                    }
+                }
+            }
+            return [(int)$id => $price];
+        });
+    }
+
+    private function buildWalletLast30d(): array
+    {
+        $user = Auth::user();
+
+        // All linked character IDs (disambiguate)
+        $char_ids = $user->characters()
+            ->select('character_infos.character_id')
+            ->distinct()
+            ->pluck('character_infos.character_id');
+
+        // Window: previous 30 days ending today (UTC), inclusive of today
+        $end   = Carbon::now('UTC')->endOfDay();
+        $start = Carbon::now('UTC')->subDays(29)->startOfDay();
+
+        // Prepare day buckets
+        $period = new \DatePeriod($start, new \DateInterval('P1D'), $end->copy()->addDay());
+        $indexByDate = [];
+        $days = [];
+        $i = 0;
+        foreach ($period as $d) {
+            $key = $d->format('Y-m-d');
+            $indexByDate[$key] = $i++;
+            $days[] = $key;
+        }
+        $per_day = array_fill(0, count($days), 0.0);
+
+        if ($char_ids->isNotEmpty()) {
+            // Pull journals for all chars in window.
+            // Common columns on SeAT: `date` (UTC), `amount` (positive in / negative out).
+            // If your column is `ref_date`, change it below.
+            $rows = CWJ::whereIn('character_id', $char_ids)
+                ->whereBetween('date', [$start->toDateTimeString(), $end->toDateTimeString()])
+                ->get(['date', 'amount']);
+
+            foreach ($rows as $r) {
+                $k = Carbon::parse($r->date, 'UTC')->format('Y-m-d');
+                if (isset($indexByDate[$k])) {
+                    $per_day[$indexByDate[$k]] += (float) $r->amount;
                 }
             }
         }
-        return [(int)$id => $price];
-    });
-}
+
+        // Cumulative net starting at 0
+        $cum_net = [];
+        $running = 0.0;
+        foreach ($per_day as $v) {
+            $running += $v;
+            $cum_net[] = $running;
+        }
+
+        return [
+            'days'    => $days,
+            'per_day' => $per_day,
+            'cum_net' => $cum_net,
+            'updated' => Carbon::now('UTC')->toIso8601String(),
+        ];
+    }
+
 }
