@@ -663,99 +663,102 @@
     }
 
 
-    (function () {
-      // Linked characters to fetch
-      const CHARS = @json($skillsChars); // [{id, name}, ...]
+    function loadSkillsCoverageChart(chars) {
+      if (!chars.length) {
+      document.getElementById('skills-coverage').insertAdjacentHTML('beforebegin',
+        '<div class="p-3 text-muted">No characters linked.</div>');
+      return;
+    }
 
-      if (!CHARS.length) {
-        document.getElementById('skills-coverage').insertAdjacentHTML('beforebegin',
-          '<div class="p-3 text-muted">No characters linked.</div>');
+    const PALETTE = [
+      { bg:'rgba(99,164,255,0.20)', border:'rgba(99,164,255,1)' },
+      { bg:'rgba(34,197,94,0.20)',  border:'rgba(34,197,94,1)' },
+      { bg:'rgba(239,68,68,0.20)',  border:'rgba(239,68,68,1)' },
+      { bg:'rgba(245,158,11,0.20)', border:'rgba(245,158,11,1)' },
+      { bg:'rgba(168,85,247,0.20)', border:'rgba(168,85,247,1)' },
+    ];
+
+    const ctx = document.getElementById('skills-coverage').getContext('2d');
+    let labels = null;
+    const datasets = [];
+
+    const requests = chars.map((c, i) => {
+      const url = "{{ route('seatcore::character.view.skills.graph.coverage', ['character' => 'CHAR_ID']) }}"
+                    .replace('CHAR_ID', c.id);
+
+      return $.getJSON(url).then(payload => {
+        if (!labels) {
+          labels = payload.labels;
+        }
+
+        const d0 = payload.datasets[0] || { data: [] };
+        const col = PALETTE[i % PALETTE.length];
+
+        datasets.push({
+          label: c.name,
+          data: d0.data,
+          fill: true,
+          backgroundColor: col.bg,
+          borderColor: col.border,
+          borderWidth: 2,
+          pointBackgroundColor: col.border,
+          pointBorderColor: '#fff',
+          pointRadius: 2,
+          pointHoverRadius: 3
+        });
+      });
+    });
+
+    Promise.all(requests).then(() => {
+      if (!labels) {
+        ctx.canvas.insertAdjacentHTML('beforebegin',
+          '<div class="p-3 text-muted">No skills data yet. Open a character’s Skills page to sync, then refresh.</div>');
         return;
       }
 
-      // Palette (extend if you have many chars)
-      const PALETTE = [
-        { bg:'rgba(99,164,255,0.20)', border:'rgba(99,164,255,1)' },
-        { bg:'rgba(34,197,94,0.20)',  border:'rgba(34,197,94,1)' },
-        { bg:'rgba(239,68,68,0.20)',  border:'rgba(239,68,68,1)' },
-        { bg:'rgba(245,158,11,0.20)', border:'rgba(245,158,11,1)' },
-        { bg:'rgba(168,85,247,0.20)', border:'rgba(168,85,247,1)' },
-      ];
-
-      const ctx = document.getElementById('skills-coverage').getContext('2d');
-      let labels = null;
-      const datasets = [];
-
-      // Fetch the existing SeAT endpoint for each character
-      // route: seatcore::character.view.skills.graph.coverage
-      const requests = CHARS.map((c, i) => {
-        const url = "{{ route('seatcore::character.view.skills.graph.coverage', ['character' => 'CHAR_ID']) }}"
-                      .replace('CHAR_ID', c.id);
-
-        return $.getJSON(url).then(payload => {
-          if (!labels) {
-            // Use the first payload’s labels ordering
-            labels = payload.labels;
-          }
-          // payload.datasets is an array with ONE dataset (that char)
-          const d0 = payload.datasets[0] || { data: [] };
-          const col = PALETTE[i % PALETTE.length];
-
-          datasets.push({
-            label: c.name,
-            data: d0.data,
-            fill: true,
-            backgroundColor: col.bg,
-            borderColor: col.border,
-            borderWidth: 2,
-            pointBackgroundColor: col.border,
-            pointBorderColor: '#fff',
-            pointRadius: 2,
-            pointHoverRadius: 3
-          });
-        });
-      });
-
-      Promise.all(requests).then(() => {
-        if (!labels) {
-          ctx.canvas.insertAdjacentHTML('beforebegin',
-            '<div class="p-3 text-muted">No skills data yet. Open a character’s Skills page to sync, then refresh.</div>');
-          return;
-        }
-
-        new Chart(ctx, {
-          type: 'radar',
-          data: { labels, datasets },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: { position: 'top', labels: { boxWidth: 12 } },
-              tooltip: {
-                callbacks: {
-                  label: (ctx) => `${ctx.dataset.label}: ${ctx.formattedValue}%`
-                }
+      new Chart(ctx, {
+        type: 'radar',
+        data: { labels, datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'top', labels: { boxWidth: 12 } },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => `${ctx.dataset.label}: ${ctx.formattedValue}%`
               }
-            },
-            scales: {
-              r: {
-                beginAtZero: true,
+            }
+          },
+          scales: {
+            r: {
+              beginAtZero: true,
                 suggestedMax: 100,
-                grid: { color: '#00000022', lineWidth: 1 },
-                angleLines: { color: '#00000022', lineWidth: 1 },
-                pointLabels: { color: '#000', font: { size: 10 } },
-                ticks: { stepSize: 20, color: '#000', backdropColor: 'transparent',
-                        showLabelBackdrop: false, callback: v => v + '%' }
+              grid: { color: '#00000022', lineWidth: 1 },
+              angleLines: { color: '#00000022', lineWidth: 1 },
+              pointLabels: { color: '#000', font: { size: 10 } },
+              ticks: {
+                stepSize: 20,
+                color: '#000',
+                backdropColor: 'transparent',
+                showLabelBackdrop: false,
+                callback: v => v + '%'
               }
             }
           }
-        });
-      }).catch(err => {
-        console.error('Skills coverage fetch failed:', err);
-        ctx.canvas.insertAdjacentHTML('beforebegin',
-          '<div class="p-3 text-danger">Failed to load skills coverage.</div>');
+        }
       });
-    })();
+    }).catch(err => {
+      console.error('Skills coverage fetch failed:', err);
+      ctx.canvas.insertAdjacentHTML('beforebegin',
+        '<div class="p-3 text-danger">Failed to load skills coverage.</div>');
+    });
+}
+
+// Call on page load
+document.addEventListener('DOMContentLoaded', function() {
+  loadSkillsCoverageChart(@json($skillsChars));
+}); 
     </script>
 
 @endsection
