@@ -18,6 +18,7 @@ use Seat\Eveapi\Models\Sde\InvGroup as InvGroup;
 use Seat\Eveapi\Models\Wallet\CharacterWalletJournal as CWJ;
 use Seat\Eveapi\Models\Wallet\CharacterWalletBalance as CWB;
 use Seat\Eveapi\Models\Assets\CharacterAsset as CA;
+use Seat\Eveapi\Models\Skills\CharacterSkill as CS;
 
 class HomeOverrideController extends Controller
 {
@@ -62,7 +63,9 @@ class HomeOverrideController extends Controller
 
         $allocation = $this->buildAssetAllocationTreemap();
 
-        return view('seat-osmm::home', compact('homeElements','atWar','km','mining','walletBalance30','walletByChar','allocation'));
+        $skillsCoverage = $this->buildSkillsCoverageRadar();
+
+        return view('seat-osmm::home', compact('homeElements','atWar','km','mining','walletBalance30','walletByChar','allocation','skillsCoverage'));
     }
     private function isAtWar(Eseye $esi, int $corpId, ?int $allianceId): bool
     {
@@ -624,6 +627,88 @@ class HomeOverrideController extends Controller
         }
 
         return $names;
+    }
+
+    private function buildSkillsCoverageRadar(): array
+    {
+        $user = Auth::user();
+
+        // Linked characters + names
+        $chars = $user->characters()
+            ->select('character_infos.character_id', 'character_infos.name')
+            ->distinct()
+            ->get();
+
+        if ($chars->isEmpty()) {
+            return ['labels' => [], 'datasets' => []];
+        }
+
+        // The groups we want, exactly as your axis labels
+        $labels = [
+            "Armor","Corporation Management","Drones","Electronic Systems",
+            "Engineering","Fleet Support","Gunnery","Industry",
+            "Missiles","Navigation","Neural Enhancement","Planet Management",
+            "Resource Processing","Scanning","Science","Shields",
+            "Social","Spaceship Command","Structure Management",
+            "Subsystems","Targeting","Trade"
+        ];
+
+        // All skill types from these groups (SDE categoryID=16 == Skills)
+        $groups = InvGroup::whereIn('groupName', $labels)->pluck('groupID','groupName');
+        $typesByGroup = InvType::where('categoryID', 16)
+            ->whereIn('groupID', $groups->values())
+            ->get(['typeID','groupID'])
+            ->groupBy('groupID');
+
+        // Precompute denominator per label (5 * total skills in that group)
+        $denomByLabel = [];
+        foreach ($labels as $label) {
+            $gid = $groups[$label] ?? null;
+            $count = $gid ? ($typesByGroup[$gid]->count() ?? 0) : 0;
+            $denomByLabel[$label] = max(1, 5 * $count); // avoid /0
+        }
+
+        // Fetch trained levels for all user chars for all relevant typeIDs
+        $typeIDs = $typesByGroup->flatten(1)->pluck('typeID')->unique()->values();
+        $levels = CS::whereIn('character_id', $chars->pluck('character_id'))
+            ->whereIn('skill_id', $typeIDs)
+            ->get(['character_id','skill_id','trained_skill_level']);
+
+        // Index trained levels by char -> typeID
+        $levelsByChar = $levels->groupBy('character_id')->map(function ($rows) {
+            return $rows->pluck('trained_skill_level','skill_id');
+        });
+
+        // Build datasets per character in label order
+        $datasets = [];
+        foreach ($chars as $c) {
+            $charLevels = $levelsByChar[$c->character_id] ?? collect();
+            $series = [];
+            foreach ($labels as $label) {
+                $gid = $groups[$label] ?? null;
+                $sum = 0; $count = 0;
+                if ($gid && isset($typesByGroup[$gid])) {
+                    foreach ($typesByGroup[$gid] as $t) {
+                        $lvl = (int) ($charLevels[$t->typeID] ?? 0);
+                        $sum += $lvl;
+                        $count++;
+                    }
+                }
+                $den = max(1, 5 * $count);
+                $pct = $den > 0 ? ($sum / $den) * 100 : 0;
+                $series[] = round($pct, 1);
+            }
+
+            $datasets[] = [
+                'label' => $c->name,
+                'data'  => $series,
+            ];
+        }
+
+        return [
+            'labels'   => $labels,
+            'datasets' => $datasets,
+        ];
     }
 
 }

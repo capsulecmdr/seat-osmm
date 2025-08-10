@@ -167,10 +167,10 @@
       <div class="row">
       <div class="col-lg-6 mb-3">
       <div class="card">
-      <div class="card-header font-weight-bold">Skills Coverage</div>
-      <div class="card-body">
-        <div class="bg-light border rounded w-100" style="height:420px;"></div>
-      </div>
+        <div class="card-header font-weight-bold">Skills Coverage</div>
+        <div class="card-body p-0">
+          <canvas id="skills-coverage" style="width:100%; height:420px;"></canvas>
+        </div>
       </div>
       </div>
       <div class="col-lg-6 mb-3">
@@ -662,6 +662,65 @@
       });
     }
 
+
+    (function () {
+      const labels   = @json($skillsCoverage['labels']);
+      const datasetsRaw = @json($skillsCoverage['datasets']);
+
+      // Nice 3-color cycle; extend if you have many alts
+      const PALETTE = [
+        { bg:'rgba(99,164,255,0.20)', border:'rgba(99,164,255,1)' },
+        { bg:'rgba(34,197,94,0.20)',  border:'rgba(34,197,94,1)' },
+        { bg:'rgba(239,68,68,0.20)',  border:'rgba(239,68,68,1)' },
+        { bg:'rgba(245,158,11,0.20)', border:'rgba(245,158,11,1)' },
+        { bg:'rgba(168,85,247,0.20)', border:'rgba(168,85,247,1)' },
+      ];
+
+      const datasets = datasetsRaw.map((d, i) => {
+        const c = PALETTE[i % PALETTE.length];
+        return {
+          label: d.label,
+          data: d.data,
+          fill: true,
+          backgroundColor: c.bg,
+          borderColor: c.border,
+          borderWidth: 2,
+          pointBackgroundColor: c.border,
+          pointBorderColor: '#fff',
+          pointRadius: 2,
+          pointHoverRadius: 3
+        };
+      });
+
+      const ctx = document.getElementById('skills-coverage').getContext('2d');
+      new Chart(ctx, {
+        type: 'radar',
+        data: { labels, datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'top', labels: { boxWidth: 12 } },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => `${ctx.dataset.label}: ${ctx.formattedValue}%`
+              }
+            }
+          },
+          scales: {
+            r: {
+              beginAtZero: true,
+              suggestedMax: 100,
+              grid: { color: '#00000022', lineWidth: 1 },
+              angleLines: { color: '#00000022', lineWidth: 1 },
+              pointLabels: { color: '#000', font: { size: 10 } },
+              ticks: { stepSize: 20, color: '#000', backdropColor: 'transparent', showLabelBackdrop:false,
+                      callback: (v)=> v + '%' }
+            }
+          }
+        }
+      });
+    })();
     </script>
 
 @endsection
