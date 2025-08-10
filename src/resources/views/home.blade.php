@@ -126,7 +126,7 @@
       <div class="card-header d-flex justify-content-between align-items-center">
         <span class="font-weight-bold">Monthly Mining</span>
         <small class="text-muted">Avg/day: ISK {{ number_format((int) round($mining['avg_isk_per_day'] ?? 0)) }}</small>
-        <small class="text-muted">MTD: ISK {{ number_format((int) round($mining['mtd_isk'] ?? 0)) }}</small>
+        <small class="text-muted">MTD: ISK {{ number_format((int) round($mining['cumISK'] ?? 0)) }}</small>
       </div>
       <div class="card-body p-0">
         <div id="chart_mining_div" style="width:100%; height:150px;"></div>
