@@ -62,7 +62,7 @@ class HomeOverrideController extends Controller
 
         $allocation = $this->buildAssetAllocationTreemap();
 
-        return view('seat-osmm::home', compact('homeElements','atWar','km','mining','walletBalance30','walletByChar'));
+        return view('seat-osmm::home', compact('homeElements','atWar','km','mining','walletBalance30','walletByChar','allocation'));
     }
     private function isAtWar(Eseye $esi, int $corpId, ?int $allianceId): bool
     {
