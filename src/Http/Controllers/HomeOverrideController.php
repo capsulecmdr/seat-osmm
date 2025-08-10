@@ -536,37 +536,111 @@ class HomeOverrideController extends Controller
         ];
     }
 
+    private function resolveTopLevelLocationName(CA $asset): string
+    {
+        // Eager load if needed (avoids N+1 when you call this in a loop)
+        if (! $asset->relationLoaded('container'))      $asset->load('container');
+        if (! $asset->relationLoaded('station'))        $asset->load('station');
+        if (! $asset->relationLoaded('structure'))      $asset->load('structure');
+        if (! $asset->relationLoaded('solar_system'))   $asset->load('solar_system');
+
+        // Walk up through containers/ship holds until we hit a real place
+        $guard = 0;
+        $node  = $asset;
+        while ($node && $node->location_type === 'other' && $guard++ < 10) {
+            if (! $node->relationLoaded('container')) $node->load('container');
+            $node = $node->container; // parent asset (item_id == this location_id)
+        }
+
+        if (! $node) return 'Unknown';
+
+        return match ($node->location_type) {
+            'station'      => $node->station->name ?? 'Unknown Station',
+            'structure'    => $node->structure->name ?? 'Unknown Structure',
+            'solar_system' => $node->solar_system->name ?? 'Unknown System',
+            default        => 'Location ' . $node->location_id,
+        };
+    }
+
+    /**
+     * Best-effort name resolver when you ONLY have raw location IDs.
+     * Tries:
+     *  - Upwell structures  -> universe_structures (eve connection)
+     *  - NPC stations       -> SDE sta_stations
+     *  - Solar systems      -> SDE mapSolarSystems
+     *  - Fallback           -> universe_names (eve connection)
+     *
+     * @param array<int|string> $ids  list of location_id values
+     * @return array<string,string>   map: (string)location_id => name
+     */
     private function resolveLocationNames(array $ids): array
     {
         if (empty($ids)) return [];
 
+        // Normalize
+        $ids    = array_values(array_unique(array_map('strval', $ids)));
+        $idInts = array_map('intval', $ids);
+
+        // Connections: EVE (same as assets) vs SDE
+        $eveConn = (new CA)->getConnectionName();
+        $sdeConn = (new \Seat\Eveapi\Models\Sde\InvType)->getConnectionName();
+
         $names = [];
 
-        // Same connection as assets
-        $conn = (new CA)->getConnectionName();
-
-        // universe_structures
-        if (Schema::connection($conn)->hasTable('universe_structures')) {
-            $rows = DB::connection($conn)->table('universe_structures')
-                ->whereIn('structure_id', $ids)->pluck('name', 'structure_id');
-            foreach ($rows as $id => $name) $names[(string)$id] = $name;
+        // 1) Upwell structures (requires esi-universe.read_structures.v1 to be populated)
+        if (Schema::connection($eveConn)->hasTable('universe_structures')) {
+            try {
+                $struct = DB::connection($eveConn)->table('universe_structures')
+                    ->whereIn('structure_id', $idInts)
+                    ->pluck('name', 'structure_id');
+                foreach ($struct as $k => $v) $names[(string)$k] = $v;
+            } catch (\Throwable $e) { /* ignore */ }
         }
 
-        // sta_stations (SDE)
-        if (Schema::connection($conn)->hasTable('sta_stations')) {
-            $rows = DB::connection($conn)->table('sta_stations')
-                ->whereIn('stationID', $ids)->pluck('stationName', 'stationID');
-            foreach ($rows as $id => $name) $names[(string)$id] = $name;
+        // 2) NPC stations: classic 60000000..63999999 -> SDE sta_stations
+        $stationIds = [];
+        foreach ($idInts as $n) {
+            if ($n >= 60000000 && $n < 64000000 && !isset($names[(string)$n])) $stationIds[] = $n;
+        }
+        if (!empty($stationIds) && Schema::connection($sdeConn)->hasTable('sta_stations')) {
+            try {
+                $sta = DB::connection($sdeConn)->table('sta_stations')
+                    ->whereIn('stationID', $stationIds)
+                    ->pluck('stationName', 'stationID');
+                foreach ($sta as $k => $v) $names[(string)$k] = $v;
+            } catch (\Throwable $e) { /* ignore */ }
         }
 
-        // universe_names (very generic fallback)
-        if (Schema::connection($conn)->hasTable('universe_names')) {
+        // 3) Solar systems: 30000000..32999999 -> SDE mapSolarSystems
+        $systemIds = [];
+        foreach ($idInts as $n) {
+            if ($n >= 30000000 && $n < 33000000 && !isset($names[(string)$n])) $systemIds[] = $n;
+        }
+        if (!empty($systemIds) && Schema::connection($sdeConn)->hasTable('mapSolarSystems')) {
+            try {
+                $sys = DB::connection($sdeConn)->table('mapSolarSystems')
+                    ->whereIn('solarSystemID', $systemIds)
+                    ->pluck('solarSystemName', 'solarSystemID');
+                foreach ($sys as $k => $v) $names[(string)$k] = $v;
+            } catch (\Throwable $e) { /* ignore */ }
+        }
+
+        // 4) Fallback: universe_names on EVE connection (works for many ids, not all structures)
+        if (Schema::connection($eveConn)->hasTable('universe_names')) {
             $missing = array_values(array_diff($ids, array_keys($names)));
             if (!empty($missing)) {
-                $rows = DB::connection($conn)->table('universe_names')
-                    ->whereIn('entity_id', $missing)->pluck('name', 'entity_id');
-                foreach ($rows as $id => $name) $names[(string)$id] = $name;
+                try {
+                    $nm = DB::connection($eveConn)->table('universe_names')
+                        ->whereIn('entity_id', array_map('intval', $missing))
+                        ->pluck('name', 'entity_id');
+                    foreach ($nm as $k => $v) $names[(string)$k] = $v;
+                } catch (\Throwable $e) { /* ignore */ }
             }
+        }
+
+        // Anything still unresolved: readable fallback
+        foreach ($ids as $id) {
+            if (!isset($names[$id])) $names[$id] = 'Location ' . $id;
         }
 
         return $names;
