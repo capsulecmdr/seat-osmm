@@ -16,6 +16,7 @@ use Seat\Eveapi\Models\Industry\CharacterMining as CM;
 use Seat\Eveapi\Models\Sde\InvType as InvType;
 use Seat\Eveapi\Models\Sde\InvGroup as InvGroup;
 use Seat\Eveapi\Models\Wallet\CharacterWalletJournal as CWJ;
+use Seat\Eveapi\Models\Wallet\CharacterWallet as CWB;
 
 class HomeOverrideController extends Controller
 {
