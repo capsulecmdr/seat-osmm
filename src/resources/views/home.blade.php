@@ -175,10 +175,13 @@
       </div>
       <div class="col-lg-6 mb-3">
       <div class="card">
-      <div class="card-header font-weight-bold">Allocation Map</div>
-      <div class="card-body">
-        <div class="bg-light border rounded w-100" style="height:420px;"></div>
-      </div>
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span class="font-weight-bold">Allocation Map</span>
+          <small class="text-muted">Updated {{ \Carbon\Carbon::parse($allocation['updated'])->toDayDateTimeString() }} UTC</small>
+        </div>
+        <div class="card-body">
+          <div id="chart_allocation_div" style="width:100%; height:420px;"></div>
+        </div>
       </div>
       </div>
       </div>
@@ -588,6 +591,74 @@
       const chart = new google.visualization.ColumnChart(document.getElementById('chart_wallet_by_char_div'));
       google.visualization.events.addListener(chart, 'ready', () => chart.setSelection([]));
       chart.draw(data, options);
+    }
+
+    google.charts.setOnLoadCallback(drawAlloc);
+
+    function abbreviate(n) {
+      if (n === null || n === undefined) return '';
+      const abs = Math.abs(n);
+      if (abs >= 1e12) return (n/1e12).toFixed(1).replace(/\.0$/,'')+'t';
+      if (abs >= 1e9)  return (n/1e9 ).toFixed(1).replace(/\.0$/,'')+'b';
+      if (abs >= 1e6)  return (n/1e6 ).toFixed(1).replace(/\.0$/,'')+'m';
+      if (abs >= 1e3)  return (n/1e3 ).toFixed(1).replace(/\.0$/,'')+'k';
+      return Math.round(n).toString();
+    }
+
+    function drawAlloc() {
+      const leaves = @json($allocation['leaves']); // [{label, loc, isk}, ...]
+
+      // 1) Totals per location
+      const totals = {};
+      for (const {loc, isk} of leaves) {
+        totals[loc] = (totals[loc] || 0) + (isk || 0);
+      }
+
+      // 2) Final parent labels with abbreviated totals
+      const locLabel = {};
+      Object.keys(totals).forEach(loc => {
+        locLabel[loc] = `${loc} — ISK ${abbreviate(totals[loc])}`;
+      });
+
+      // 3) Build DataTable
+      const dt = new google.visualization.DataTable();
+      dt.addColumn('string', 'Node');
+      dt.addColumn('string', 'Parent');
+      dt.addColumn('number', 'Total ISK (size)');
+      dt.addColumn('number', 'Color');
+
+      const rows = [];
+      rows.push(['Assets', null, 0, 0]); // root
+
+      Object.keys(totals).forEach(loc => {
+        rows.push([locLabel[loc], 'Assets', 0, 0]); // container nodes
+      });
+
+      leaves.forEach(({label, loc, isk}) => {
+        rows.push([`${label} — ISK ${abbreviate(isk)}`, locLabel[loc], Number(isk) || 0, 0]);
+      });
+
+      dt.addRows(rows);
+
+      const tree = new google.visualization.TreeMap(document.getElementById('chart_allocation_div'));
+      tree.draw(dt, {
+        minColor: '#63a4ff',
+        midColor: '#63a4ff',
+        maxColor: '#63a4ff',
+        showScale: false,
+        headerHeight: 18,
+        fontColor: '#111',
+        generateTooltip: (row, size, value) => {
+          // Custom tooltip with full numbers and location nesting
+          const node = dt.getValue(row, 0);
+          const parent = dt.getValue(row, 1);
+          const val = dt.getValue(row, 2);
+          return `<div style="padding:6px 8px;font-size:12px">
+                    <div><strong>${node}</strong></div>
+                    <div>Value: ISK ${val.toLocaleString()}</div>
+                  </div>`;
+        }
+      });
     }
 
     </script>
