@@ -593,6 +593,7 @@
       chart.draw(data, options);
     }
 
+    google.charts.load('current', { packages: ['treemap'] });
     google.charts.setOnLoadCallback(drawAlloc);
 
     function abbreviate(n) {
