@@ -18,3 +18,7 @@ Route::group([
 ], function () {
     // Route::get('/home', [HomeOverrideController::class, 'index'])->name('home.index');
 });
+
+Route::get('/osmm/calendar/next', [\App\Http\Controllers\OsmmCalendarController::class, 'next'])
+     ->name('osmm.calendar.next')
+     ->middleware(['web','auth']);

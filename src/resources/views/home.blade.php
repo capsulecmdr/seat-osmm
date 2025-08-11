@@ -227,17 +227,11 @@
         <div class="card mb-3">
           <div class="card-header font-weight-bold">Upcoming Events</div>
           <div class="card-body p-0">
-            <table class="table table-sm mb-0">
+            <table class="table table-sm mb-0" id="upcoming-events">
               <thead class="thead-light">
-                <tr><th style="width:40%">Date</th><th>Event</th></tr>
+                <tr><th style="width:40%">Date (UTC)</th><th>Event</th></tr>
               </thead>
-              <tbody>
-                <tr><td>8/8/25 06:23</td><td>PVP Fleet</td></tr>
-                <tr><td>8/8/25 06:23</td><td>Mining Day</td></tr>
-                <tr><td>8/8/25 06:23</td><td>PI Runs</td></tr>
-                <tr><td>8/8/25 06:23</td><td>PI Runs</td></tr>
-                <tr><td>8/8/25 06:23</td><td>Merc Dens</td></tr>
-              </tbody>
+              <tbody></tbody>
             </table>
           </div>
         </div>
@@ -797,6 +791,52 @@
 document.addEventListener('DOMContentLoaded', function() {
   loadSkillsCoverageChart(@json($skillsChars));
 }); 
+
+async function loadUpcomingEvents({
+    tableSelector = '#upcoming-events',
+    endpoint = '{{ route('osmm.calendar.next') }}',
+    limit = 5
+  } = {}) {
+    const table = document.querySelector(tableSelector);
+    if (!table) return;
+    const tbody = table.tBodies[0] || table.createTBody();
+    tbody.innerHTML = '<tr><td colspan="2">Loading…</td></tr>';
+
+    try {
+      const res = await fetch(endpoint, { credentials: 'same-origin' });
+      const items = (await res.json()).slice(0, limit);
+
+      if (!items.length) {
+        tbody.innerHTML = '<tr><td colspan="2" class="text-muted">No upcoming events</td></tr>';
+        return;
+      }
+
+      // Format: "Aug 08 2025 06:23" (UTC)
+      const fmt = new Intl.DateTimeFormat('en-US', {
+        month: 'short', day: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC'
+      });
+
+      const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+      })[c]);
+
+      tbody.innerHTML = items.map(e => {
+        const d = new Date(e.date);
+        const dateStr = `${fmt.format(d)} ${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}`;
+        const owner = e.owner ? ` <span class="text-muted">(${esc(e.owner)})</span>` : '';
+        return `<tr><td>${dateStr}</td><td>${esc(e.title)}${owner}</td></tr>`;
+      }).join('');
+    } catch (err) {
+      console.warn('calendar load failed', err);
+      tbody.innerHTML = '<tr><td colspan="2" class="text-danger">Failed to load events</td></tr>';
+    }
+  }
+
+  // Example: call once on load
+  document.addEventListener('DOMContentLoaded', () => {
+    loadUpcomingEvents();
+  });
     </script>
 
 @endsection
