@@ -4,6 +4,7 @@
 
 use Illuminate\Support\Facades\Route;
 use CapsuleCmdr\SeatOsmm\Http\Controllers\HomeOverrideController;
+use CapsuleCmdr\SeatOsmm\Http\Controllers\OsmmCalendarController;
 
 // 🟢 Override the homepage root route explicitly
 // Route::get('/', [HomeOverrideController::class, 'index'])
@@ -19,5 +20,5 @@ Route::group([
     // Route::get('/home', [HomeOverrideController::class, 'index'])->name('home.index');
 });
 
-Route::get('/osmm/calendar/next', [\App\Http\Controllers\OsmmCalendarController::class, 'next'])
+Route::get('/osmm/calendar/next', [OsmmCalendarController::class, 'next'])
   ->name('osmm.calendar.next')->middleware(['web','auth']);
