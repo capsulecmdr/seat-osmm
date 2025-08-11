@@ -1,6 +1,6 @@
 <?php
-// app/Http/Controllers/OsmmCalendarController.php
-namespace App\Http\Controllers;
+
+namespace CapsuleCmdr\SeatOsmm\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
