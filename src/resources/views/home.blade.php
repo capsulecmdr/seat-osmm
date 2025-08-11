@@ -71,7 +71,7 @@
       </div>
       </div>
 
-      {{-- ALERT BANNER --}}
+      {{-- ALERT BANNER
       @if($atWar === false)
       <div class="alert alert-danger alert-dismissible fade show" role="alert">
       <i class="fas fa-crosshairs mr-2"></i>
@@ -80,7 +80,7 @@
       <span aria-hidden="true">&times;</span>
       </button>
       </div>
-    @endif
+    @endif --}}
 
       <hr class="my-4">
 
