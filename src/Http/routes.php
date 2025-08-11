@@ -20,5 +20,4 @@ Route::group([
 });
 
 Route::get('/osmm/calendar/next', [\App\Http\Controllers\OsmmCalendarController::class, 'next'])
-     ->name('osmm.calendar.next')
-     ->middleware(['web','auth']);
+  ->name('osmm.calendar.next')->middleware(['web','auth']);
