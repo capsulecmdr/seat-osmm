@@ -256,32 +256,119 @@
       <div class="card mb-3">
         <div class="card-header font-weight-bold">ToDo List</div>
         <div class="card-body">
-        <div class="input-group input-group-sm mb-2">
-          <input id="todo-input" class="form-control" placeholder="New task to do">
-          <div class="input-group-append">
-          <button id="todo-create" class="btn btn-primary" type="button">Create</button>
+          <div class="input-group input-group-sm mb-2">
+            <input id="todo-input" class="form-control" placeholder="New task to do">
+            <div class="input-group-append">
+              <button id="todo-create" class="btn btn-primary" type="button">Create</button>
+            </div>
           </div>
-        </div>
-        <div id="todo-list">
-          <div class="custom-control custom-radio mb-1">
-          <input type="radio" id="t1" name="todo" class="custom-control-input">
-          <label class="custom-control-label" for="t1">Task #1</label>
+
+          <div id="todo-list" class="mb-0">
+            <div class="text-muted small">Loading…</div>
           </div>
-          <div class="custom-control custom-radio mb-1">
-          <input type="radio" id="t2" name="todo" class="custom-control-input">
-          <label class="custom-control-label" for="t2">Task #2</label>
-          </div>
-          <div class="custom-control custom-radio mb-1">
-          <input type="radio" id="t3" name="todo" class="custom-control-input">
-          <label class="custom-control-label" for="t3">Task #3</label>
-          </div>
-          <div class="custom-control custom-radio mb-1">
-          <input type="radio" id="t4" name="todo" class="custom-control-input">
-          <label class="custom-control-label" for="t4">Task #4</label>
-          </div>
-        </div>
         </div>
       </div>
+
+      <script>
+      (function(){
+        const listEl = document.getElementById('todo-list');
+        const input  = document.getElementById('todo-input');
+        const btn    = document.getElementById('todo-create');
+
+        // helpers
+        const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        const HEADERS_JSON = {'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest','X-CSRF-TOKEN': csrf};
+        const ENDPOINTS = {
+          index:  '{{ route('osmm.todos.index') }}',
+          store:  '{{ route('osmm.todos.store') }}',
+          destroy: id => '{{ url('osmm/todos') }}/' + id,
+        };
+
+        function rowTemplate(item){
+          const id  = 'todo-' + item.id;
+          const txt = (item.text || '').replace(/[&<>"]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+          return `
+            <div class="custom-control custom-checkbox mb-1" data-id="${item.id}">
+              <input type="checkbox" class="custom-control-input" id="${id}">
+              <label class="custom-control-label" for="${id}">${txt}</label>
+            </div>`;
+        }
+
+        async function loadTodos(){
+          listEl.innerHTML = `<div class="text-muted small">Loading…</div>`;
+          try{
+            const res = await fetch(ENDPOINTS.index, {credentials:'same-origin'});
+            const items = await res.json();
+            listEl.innerHTML = items.length
+              ? items.map(rowTemplate).join('')
+              : `<div class="text-muted small">No tasks yet.</div>`;
+          }catch(e){
+            listEl.innerHTML = `<div class="text-danger small">Failed to load tasks.</div>`;
+            console.warn(e);
+          }
+        }
+
+        async function createTodo(){
+          const text = (input.value || '').trim();
+          if(!text) return;
+          btn.disabled = true;
+          try{
+            const res = await fetch(ENDPOINTS.store, {
+              method: 'POST',
+              headers: HEADERS_JSON,
+              credentials:'same-origin',
+              body: JSON.stringify({ text })
+            });
+            if(res.ok){
+              input.value = '';
+              await loadTodos();
+            }
+          }catch(e){ console.warn(e); }
+          finally{ btn.disabled = false; }
+        }
+
+        // Event: create on click / Enter key
+        btn?.addEventListener('click', createTodo);
+        input?.addEventListener('keydown', e => { if(e.key === 'Enter') createTodo(); });
+
+        // Event: delete on checkbox click (event delegation)
+        listEl.addEventListener('change', async (e) => {
+          const cb = e.target.closest('input[type="checkbox"].custom-control-input');
+          if(!cb) return;
+          const wrap = cb.closest('[data-id]');
+          const id = wrap?.getAttribute('data-id');
+          if(!id) return;
+
+          // optional: quick UI feedback
+          wrap.style.opacity = '0.6';
+
+          try{
+            const res = await fetch(ENDPOINTS.destroy(id), {
+              method: 'DELETE',
+              headers: {'X-Requested-With':'XMLHttpRequest','X-CSRF-TOKEN': csrf},
+              credentials:'same-origin'
+            });
+            if(res.status === 204){
+              wrap.remove();
+              if(!listEl.children.length){
+                listEl.innerHTML = `<div class="text-muted small">No tasks yet.</div>`;
+              }
+            }else{
+              cb.checked = false; // revert
+              wrap.style.opacity = '1';
+            }
+          }catch(err){
+            cb.checked = false;
+            wrap.style.opacity = '1';
+            console.warn(err);
+          }
+        });
+
+        // init
+        loadTodos();
+      })();
+      </script>
+
 
       {{-- Unread Mail
       <div class="card">

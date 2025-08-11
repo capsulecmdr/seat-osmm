@@ -5,6 +5,7 @@
 use Illuminate\Support\Facades\Route;
 use CapsuleCmdr\SeatOsmm\Http\Controllers\HomeOverrideController;
 use CapsuleCmdr\SeatOsmm\Http\Controllers\OsmmCalendarController;
+use CapsuleCmdr\SeatOsmm\Http\Controllers\TodoController;
 
 // 🟢 Override the homepage root route explicitly
 // Route::get('/', [HomeOverrideController::class, 'index'])
@@ -22,3 +23,10 @@ Route::group([
 
 Route::get('/osmm/calendar/next', [OsmmCalendarController::class, 'next'])
   ->name('osmm.calendar.next')->middleware(['web','auth']);
+
+
+Route::middleware(['web','auth'])->prefix('osmm')->group(function () {
+    Route::get('todos',        [TodoController::class, 'index'])->name('osmm.todos.index');
+    Route::post('todos',       [TodoController::class, 'store'])->name('osmm.todos.store');
+    Route::delete('todos/{id}',[TodoController::class, 'destroy'])->name('osmm.todos.destroy');
+});
