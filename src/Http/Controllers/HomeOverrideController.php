@@ -30,7 +30,7 @@ class HomeOverrideController extends Controller
         $user = Auth::user();
 
         $inWar = $this->userInActiveWar();
-
+        $inWar = true;
         
 
 
