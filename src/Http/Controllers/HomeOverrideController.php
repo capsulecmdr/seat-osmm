@@ -72,7 +72,7 @@ class HomeOverrideController extends Controller
         ->map(fn($c) => ['id' => (int) $c->character_id, 'name' => $c->name])
         ->values();
 
-        $publicInfo = getPublicCharacterInfo();
+        $publicInfo = $this->getPublicCharacterInfo();
 
         return view('seat-osmm::home', compact('homeElements','atWar','km','mining','walletBalance30','walletByChar','allocation','skillsChars','publicInfo'));
     }
