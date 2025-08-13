@@ -19,6 +19,8 @@ use Seat\Eveapi\Models\Wallet\CharacterWalletJournal as CWJ;
 use Seat\Eveapi\Models\Wallet\CharacterWalletBalance as CWB;
 use Seat\Eveapi\Models\Assets\CharacterAsset as CA;
 use Seat\Eveapi\Models\Skills\CharacterSkill as CS;
+use Seat\Eseye\Containers\EsiAuthentication;
+use Seat\Eseye\Exceptions\RequestFailedException;
 
 class HomeOverrideController extends Controller
 {
@@ -70,8 +72,112 @@ class HomeOverrideController extends Controller
         ->map(fn($c) => ['id' => (int) $c->character_id, 'name' => $c->name])
         ->values();
 
-        return view('seat-osmm::home', compact('homeElements','atWar','km','mining','walletBalance30','walletByChar','allocation','skillsChars'));
+        $publicInfo = getPublicCharacterInfo();
+
+        return view('seat-osmm::home', compact('homeElements','atWar','km','mining','walletBalance30','walletByChar','allocation','skillsChars','publicInfo'));
     }
+
+    public function getPublicCharacterInfo()
+    {
+        $user = Auth::user();
+        $char = optional($user)->characters->first();
+
+        if (! $char) {
+            return response()->json([
+                'error' => 'No linked characters found for the current user.'
+            ], 404);
+        }
+
+        try {
+            // No auth needed
+            $esi = new Eseye();
+            $response = $esi->invoke('get', '/characters/{character_id}/', [
+                'character_id' => $char->character_id,
+            ]);
+
+            return response()->json($response);
+        } catch (RequestFailedException $e) {
+            return response()->json([
+                'error' => 'ESI request failed',
+                'message' => $e->getMessage(),
+            ], 502);
+        } catch (\Throwable $t) {
+            return response()->json([
+                'error' => 'Unexpected error',
+                'message' => $t->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Authenticated: GET /characters/{character_id}/blueprints
+     * If $character_id is omitted, uses the first linked character.
+     * Optionally supports $page for manual pagination during testing.
+     */
+    public function getCharacterBlueprints(?int $character_id = null, int $page = 1)
+    {
+        $user = Auth::user();
+        if (! $user) {
+            return response()->json(['error' => 'Not authenticated.'], 401);
+        }
+
+        // Pick character: explicit id OR first linked
+        $characterQuery = $user->characters()->with('token');
+        $character = $character_id
+            ? $characterQuery->where('character_id', $character_id)->first()
+            : $characterQuery->first();
+
+        if (! $character) {
+            return response()->json([
+                'error' => 'Character not found for this user.'
+            ], 404);
+        }
+
+        if (! $character->token) {
+            return response()->json([
+                'error' => 'No ESI token found for this character.'
+            ], 401);
+        }
+
+        try {
+            // Build ESI auth container
+            $auth = new EsiAuthentication([
+                'access_token'  => $character->token->access_token,
+                'refresh_token' => $character->token->refresh_token,
+                'token_expires' => $character->token->expires_on,
+                'client_id'     => config('esi.client_id'),
+                'secret'        => config('esi.client_secret'),
+                'scopes'        => is_string($character->token->scopes)
+                    ? explode(' ', $character->token->scopes)
+                    : (array) $character->token->scopes,
+                'character_id'  => $character->character_id,
+            ]);
+
+            $esi = new Eseye($auth);
+
+            // For testing, let you request a specific page. (ESI supports paging here.)
+            if ($page > 1) {
+                $esi->page($page);
+            }
+
+            $response = $esi->invoke('get', '/characters/{character_id}/blueprints/', [
+                'character_id' => $character->character_id,
+            ]);
+
+            return response()->json($response);
+        } catch (RequestFailedException $e) {
+            return response()->json([
+                'error' => 'ESI request failed',
+                'message' => $e->getMessage(),
+            ], 502);
+        } catch (\Throwable $t) {
+            return response()->json([
+                'error' => 'Unexpected error',
+                'message' => $t->getMessage(),
+            ], 500);
+        }
+    }
+
     private function isAtWar(Eseye $esi, int $corpId, ?int $allianceId): bool
     {
         try {

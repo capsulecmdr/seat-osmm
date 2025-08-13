@@ -4,7 +4,9 @@
 @section('page_title', 'Home')
 
 @section('content')
-
+<script>
+    console.log(@json($publicInfo));
+</script>
   <div class="container-fluid">
     <div class="row">
     {{-- MAIN --}}
@@ -77,7 +79,7 @@
       <i class="fas fa-crosshairs mr-2"></i>
       You are currently At War!
       <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-      <span aria-hidden="true">&times;</span>
+      <span aria-hidden="true">&times;</span>c1-jj
       </button>
       </div>
     @endif --}}
