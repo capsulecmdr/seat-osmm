@@ -26,6 +26,15 @@ use Seat\Eseye\Exceptions\RequestFailedException;
 class HomeOverrideController extends Controller
 {
 
+    private Eseye $esi;
+
+    public function __construct(Eseye $esi)
+    {
+        // SeAT gives you a fully wired Eseye (HTTP client included)
+        $this->esi = $esi;
+    }
+
+
     public function index()
     {
         $user = Auth::user();
@@ -80,39 +89,25 @@ class HomeOverrideController extends Controller
     }
 
     public function getPublicCharacterInfoData(): array|\stdClass
-    {
+{
+    $user = Auth::user();
+    $char = $user?->characters->first();
 
-        $user = Auth::user();
-        $char = $user->characters->first();
-
-        // $configuration = Configuration::getInstance();
-        // $configuration->cache = NullCache::class;
-
-        $auth = new EsiAuthentication([
-                
-                'client_id'     => config('services.eveonline.client_id'),
-                'secret'        => config('services.eveonline.client_secret'),
-                'refresh_token' => $user->remember_token,
-            ]);
-        
-        $esi = new Eseye($auth);
-
-
-        
-        if (! $char) {
-            return ['error' => 'No linked characters for current user.'];
-        }
-
-        try {
-            return $esi->invoke('get', '/characters/{character_id}/', [
-                'character_id' => $char->character_id,
-            ]);
-        } catch (RequestFailedException $e) {
-            return ['error' => 'ESI request failed', 'message' => $e->getMessage()];
-        } catch (\Throwable $t) {
-            return ['error' => 'Unexpected error', 'message' => $t->getMessage()];
-        }
+    if (! $char) {
+        return ['error' => 'No linked characters for current user.'];
     }
+
+    try {
+        // Public endpoint needs zero auth; use the DI’d Eseye
+        return $this->esi->invoke('get', '/characters/{character_id}/', [
+            'character_id' => $char->character_id,
+        ]);
+    } catch (\Seat\Eseye\Exceptions\RequestFailedException $e) {
+        return ['error' => 'ESI request failed', 'message' => $e->getMessage()];
+    } catch (\Throwable $t) {
+        return ['error' => 'Unexpected error', 'message' => $t->getMessage()];
+    }
+}
 
     /**
      * JSON wrappers if you want endpoints for XHR testing.
