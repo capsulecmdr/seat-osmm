@@ -115,51 +115,6 @@ class HomeOverrideController extends Controller
     }
 
     /**
-     * Helper: return the (auth) character's blueprints (plain data).
-     * If $character_id is null, uses the first linked character.
-     * Calls: GET /characters/{character_id}/blueprints (requires scope: esi-characters.read_blueprints.v1)
-     */
-    public function getCharacterBlueprintsData(?int $character_id = null): array|\stdClass
-    {
-        $user = Auth::user();
-        if (! $user) return ['error' => 'Not authenticated.'];
-
-        $character = $character_id
-            ? $user->characters()->with('token')->where('character_id', $character_id)->first()
-            : $user->characters()->with('token')->first();
-
-        if (! $character) return ['error' => 'Character not found for this user.'];
-        if (! $character->token) return ['error' => 'No ESI token for character.'];
-
-        try {
-            // Build auth for this character
-            $auth = new EsiAuthentication([
-                'access_token'  => $character->token->access_token,
-                'refresh_token' => $character->token->refresh_token,
-                'token_expires' => $character->token->expires_on,
-                'client_id'     => config('services.eveonline.client_id'),
-                'secret'        => config('services.eveonline.client_secret'),
-                'scopes'        => is_string($character->token->scopes)
-                    ? explode(' ', $character->token->scopes)
-                    : (array) $character->token->scopes,
-                'character_id'  => $character->character_id,
-            ]);
-
-            // Ask the container for an auth’d Eseye (uses the same HTTP stack)
-            $esi = app()->make(Eseye::class, ['authentication' => $auth]);
-
-            // NOTE: this fetches page 1. If you need all pages, loop on $esi->page(N).
-            return $esi->invoke('get', '/characters/{character_id}/blueprints/', [
-                'character_id' => $character->character_id,
-            ]);
-        } catch (RequestFailedException $e) {
-            return ['error' => 'ESI request failed', 'message' => $e->getMessage()];
-        } catch (\Throwable $t) {
-            return ['error' => 'Unexpected error', 'message' => $t->getMessage()];
-        }
-    }
-
-    /**
      * JSON wrappers if you want endpoints for XHR testing.
      */
     public function publicCharacterInfoJson()
