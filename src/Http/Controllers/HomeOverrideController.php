@@ -113,7 +113,7 @@ class HomeOverrideController extends Controller
         } catch (RequestFailedException $e) {
             return ['error' => 'ESI request failed', 'message' => $e->getMessage()];
         } catch (\Throwable $t) {
-            return ['error' => 'Unexpected error', 'message' => $t->getMessage() . $rt];
+            return ['error' => 'Unexpected error', 'message' => $t->getMessage(),'esiObj'=>$esi];
         }
     }
 
