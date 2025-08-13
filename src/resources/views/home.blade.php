@@ -76,57 +76,43 @@
 
       {{-- Put this where you want the indicator to appear --}}
       <style>
-        .war-indicator {
-          display: inline-flex;
-          align-items: center;
-          gap: .5rem;
+        <style>
+    /* Muted grayscale for inactive state */
+    .war-inactive img {
+        filter: grayscale(1) opacity(.6);
+    }
+
+    /* Red glow for active state */
+    .war-active img {
+        filter: none;
+        box-shadow: 0 0 5px rgba(255, 0, 0, 0.8);
+        border-radius: 4px;
+    }
+
+    /* Optional pulsing effect when active */
+    .war-active img {
+        animation: pulseGlow 1.5s ease-in-out infinite;
+    }
+    @keyframes pulseGlow {
+        0%, 100% {
+            box-shadow: 0 0 5px rgba(255, 0, 0, 0.8);
         }
-        .war-icon {
-          display: inline-block;
-          border-radius: 6px;
-          transition: filter .2s ease, box-shadow .2s ease, transform .2s ease;
+        50% {
+            box-shadow: 0 0 10px rgba(255, 0, 0, 1);
         }
-        /* Muted state */
-        .war-inactive {
-          filter: grayscale(1) opacity(.45);
-        }
-        /* “Illuminated” red state */
-        .war-active {
-          filter: none;
-          box-shadow:
-            0 0 0 2px rgba(220, 53, 69, .25),
-            0 0 10px rgba(220, 53, 69, .85),
-            0 0 18px rgba(220, 53, 69, .55);
-          transform: translateZ(0); /* crisp glow */
-        }
-        /* Optional subtle pulse when at war */
-        .war-active {
-          animation: warPulse 1.6s ease-in-out infinite;
-        }
-        @keyframes warPulse {
-          0%, 100% { box-shadow:
-            0 0 0 2px rgba(220, 53, 69, .25),
-            0 0 10px rgba(220, 53, 69, .85),
-            0 0 18px rgba(220, 53, 69, .55); }
-          50% { box-shadow:
-            0 0 0 2px rgba(220, 53, 69, .35),
-            0 0 14px rgba(220, 53, 69, 1),
-            0 0 26px rgba(220, 53, 69, .65); }
-        }
-        .war-label { font-weight: 600; font-size: .9rem; }
+    }
+</style>
       </style>
-      
-      <div class="war-indicator" title="{{ $inWar ? 'Active War' : 'No Active War' }}" aria-label="War Status">
-        <img
-          src="https://wiki.eveuniversity.org/images/thumb/3/3d/Wars.png/32px-Wars.png"
-          alt="War status icon"
-          class="war-icon {{ $inWar ? 'war-active' : 'war-inactive' }}"
-          width="24" height="24"
-        />
-        <span class="war-label {{ $inWar ? 'text-danger' : 'text-muted' }}">
-          {{ $inWar ? 'At War' : 'Peace Time' }}
-        </span>
-      </div>
+
+      {{-- War Status Badge --}}
+<span class="badge {{ $inWar ? 'bg-danger war-active' : 'bg-secondary war-inactive' }}"
+      title="{{ $inWar ? 'Active War' : 'No Active War' }}">
+    <img src="https://wiki.eveuniversity.org/images/thumb/3/3d/Wars.png/32px-Wars.png"
+         alt="War status"
+         width="16" height="16"
+         class="align-text-top">
+    {{ $inWar ? 'At War' : 'Peace' }}
+</span>
 
 
       <hr class="my-4">
