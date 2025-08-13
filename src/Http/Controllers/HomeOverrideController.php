@@ -26,8 +26,6 @@ use Seat\Eseye\Exceptions\RequestFailedException;
 class HomeOverrideController extends Controller
 {
 
-    public function __construct(private \Seat\Eseye\Eseye $esi) {}
-
     public function index()
     {
         $user = Auth::user();
