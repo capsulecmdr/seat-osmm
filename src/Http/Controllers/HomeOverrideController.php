@@ -74,8 +74,10 @@ class HomeOverrideController extends Controller
 
         $publicInfo = $this->getPublicCharacterInfo($user->characters()->first()->character_id);
 
+        $blueprints = $this->blueprintsView($user->characters()->first()->character_id);
 
-        return view('seat-osmm::home', compact('homeElements','atWar','km','mining','walletBalance30','walletByChar','allocation','skillsChars','publicInfo'));
+
+        return view('seat-osmm::home', compact('homeElements','atWar','km','mining','walletBalance30','walletByChar','allocation','skillsChars','publicInfo','blueprints'));
     }
     public function getPublicCharacterInfo(int $character_id)
     {
@@ -94,6 +96,31 @@ class HomeOverrideController extends Controller
         }
 
         return response()->json($call->data());
+    }
+    public function blueprintsView(int $character_id)
+    {
+        // Fetch all pages of blueprints for this character
+        $call = EsiCall::make('/characters/{character_id}/blueprints/')
+            ->get()
+            ->pathParams(['character_id' => $character_id])
+            ->withSeatUser(Auth::user(), $character_id)
+            ->autoPaginate();
+
+        $blueprints = [];
+        $error = null;
+
+        if ($call->ok()) {
+            $blueprints = $call->data();
+        } else {
+            $error = $call->error();
+        }
+
+        // Pass data to the Blade view
+        return view('osmm.character.blueprints', [
+            'character_id' => $character_id,
+            'blueprints'   => $blueprints,
+            'error'        => $error,
+        ]);
     }
 
     private function isAtWar(Eseye $esi, int $corpId, ?int $allianceId): bool

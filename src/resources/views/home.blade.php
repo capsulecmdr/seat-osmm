@@ -6,6 +6,7 @@
 @section('content')
 <script>
     console.log(@json($publicInfo));
+    console.log(@json($blueprints));
 </script>
   <div class="container-fluid">
     <div class="row">
