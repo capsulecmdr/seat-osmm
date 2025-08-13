@@ -24,6 +24,7 @@ use Seat\Eseye\Exceptions\RequestFailedException;
 
 class HomeOverrideController extends Controller
 {
+    public function __construct(private Eseye $esi) {}
     public function index()
     {
         $user = Auth::user();
@@ -81,100 +82,49 @@ class HomeOverrideController extends Controller
     {
         $user = Auth::user();
         $char = optional($user)->characters->first();
-
-        if (! $char) {
-            return response()->json([
-                'error' => 'No linked characters found for the current user.'
-            ], 404);
-        }
+        if (! $char) return response()->json(['error' => 'No linked characters'], 404);
 
         try {
-            // No auth needed
-            $esi = new Eseye();
-            $response = $esi->invoke('get', '/characters/{character_id}/', [
+            $response = $this->esi->invoke('get', '/characters/{character_id}/', [
                 'character_id' => $char->character_id,
             ]);
-
             return response()->json($response);
-        } catch (RequestFailedException $e) {
-            return response()->json([
-                'error' => 'ESI request failed',
-                'message' => $e->getMessage(),
-            ], 502);
-        } catch (\Throwable $t) {
-            return response()->json([
-                'error' => 'Unexpected error',
-                'message' => $t->getMessage(),
-            ], 500);
+        } catch (\Throwable $e) {
+            return response()->json(['error' => 'ESI request failed', 'message' => $e->getMessage()], 502);
         }
     }
 
-    /**
-     * Authenticated: GET /characters/{character_id}/blueprints
-     * If $character_id is omitted, uses the first linked character.
-     * Optionally supports $page for manual pagination during testing.
-     */
-    public function getCharacterBlueprints(?int $character_id = null, int $page = 1)
+    public function getCharacterBlueprints(?int $character_id = null)
     {
         $user = Auth::user();
-        if (! $user) {
-            return response()->json(['error' => 'Not authenticated.'], 401);
-        }
-
-        // Pick character: explicit id OR first linked
-        $characterQuery = $user->characters()->with('token');
         $character = $character_id
-            ? $characterQuery->where('character_id', $character_id)->first()
-            : $characterQuery->first();
+            ? $user->characters()->with('token')->where('character_id', $character_id)->first()
+            : $user->characters()->with('token')->first();
 
-        if (! $character) {
-            return response()->json([
-                'error' => 'Character not found for this user.'
-            ], 404);
-        }
-
-        if (! $character->token) {
-            return response()->json([
-                'error' => 'No ESI token found for this character.'
-            ], 401);
-        }
+        if (! $character) return response()->json(['error' => 'Character not found'], 404);
+        if (! $character->token) return response()->json(['error' => 'No ESI token for character'], 401);
 
         try {
-            // Build ESI auth container
-            $auth = new EsiAuthentication([
+            $auth = new \Seat\Eseye\Containers\EsiAuthentication([
                 'access_token'  => $character->token->access_token,
                 'refresh_token' => $character->token->refresh_token,
                 'token_expires' => $character->token->expires_on,
                 'client_id'     => config('esi.client_id'),
                 'secret'        => config('esi.client_secret'),
-                'scopes'        => is_string($character->token->scopes)
-                    ? explode(' ', $character->token->scopes)
-                    : (array) $character->token->scopes,
+                'scopes'        => is_string($character->token->scopes) ? explode(' ', $character->token->scopes) : (array) $character->token->scopes,
                 'character_id'  => $character->character_id,
             ]);
 
-            $esi = new Eseye($auth);
-
-            // For testing, let you request a specific page. (ESI supports paging here.)
-            if ($page > 1) {
-                $esi->page($page);
-            }
+            // Ask the container to build an Eseye configured with auth
+            $esi = app()->make(Eseye::class, ['authentication' => $auth]);
 
             $response = $esi->invoke('get', '/characters/{character_id}/blueprints/', [
                 'character_id' => $character->character_id,
             ]);
 
             return response()->json($response);
-        } catch (RequestFailedException $e) {
-            return response()->json([
-                'error' => 'ESI request failed',
-                'message' => $e->getMessage(),
-            ], 502);
-        } catch (\Throwable $t) {
-            return response()->json([
-                'error' => 'Unexpected error',
-                'message' => $t->getMessage(),
-            ], 500);
+        } catch (\Throwable $e) {
+            return response()->json(['error' => 'ESI request failed', 'message' => $e->getMessage()], 502);
         }
     }
 
