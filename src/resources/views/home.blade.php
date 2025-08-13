@@ -4,7 +4,9 @@
 @section('page_title', 'Home')
 
 @section('content')
-
+<script>
+    console.log(@json($publicInfo));
+</script>
   <div class="container-fluid">
     <div class="row">
     {{-- MAIN --}}

@@ -4,7 +4,6 @@ namespace CapsuleCmdr\SeatOsmm\Http\Controllers;
 
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Cache;
 use Seat\Eseye\Eseye;
 use Carbon\Carbon;
 use Seat\Eveapi\Models\Killmails\KillmailDetail as KD;
@@ -18,14 +17,8 @@ use Seat\Eveapi\Models\Sde\InvGroup as InvGroup;
 use Seat\Eveapi\Models\Wallet\CharacterWalletJournal as CWJ;
 use Seat\Eveapi\Models\Wallet\CharacterWalletBalance as CWB;
 use Seat\Eveapi\Models\Assets\CharacterAsset as CA;
-use Seat\Eveapi\Models\Skills\CharacterSkill as CS;
-use Seat\Eseye\Containers\EsiAuthentication;
-use Seat\Eseye\Exceptions\RequestFailedException;
-use Psr\Http\Client\ClientInterface as Psr18Client;
-use Psr\Http\Message\RequestFactoryInterface;
-use Psr\Http\Message\StreamFactoryInterface;
-use Seat\Eseye\Configuration;
 use Illuminate\Support\Facades\Log;
+use CapsuleCmdr\SeatOsmm\Support\Esi\EsiCall;
 
 
 class HomeOverrideController extends Controller
@@ -79,8 +72,28 @@ class HomeOverrideController extends Controller
         ->map(fn($c) => ['id' => (int) $c->character_id, 'name' => $c->name])
         ->values();
 
+        $publicInfo = $this->getPublicCharacterInfo($user->characters()->first()->character_id);
 
-        return view('seat-osmm::home', compact('homeElements','atWar','km','mining','walletBalance30','walletByChar','allocation','skillsChars'));
+
+        return view('seat-osmm::home', compact('homeElements','atWar','km','mining','walletBalance30','walletByChar','allocation','skillsChars','publicInfo'));
+    }
+    public function getPublicCharacterInfo(int $character_id)
+    {
+        // Build and execute the ESI call
+        $call = EsiCall::make('/characters/{character_id}/')
+            ->get()
+            ->pathParams(['character_id' => $character_id])
+            ->run();
+
+        // Check for success and return appropriate response
+        if (!$call->ok()) {
+            return response()->json([
+                'error'   => 'ESI request failed',
+                'details' => $call->error(),
+            ], $call->status() ?: 500);
+        }
+
+        return response()->json($call->data());
     }
 
     private function isAtWar(Eseye $esi, int $corpId, ?int $allianceId): bool
