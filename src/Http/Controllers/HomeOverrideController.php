@@ -26,14 +26,6 @@ use Seat\Eseye\Exceptions\RequestFailedException;
 class HomeOverrideController extends Controller
 {
 
-    private Eseye $esi;
-
-    public function __construct(Eseye $esi)
-    {
-        // SeAT gives you a fully wired Eseye (HTTP client included)
-        $this->esi = $esi;
-    }
-
 
     public function index()
     {
@@ -88,26 +80,26 @@ class HomeOverrideController extends Controller
         return view('seat-osmm::home', compact('homeElements','atWar','km','mining','walletBalance30','walletByChar','allocation','skillsChars','publicInfo'));
     }
 
-    public function getPublicCharacterInfoData(): array|\stdClass
-{
-    $user = Auth::user();
-    $char = $user?->characters->first();
+    public function getPublicCharacterInfoData()
+    {
+        $char = Auth::user()?->characters()->first();
+        if (! $char) {
+            return ['error' => 'No linked characters for current user.'];
+        }
 
-    if (! $char) {
-        return ['error' => 'No linked characters for current user.'];
-    }
+        // ✅ SeAT-wired Eseye (no manual client discovery)
+        $esi = app(Eseye::class);
 
-    try {
-        // Public endpoint needs zero auth; use the DI’d Eseye
-        return $this->esi->invoke('get', '/characters/{character_id}/', [
-            'character_id' => $char->character_id,
-        ]);
-    } catch (\Seat\Eseye\Exceptions\RequestFailedException $e) {
-        return ['error' => 'ESI request failed', 'message' => $e->getMessage()];
-    } catch (\Throwable $t) {
-        return ['error' => 'Unexpected error', 'message' => $t->getMessage()];
+        try {
+            return $esi->invoke('get', '/characters/{character_id}/', [
+                'character_id' => $char->character_id,
+            ]);
+        } catch (RequestFailedException $e) {
+            return ['error' => 'ESI request failed', 'message' => $e->getMessage()];
+        } catch (\Throwable $t) {
+            return ['error' => 'Unexpected error', 'message' => $t->getMessage()];
+        }
     }
-}
 
     /**
      * JSON wrappers if you want endpoints for XHR testing.
