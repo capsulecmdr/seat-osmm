@@ -104,7 +104,7 @@ class HomeOverrideController extends Controller
 
             if ($rt) {
                 $scopes = json_decode($rt->scopes ?? '[]', true) ?: [];
-                $auth = new no ([
+                $auth = new EsiAuthentication ([
                     'access_token'  => $rt->token,               // <-- column is 'token'
                     'refresh_token' => $rt->refresh_token,
                     'token_expires' => $rt->expires_on,
