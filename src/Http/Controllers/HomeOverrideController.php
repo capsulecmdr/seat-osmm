@@ -74,37 +74,50 @@ class HomeOverrideController extends Controller
         ->map(fn($c) => ['id' => (int) $c->character_id, 'name' => $c->name])
         ->values();
 
-        $publicInfo = $this->getPublicCharacterInfo();
+        $publicInfo = $this->getPublicCharacterInfoData();
 
         return view('seat-osmm::home', compact('homeElements','atWar','km','mining','walletBalance30','walletByChar','allocation','skillsChars','publicInfo'));
     }
 
-    public function getPublicCharacterInfo()
+    public function __construct(private Eseye $esi) {}
+
+    public function getPublicCharacterInfoData(): array|\stdClass
     {
         $char = optional(Auth::user())->characters->first();
-        if (! $char) return response()->json(['error' => 'No linked characters'], 404);
+        if (! $char) {
+            return ['error' => 'No linked characters for current user.'];
+        }
 
         try {
-            $resp = $this->esiPublic->invoke('get', '/characters/{character_id}/', [
+            return $this->esi->invoke('get', '/characters/{character_id}/', [
                 'character_id' => $char->character_id,
             ]);
-            return response()->json($resp);
-        } catch (\Throwable $e) {
-            return response()->json(['error' => 'ESI request failed', 'message' => $e->getMessage()], 502);
+        } catch (RequestFailedException $e) {
+            return ['error' => 'ESI request failed', 'message' => $e->getMessage()];
+        } catch (\Throwable $t) {
+            return ['error' => 'Unexpected error', 'message' => $t->getMessage()];
         }
     }
 
-    public function getCharacterBlueprints(?int $character_id = null)
+    /**
+     * Helper: return the (auth) character's blueprints (plain data).
+     * If $character_id is null, uses the first linked character.
+     * Calls: GET /characters/{character_id}/blueprints (requires scope: esi-characters.read_blueprints.v1)
+     */
+    public function getCharacterBlueprintsData(?int $character_id = null): array|\stdClass
     {
         $user = Auth::user();
+        if (! $user) return ['error' => 'Not authenticated.'];
+
         $character = $character_id
             ? $user->characters()->with('token')->where('character_id', $character_id)->first()
             : $user->characters()->with('token')->first();
 
-        if (! $character) return response()->json(['error' => 'Character not found'], 404);
-        if (! $character->token) return response()->json(['error' => 'No ESI token for character'], 401);
+        if (! $character) return ['error' => 'Character not found for this user.'];
+        if (! $character->token) return ['error' => 'No ESI token for character.'];
 
         try {
+            // Build auth for this character
             $auth = new EsiAuthentication([
                 'access_token'  => $character->token->access_token,
                 'refresh_token' => $character->token->refresh_token,
@@ -117,17 +130,33 @@ class HomeOverrideController extends Controller
                 'character_id'  => $character->character_id,
             ]);
 
-            // Auth’d Eseye using the same concrete client/factories
-            $esi = new Eseye($auth, $this->http, $this->psr17, $this->psr17);
+            // Ask the container for an auth’d Eseye (uses the same HTTP stack)
+            $esi = app()->make(Eseye::class, ['authentication' => $auth]);
 
-            $resp = $esi->invoke('get', '/characters/{character_id}/blueprints/', [
+            // NOTE: this fetches page 1. If you need all pages, loop on $esi->page(N).
+            return $esi->invoke('get', '/characters/{character_id}/blueprints/', [
                 'character_id' => $character->character_id,
             ]);
-
-            return response()->json($resp);
-        } catch (\Throwable $e) {
-            return response()->json(['error' => 'ESI request failed', 'message' => $e->getMessage()], 502);
+        } catch (RequestFailedException $e) {
+            return ['error' => 'ESI request failed', 'message' => $e->getMessage()];
+        } catch (\Throwable $t) {
+            return ['error' => 'Unexpected error', 'message' => $t->getMessage()];
         }
+    }
+
+    /**
+     * JSON wrappers if you want endpoints for XHR testing.
+     */
+    public function publicCharacterInfoJson()
+    {
+        $data = $this->getPublicCharacterInfoData();
+        return response()->json($data, isset($data['error']) ? 400 : 200);
+    }
+
+    public function characterBlueprintsJson(?int $character_id = null)
+    {
+        $data = $this->getCharacterBlueprintsData($character_id);
+        return response()->json($data, isset($data['error']) ? 400 : 200);
     }
 
     private function isAtWar(Eseye $esi, int $corpId, ?int $allianceId): bool
