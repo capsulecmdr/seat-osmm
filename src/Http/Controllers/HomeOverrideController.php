@@ -83,7 +83,7 @@ class HomeOverrideController extends Controller
     {
 
         $user = Auth::user();
-        $char = optional(Auth::user())->characters->first();
+        $char = $user->characters->first();
 
         // $configuration = Configuration::getInstance();
         // $configuration->cache = NullCache::class;
