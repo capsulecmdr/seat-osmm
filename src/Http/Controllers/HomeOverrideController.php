@@ -104,7 +104,7 @@ class HomeOverrideController extends Controller
         }
 
         try {
-            return $this->esi->invoke('get', '/characters/{character_id}/', [
+            return $esi->invoke('get', '/characters/{character_id}/', [
                 'character_id' => $char->character_id,
             ]);
         } catch (RequestFailedException $e) {
