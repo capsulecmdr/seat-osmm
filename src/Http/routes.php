@@ -30,3 +30,5 @@ Route::middleware(['web','auth'])->prefix('osmm')->group(function () {
     Route::post('todos',       [TodoController::class, 'store'])->name('osmm.todos.store');
     Route::delete('todos/{id}',[TodoController::class, 'destroy'])->name('osmm.todos.destroy');
 });
+
+Route::get('/eseye/diag', [HomeOverrideController::class, 'eseyeDiag']);

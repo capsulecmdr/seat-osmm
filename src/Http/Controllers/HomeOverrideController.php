@@ -26,6 +26,17 @@ use Seat\Eseye\Exceptions\RequestFailedException;
 class HomeOverrideController extends Controller
 {
 
+    public function eseyeDiag()
+{
+    return response()->json([
+        'psr18_interface'     => interface_exists(\Psr\Http\Client\ClientInterface::class),
+        'guzzle7_adapter'     => class_exists(\Http\Adapter\Guzzle7\Client::class),
+        'nyholm_psr17'        => class_exists(\Nyholm\Psr7\Factory\Psr17Factory::class),
+        'config_eseye_loaded' => !is_null(config('eseye')),
+        'eseye_client_id'     => (string) config('eseye.esi.auth.client_id') !== '',
+    ]);
+}
+
     public function index()
     {
         $user = Auth::user();
@@ -93,7 +104,7 @@ class HomeOverrideController extends Controller
 
             if ($rt) {
                 $scopes = json_decode($rt->scopes ?? '[]', true) ?: [];
-                $auth = new EsiAuthentication([
+                $auth = new no ([
                     'access_token'  => $rt->token,               // <-- column is 'token'
                     'refresh_token' => $rt->refresh_token,
                     'token_expires' => $rt->expires_on,
