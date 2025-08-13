@@ -75,19 +75,6 @@
       </div>
 
       {{-- Put this where you want the indicator to appear --}}
-      <div class="war-indicator" title="{{ $inWar ? 'Active War' : 'No Active War' }}" aria-label="War Status">
-        <img
-          src="https://wiki.eveuniversity.org/images/thumb/3/3d/Wars.png/32px-Wars.png"
-          alt="War status icon"
-          class="war-icon {{ $inWar ? 'war-active' : 'war-inactive' }}"
-          width="24" height="24"
-        />
-        <span class="war-label {{ $inWar ? 'text-danger' : 'text-muted' }}">
-          {{ $inWar ? 'At War' : 'Peace' }}
-        </span>
-      </div>
-
-      @push('styles')
       <style>
         .war-indicator {
           display: inline-flex;
@@ -128,7 +115,18 @@
         }
         .war-label { font-weight: 600; font-size: .9rem; }
       </style>
-      @endpush
+      
+      <div class="war-indicator" title="{{ $inWar ? 'Active War' : 'No Active War' }}" aria-label="War Status">
+        <img
+          src="https://wiki.eveuniversity.org/images/thumb/3/3d/Wars.png/32px-Wars.png"
+          alt="War status icon"
+          class="war-icon {{ $inWar ? 'war-active' : 'war-inactive' }}"
+          width="24" height="24"
+        />
+        <span class="war-label {{ $inWar ? 'text-danger' : 'text-muted' }}">
+          {{ $inWar ? 'At War' : 'Peace Time' }}
+        </span>
+      </div>
 
 
       <hr class="my-4">
