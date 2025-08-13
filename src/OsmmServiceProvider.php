@@ -6,6 +6,8 @@ use Illuminate\Support\ServiceProvider;
 use Seat\Services\AbstractSeatPlugin;
 use Illuminate\Support\Facades\Route;
 use CapsuleCmdr\SeatOsmm\Http\Controllers\HomeOverrideController;
+use CapsuleCmdr\SeatOsmm\Support\Esi\EsiTokenStorage;
+use CapsuleCmdr\SeatOsmm\Support\Esi\SeatRelationTokenStorage;
 
 class OsmmServiceProvider extends AbstractSeatPlugin
 {
@@ -116,6 +118,8 @@ class OsmmServiceProvider extends AbstractSeatPlugin
 
         //register permissions
         $this->registerPermissions(__DIR__ . '/config/Permissions/permissions.php','osmm');
+
+        $this->app->bind(EsiTokenStorage::class, fn () => new SeatRelationTokenStorage());
     }
 
     private function addMigrations()

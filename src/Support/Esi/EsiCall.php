@@ -4,7 +4,7 @@ namespace CapsuleCmdr\SeatOsmm\Support\Esi;
 
 // import interfaces you just created
 use CapsuleCmdr\SeatOsmm\Support\Esi\EsiTokenStorage;
-use CapsuleCmdr\SeatOsmm\Support\Esi\LaravelDbEsiTokenStorage;
+use CapsuleCmdr\SeatOsmm\Support\Esi\SeatRelationTokenStorage;
 
 class EsiCall
 {
@@ -101,26 +101,59 @@ class EsiCall
      * Helper: resolve and attach a valid Bearer token from Auth::user()
      * (works with Laravel + your storage implementation).
      */
-    public function withSeatUser($user, ?int $characterId = null, ?EsiTokenStorage $storage = null): self {
-        $storage ??= new LaravelDbEsiTokenStorage();
-        $charIds = $storage->listCharacterIdsForUser($user);
-        if (empty($charIds)) { $this->err = ['code' => 0, 'message' => 'No characters linked to user.']; return $this; }
-        if ($characterId === null) {
-            if (count($charIds) !== 1) { $this->err = ['code' => 0, 'message' => 'Multiple characters found; specify $characterId.']; return $this; }
-            $characterId = $charIds[0];
-        }
-        $tok = $storage->getTokenFor($characterId);
-        if (!$tok) { $this->err = ['code' => 0, 'message' => "No token found for character {$characterId}."]; return $this; }
-        if (!empty($tok['refresh_token']) && ($tok['access_token'] === null || time() >= (int)$tok['expires_at'] - 60)) {
-            $refreshed = $this->refreshAccessToken($tok['refresh_token']);
-            if ($refreshed) {
-                $tok['access_token']  = $refreshed['access_token'];
-                $tok['refresh_token'] = $refreshed['refresh_token'] ?? $tok['refresh_token'];
-                $tok['expires_at']    = time() + (int)($refreshed['expires_in'] ?? 1200);
-                $tok['scopes']        = $refreshed['scope'] ?? ($tok['scopes'] ?? '');
-                $storage->saveToken($characterId, $tok);
+    public function withSeatUser($user, ?int $characterId = null, $storage = null): self
+    {
+        // Resolve storage (container binding preferred)
+        if ($storage === null) {
+            if (function_exists('app') && app()->bound(\CapsuleCmdr\SeatOsmm\Support\Esi\EsiTokenStorage::class)) {
+                $storage = app(\CapsuleCmdr\SeatOsmm\Support\Esi\EsiTokenStorage::class);
+            } else {
+                $storage = new \CapsuleCmdr\SeatOsmm\Support\Esi\SeatRelationTokenStorage();
             }
         }
+
+        // Get character ids linked to this user
+        $charIds = $storage->listCharacterIdsForUser($user);
+        if (empty($charIds)) {
+            $this->err = ['code' => 0, 'message' => 'No characters linked to user.'];
+            return $this;
+        }
+
+        // Resolve which character to use
+        if ($characterId === null) {
+            if (count($charIds) === 1) {
+                $characterId = $charIds[0];
+            } else {
+                $this->err = ['code' => 0, 'message' => 'Multiple characters found; specify $characterId.'];
+                return $this;
+            }
+        }
+
+        // Fetch token bundle
+        $tok = $storage->getTokenFor($characterId);
+        if (!$tok) {
+            $this->err = ['code' => 0, 'message' => "No token found for character {$characterId}."];
+            return $this;
+        }
+
+        // Refresh if expiring (<=60s) or missing access token but refresh present
+        $expiresAt = isset($tok['expires_at']) ? (int)$tok['expires_at'] : 0;
+        $needsRefresh = !empty($tok['refresh_token']) && (empty($tok['access_token']) || time() >= ($expiresAt - 60));
+
+        if ($needsRefresh) {
+            $ref = $this->refreshAccessToken($tok['refresh_token']);
+            if ($ref) {
+                $tok['access_token']  = $ref['access_token'];
+                $tok['refresh_token'] = $ref['refresh_token'] ?? ($tok['refresh_token'] ?? null);
+                $tok['expires_at']    = time() + (int)($ref['expires_in'] ?? 1200);
+                $tok['scopes']        = $ref['scope'] ?? ($tok['scopes'] ?? '');
+                // Persist updated token
+                $storage->saveToken($characterId, $tok);
+            }
+            // If refresh failed, we’ll proceed with whatever we had (may 401)
+        }
+
+        // Attach bearer (may be null if truly missing)
         $this->bearer($tok['access_token'] ?? null);
         return $this;
     }
