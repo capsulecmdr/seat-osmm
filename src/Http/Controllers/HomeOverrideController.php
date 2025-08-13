@@ -105,62 +105,53 @@ try{
     }
 
     public function getPublicCharacterInfoData(): array|\stdClass
-    {
-        $user = auth()->user();
-        $char = $user?->characters()->first();
-        if (! $char) {
-            return ['error' => 'No linked characters for current user.'];
-        }
-
-        try {
-            // ---- Force Eseye to use our PSR concretes (bypass discovery) ----
-            $cfg = Configuration::getInstance();
-            // pull from the container (these are bound by your EsiHttpClientServiceProvider)
-            $cfg->http_client          = app(Psr18Client::class);
-            $cfg->http_request_factory = app(RequestFactoryInterface::class);
-            $cfg->http_stream_factory  = app(StreamFactoryInterface::class);
-
-            // Optional: quick diag to log which classes are actually set
-            Log::debug('OSMM Eseye config', [
-                'http_client'          => is_object($cfg->http_client) ? get_class($cfg->http_client) : gettype($cfg->http_client),
-                'http_request_factory' => is_object($cfg->http_request_factory) ? get_class($cfg->http_request_factory) : gettype($cfg->http_request_factory),
-                'http_stream_factory'  => is_object($cfg->http_stream_factory) ? get_class($cfg->http_stream_factory) : gettype($cfg->http_stream_factory),
-            ]);
-
-            // ---- Prefer using an authenticated client if we have a token row ----
-            $rt = \DB::table('refresh_tokens')->where('character_id', $char->character_id)->first();
-
-            if ($rt) {
-                $scopes = json_decode($rt->scopes ?? '[]', true) ?: [];
-                $auth = new \Seat\Eseye\Containers\EsiAuthentication([
-                    'access_token'  => $rt->token,               // DB column name is 'token'
-                    'refresh_token' => $rt->refresh_token,
-                    'token_expires' => $rt->expires_on,
-                    'client_id'     => config('eseye.esi.auth.client_id'),
-                    'secret'        => config('eseye.esi.auth.client_secret'),
-                    'scopes'        => $scopes,
-                ]);
-                $esi = app()->make(\Seat\Eseye\Eseye::class, ['authentication' => $auth]);
-            } else {
-                // Public endpoint works unauthenticated, but we must still avoid discovery.
-                // Since we already set the global configuration above, a bare resolve is OK.
-                $esi = app(\Seat\Eseye\Eseye::class);
-            }
-
-            return $esi->invoke('get', '/characters/{character_id}/', [
-                'character_id' => $char->character_id,
-            ]);
-        } catch (\Seat\Eseye\Exceptions\RequestFailedException $e) {
-            Log::error('OSMM ESI request failed', ['msg' => $e->getMessage()]);
-            return ['error' => 'ESI request failed', 'message' => $e->getMessage()];
-        } catch (\Throwable $t) {
-            Log::error('OSMM Unexpected ESI error', [
-                'msg'   => $t->getMessage(),
-                'trace' => collect($t->getTrace())->take(10),
-            ]);
-            return ['error' => 'Unexpected error', 'message' => $t->getMessage()];
-        }
+{
+    $user = auth()->user();
+    $char = $user?->characters()->first();
+    if (! $char) {
+        return ['error' => 'No linked characters for current user.'];
     }
+
+    try {
+        // ensure Eseye has PSR concretions (as you already added via provider)
+        $rt = \DB::table('refresh_tokens')->where('character_id', $char->character_id)->first();
+
+        if ($rt) {
+            $scopes = json_decode($rt->scopes ?? '[]', true) ?: [];
+            $auth = new \Seat\Eseye\Containers\EsiAuthentication([
+                'access_token'  => $rt->token,
+                'refresh_token' => $rt->refresh_token,
+                'token_expires' => $rt->expires_on,
+                'client_id'     => config('eseye.esi.auth.client_id'),
+                'secret'        => config('eseye.esi.auth.client_secret'),
+                'scopes'        => $scopes,
+            ]);
+            $esi = app()->make(\Seat\Eseye\Eseye::class, ['authentication' => $auth]);
+        } else {
+            $esi = app(\Seat\Eseye\Eseye::class);
+        }
+
+        $resp = $esi->invoke('get', '/characters/{character_id}/', [
+            'character_id' => $char->character_id,
+        ]);
+
+        // ---- unwrap EsiResponse to match return type ----
+        // option A: stdClass
+        return json_decode($resp->raw);         // <- returns stdClass
+
+        // option B (alternative): array
+        // return json_decode($resp->raw, true); // <- returns array
+
+        // option C (also fine since EsiResponse extends ArrayObject)
+        // return (array) $resp;                 // <- underlying storage array
+
+    } catch (\Seat\Eseye\Exceptions\RequestFailedException $e) {
+        return ['error' => 'ESI request failed', 'message' => $e->getMessage()];
+    } catch (\Throwable $t) {
+        return ['error' => 'Unexpected error', 'message' => $t->getMessage()];
+    }
+}
+
 
     public function getCharacterBlueprintsData(?int $character_id = null): array|\stdClass
     {
