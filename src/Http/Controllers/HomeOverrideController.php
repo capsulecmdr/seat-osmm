@@ -23,30 +23,8 @@ use Seat\Eseye\Containers\EsiAuthentication;
 use Seat\Eseye\Exceptions\RequestFailedException;
 
 
-use GuzzleHttp\Client as GuzzleClient;
-use Http\Adapter\Guzzle7\Client as GuzzleAdapter;
-use Nyholm\Psr7\Factory\Psr17Factory;
-
 class HomeOverrideController extends Controller
 {
-    private Eseye $esiPublic;
-    private GuzzleAdapter $http;
-    private Psr17Factory $psr17;
-
-    public function __construct()
-    {
-        // Concrete PSR-18 + PSR-17
-        $this->http  = new GuzzleAdapter(new GuzzleClient(['timeout' => 15]));
-        $this->psr17 = new Psr17Factory();
-
-        // Unauthenticated for public endpoints
-        $this->esiPublic = new Eseye(
-            null,
-            $this->http,
-            $this->psr17,
-            $this->psr17
-        );
-    }
 
     public function index()
     {
