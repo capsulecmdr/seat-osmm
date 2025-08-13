@@ -84,8 +84,8 @@ class HomeOverrideController extends Controller
 
         $char = optional(Auth::user())->characters->first();
 
-        $configuration = Configuration::getInstance();
-        $configuration->cache = NullCache::class;
+        // $configuration = Configuration::getInstance();
+        // $configuration->cache = NullCache::class;
 
         $auth = new EsiAuthentication([
                 
