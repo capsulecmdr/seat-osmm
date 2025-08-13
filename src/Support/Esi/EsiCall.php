@@ -11,7 +11,7 @@ class EsiCall
     // Config
     protected string $base = 'https://esi.evetech.net/latest';
     protected string $datasource = 'tranquility'; // or 'singularity'
-    protected string $userAgent = 'CapsuleCmdr-OSMM/1.0 (+https://capsulecmd.com)';
+    protected string $userAgent = 'CapsuleCmdr-OSMM/1.0 (+https://capsulecmdr.com)';
 
     // Request
     protected string $endpoint;
@@ -105,10 +105,10 @@ class EsiCall
     {
         // Resolve storage (container binding preferred)
         if ($storage === null) {
-            if (function_exists('app') && app()->bound(\CapsuleCmdr\SeatOsmm\Support\Esi\EsiTokenStorage::class)) {
-                $storage = app(\CapsuleCmdr\SeatOsmm\Support\Esi\EsiTokenStorage::class);
+            if (function_exists('app') && app()->bound(EsiTokenStorage::class)) {
+                $storage = app(EsiTokenStorage::class);
             } else {
-                $storage = new \CapsuleCmdr\SeatOsmm\Support\Esi\SeatRelationTokenStorage();
+                $storage = new SeatRelationTokenStorage();
             }
         }
 
