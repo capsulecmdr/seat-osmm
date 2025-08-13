@@ -27,15 +27,17 @@ class HomeOverrideController extends Controller
 {
 
     public function eseyeDiag()
-{
-    return response()->json([
-        'psr18_interface'     => interface_exists(\Psr\Http\Client\ClientInterface::class),
-        'guzzle7_adapter'     => class_exists(\Http\Adapter\Guzzle7\Client::class),
-        'nyholm_psr17'        => class_exists(\Nyholm\Psr7\Factory\Psr17Factory::class),
-        'config_eseye_loaded' => !is_null(config('eseye')),
-        'eseye_client_id'     => (string) config('eseye.esi.auth.client_id') !== '',
-    ]);
-}
+    {
+        return response()->json([
+            'psr18_interface'     => interface_exists(\Psr\Http\Client\ClientInterface::class),
+            'guzzle7_adapter'     => class_exists(\Http\Adapter\Guzzle7\Client::class),
+            'nyholm_psr17'        => class_exists(\Nyholm\Psr7\Factory\Psr17Factory::class),
+            'vendor_g7_exists'    => is_dir(base_path('vendor/php-http/guzzle7-adapter')),
+            'vendor_nyholm_exists'=> is_dir(base_path('vendor/nyholm/psr7')),
+            'config_eseye_loaded' => !is_null(config('eseye')),
+            'eseye_client_id'     => (string) config('eseye.esi.auth.client_id') !== '',
+        ]);
+    }
 
     public function index()
     {
