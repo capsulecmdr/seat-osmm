@@ -22,8 +22,6 @@ use Seat\Eveapi\Models\Skills\CharacterSkill as CS;
 use Seat\Eseye\Containers\EsiAuthentication;
 use Seat\Eseye\Exceptions\RequestFailedException;
 
-include 'vendor/autoload.php';
-
 
 class HomeOverrideController extends Controller
 {
