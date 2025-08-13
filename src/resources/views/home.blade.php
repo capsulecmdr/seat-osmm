@@ -74,16 +74,62 @@
       </div>
       </div>
 
-      {{-- ALERT BANNER
-      @if($atWar === false)
-      <div class="alert alert-danger alert-dismissible fade show" role="alert">
-      <i class="fas fa-crosshairs mr-2"></i>
-      You are currently At War!
-      <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-      <span aria-hidden="true">&times;</span>c1-jj
-      </button>
-      </div>
-    @endif --}}
+      {{-- Put this where you want the indicator to appear --}}
+<div class="war-indicator" title="{{ $inWar ? 'Active War' : 'No Active War' }}" aria-label="War Status">
+  <img
+    src="https://wiki.eveuniversity.org/images/thumb/3/3d/Wars.png/32px-Wars.png"
+    alt="War status icon"
+    class="war-icon {{ $inWar ? 'war-active' : 'war-inactive' }}"
+    width="24" height="24"
+  />
+  <span class="war-label {{ $inWar ? 'text-danger' : 'text-muted' }}">
+    {{ $inWar ? 'At War' : 'Peace' }}
+  </span>
+</div>
+
+@push('styles')
+<style>
+  .war-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+  }
+  .war-icon {
+    display: inline-block;
+    border-radius: 6px;
+    transition: filter .2s ease, box-shadow .2s ease, transform .2s ease;
+  }
+  /* Muted state */
+  .war-inactive {
+    filter: grayscale(1) opacity(.45);
+  }
+  /* “Illuminated” red state */
+  .war-active {
+    filter: none;
+    box-shadow:
+      0 0 0 2px rgba(220, 53, 69, .25),
+      0 0 10px rgba(220, 53, 69, .85),
+      0 0 18px rgba(220, 53, 69, .55);
+    transform: translateZ(0); /* crisp glow */
+  }
+  /* Optional subtle pulse when at war */
+  .war-active {
+    animation: warPulse 1.6s ease-in-out infinite;
+  }
+  @keyframes warPulse {
+    0%, 100% { box-shadow:
+      0 0 0 2px rgba(220, 53, 69, .25),
+      0 0 10px rgba(220, 53, 69, .85),
+      0 0 18px rgba(220, 53, 69, .55); }
+    50% { box-shadow:
+      0 0 0 2px rgba(220, 53, 69, .35),
+      0 0 14px rgba(220, 53, 69, 1),
+      0 0 26px rgba(220, 53, 69, .65); }
+  }
+  .war-label { font-weight: 600; font-size: .9rem; }
+</style>
+@endpush
+
 
       <hr class="my-4">
 

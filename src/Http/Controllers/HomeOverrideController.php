@@ -28,29 +28,9 @@ class HomeOverrideController extends Controller
     {
         $user = Auth::user();
 
-        $atWar = false;
+        $inWar = $this->userInActiveWar();
 
-        // Loop through each character
-        // foreach ($user->characters as $char) {
-
-
-        //     $esi = new Eseye();
-
-        //     $info = $esi->invoke('get', '/characters/{character_id}/', [
-        //         'character_id' => $char->character_id,
-        //     ]);
-
-        //     // Get an authenticated Eseye client from SeAT
-        //     $esi = $char->getEsi();
-
-        //     $corpId     = $info->corporation_id;
-        //     $allianceId = property_exists($info, 'alliance_id') ? $info->alliance_id : null;
-
-        //     if ($corpId && $this->isAtWar($esi, $corpId, $allianceId)) {
-        //         $atWar = true;
-        //         break;
-        //     }
-        // }
+        
 
 
         $km = $this->buildMonthlyKillmailCumulative();
@@ -77,7 +57,7 @@ class HomeOverrideController extends Controller
         $blueprints = $this->blueprintsView($user->characters()->first()->character_id);
 
 
-        return view('seat-osmm::home', compact('homeElements','atWar','km','mining','walletBalance30','walletByChar','allocation','skillsChars','publicInfo','blueprints'));
+        return view('seat-osmm::home', compact('homeElements','inWar','km','mining','walletBalance30','walletByChar','allocation','skillsChars','publicInfo','blueprints'));
     }
     public function getPublicCharacterInfo(int $character_id)
     {
@@ -119,28 +99,58 @@ class HomeOverrideController extends Controller
         return response()->json($call->data());
     }
 
-    private function isAtWar(Eseye $esi, int $corpId, ?int $allianceId): bool
+    public function userInActiveWar(): bool
     {
-        try {
-            $warIds = $esi->invoke('get', '/corporations/{corporation_id}/wars/', [
-                'corporation_id' => $corpId,
-            ]) ?? [];
+        $esi = app(EsiCall::class);
+        $user = Auth::user();
 
-            if ($allianceId) {
-                $allianceWars = $esi->invoke('get', '/alliances/{alliance_id}/wars/', [
-                    'alliance_id' => $allianceId,
-                ]) ?? [];
-                $warIds = array_merge($warIds, $allianceWars);
+        if (!$user) {
+            return false;
+        }
+
+        $charIds = $user->characters()->pluck('character_id')->filter()->all();
+        if (empty($charIds)) {
+            return false;
+        }
+
+        foreach ($charIds as $cid) {
+            try {
+                $cinfo = (array) $esi->get("characters/{$cid}/");
+                $corpId = $cinfo['corporation_id'] ?? null;
+                $allyId = $cinfo['alliance_id'] ?? null;
+
+                // Check corporation wars
+                if ($corpId && $this->hasActiveWars("corporations/{$corpId}/wars")) {
+                    return true;
+                }
+
+                // Check alliance wars
+                if ($allyId && $this->hasActiveWars("alliances/{$allyId}/wars")) {
+                    return true;
+                }
+
+            } catch (\Throwable $e) {
+                // Ignore this character and continue checking others
             }
+        }
 
-            foreach (array_unique(array_map('intval', $warIds)) as $warId) {
-                $war = $esi->invoke('get', '/wars/{war_id}/', ['war_id' => $warId]);
-                if ($war && !isset($war->finished)) {
+        return false;
+    }
+
+    private function hasActiveWars(string $path): bool
+    {
+        $esi = app(EsiCall::class);
+
+        try {
+            $warIds = (array) $esi->get($path);
+            foreach ($warIds as $warId) {
+                $war = (array) $esi->get("wars/{$warId}/");
+                if (!empty($war['started']) && empty($war['finished'])) {
                     return true;
                 }
             }
         } catch (\Throwable $e) {
-            \Log::warning("OSMM war check failed for corp {$corpId}: {$e->getMessage()}");
+            // Ignore errors and treat as no active wars
         }
 
         return false;
