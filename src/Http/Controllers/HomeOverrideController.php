@@ -118,11 +118,7 @@ class HomeOverrideController extends Controller
         }
 
         // Pass data to the Blade view
-        return view('osmm.character.blueprints', [
-            'character_id' => $character_id,
-            'blueprints'   => $blueprints,
-            'error'        => $error,
-        ]);
+        return response()->json($call->data());
     }
 
     private function isAtWar(Eseye $esi, int $corpId, ?int $allianceId): bool
