@@ -19,6 +19,7 @@ use Seat\Eveapi\Models\Wallet\CharacterWalletBalance as CWB;
 use Seat\Eveapi\Models\Assets\CharacterAsset as CA;
 use Illuminate\Support\Facades\Log;
 use CapsuleCmdr\SeatOsmm\Support\Esi\EsiCall;
+use Seat\Eveapi\Models\Character\CharacterInfo;
 
 
 class HomeOverrideController extends Controller
@@ -103,34 +104,31 @@ class HomeOverrideController extends Controller
     {
         $esi = app(EsiCall::class);
         $user = Auth::user();
+        if (!$user) return false;
 
-        if (!$user) {
-            return false;
-        }
+        $charsTable = (new CharacterInfo)->getTable(); // usually "character_infos"
 
-        $charIds = $user->characters()->pluck('character_id')->filter()->all();
-        if (empty($charIds)) {
-            return false;
-        }
+        $charIds = $user->characters()
+            ->select("{$charsTable}.character_id")
+            ->pluck("{$charsTable}.character_id")
+            ->unique()
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        if (empty($charIds)) return false;
 
         foreach ($charIds as $cid) {
             try {
-                $cinfo = (array) $esi->get("characters/{$cid}/");
+                $cinfo  = (array) $esi->get("characters/{$cid}/");
                 $corpId = $cinfo['corporation_id'] ?? null;
                 $allyId = $cinfo['alliance_id'] ?? null;
 
-                // Check corporation wars
-                if ($corpId && $this->hasActiveWars("corporations/{$corpId}/wars")) {
-                    return true;
-                }
-
-                // Check alliance wars
-                if ($allyId && $this->hasActiveWars("alliances/{$allyId}/wars")) {
-                    return true;
-                }
+                if ($corpId && $this->hasActiveWars("corporations/{$corpId}/wars")) return true;
+                if ($allyId && $this->hasActiveWars("alliances/{$allyId}/wars"))   return true;
 
             } catch (\Throwable $e) {
-                // Ignore this character and continue checking others
+                // ignore and keep checking
             }
         }
 
@@ -140,19 +138,12 @@ class HomeOverrideController extends Controller
     private function hasActiveWars(string $path): bool
     {
         $esi = app(EsiCall::class);
-
         try {
-            $warIds = (array) $esi->get($path);
-            foreach ($warIds as $warId) {
+            foreach ((array) $esi->get($path) as $warId) {
                 $war = (array) $esi->get("wars/{$warId}/");
-                if (!empty($war['started']) && empty($war['finished'])) {
-                    return true;
-                }
+                if (!empty($war['started']) && empty($war['finished'])) return true;
             }
-        } catch (\Throwable $e) {
-            // Ignore errors and treat as no active wars
-        }
-
+        } catch (\Throwable $e) {}
         return false;
     }
 
