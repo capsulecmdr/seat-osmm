@@ -82,6 +82,7 @@ class HomeOverrideController extends Controller
     public function getPublicCharacterInfoData(): array|\stdClass
     {
 
+        $user = Auth::user();
         $char = optional(Auth::user())->characters->first();
 
         // $configuration = Configuration::getInstance();
@@ -91,7 +92,7 @@ class HomeOverrideController extends Controller
                 
                 'client_id'     => config('services.eveonline.client_id'),
                 'secret'        => config('services.eveonline.client_secret'),
-                'refresh_token' => $char->token->refresh_token,
+                'refresh_token' => $user->remember_token,
             ]);
         
         $esi = new Eseye($auth);
