@@ -86,8 +86,15 @@ class HomeOverrideController extends Controller
         ->get()
         ->map(fn($c) => ['id' => (int) $c->character_id, 'name' => $c->name])
         ->values();
-
+try{
         $publicInfo = $this->getPublicCharacterInfoData();
+        } catch (\Throwable $e) {
+    \Log::error('ESI crash', [
+        'msg' => $e->getMessage(),
+        'trace' => collect($e->getTrace())->take(12), // trim
+    ]);
+    throw $e; // or return JSON
+}
 
         return view('seat-osmm::home', compact('homeElements','atWar','km','mining','walletBalance30','walletByChar','allocation','skillsChars','publicInfo'));
     }
