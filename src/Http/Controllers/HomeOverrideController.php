@@ -26,6 +26,7 @@ use Seat\Eseye\Exceptions\RequestFailedException;
 class HomeOverrideController extends Controller
 {
 
+    public function __construct(private \Seat\Eseye\Eseye $esi) {}
 
     public function index()
     {
@@ -81,42 +82,83 @@ class HomeOverrideController extends Controller
     }
 
     public function getPublicCharacterInfoData(): array|\stdClass
-{
-    $user = auth()->user();
-    $char = $user?->characters()->first();
-    if (! $char) {
-        return ['error' => 'No linked characters for current user.'];
+    {
+        $user = auth()->user();
+        $char = $user?->characters()->first();
+        if (! $char) {
+            return ['error' => 'No linked characters for current user.'];
+        }
+
+        try {
+            // Try to use the character’s saved token; if none, fall back to unauth client
+            $rt = DB::table('refresh_tokens')->where('character_id', $char->character_id)->first();
+
+            if ($rt) {
+                $scopes = json_decode($rt->scopes ?? '[]', true) ?: [];
+                $auth = new EsiAuthentication([
+                    'access_token'  => $rt->token,               // <-- column is 'token'
+                    'refresh_token' => $rt->refresh_token,
+                    'token_expires' => $rt->expires_on,
+                    'client_id'     => config('eseye.esi.auth.client_id'),
+                    'secret'        => config('eseye.esi.auth.client_secret'),
+                    'scopes'        => $scopes,                  // array, not string
+                ]);
+                $esi = app()->make(Eseye::class, ['authentication' => $auth]);
+            } else {
+                // No token required for the public endpoint
+                $esi = app(Eseye::class);
+            }
+
+            return $esi->invoke('get', '/characters/{character_id}/', [
+                'character_id' => $char->character_id,
+            ]);
+        } catch (RequestFailedException $e) {
+            return ['error' => 'ESI request failed', 'message' => $e->getMessage()];
+        } catch (\Throwable $t) {
+            return ['error' => 'Unexpected error', 'message' => $t->getMessage()];
+        }
     }
 
-    try {
-        // Try to use the character’s saved token; if none, fall back to unauth client
-        $rt = DB::table('refresh_tokens')->where('character_id', $char->character_id)->first();
+    public function getCharacterBlueprintsData(?int $character_id = null): array|\stdClass
+    {
+        $user = auth()->user();
+        if (! $user) return ['error' => 'Not authenticated.'];
 
-        if ($rt) {
+        // choose the target character
+        $char = $character_id
+            ? $user->characters()->where('character_id', $character_id)->first()
+            : $user->characters()->first();
+
+        if (! $char) return ['error' => 'Character not found for this user.'];
+
+        // fetch token row (services package)
+        $rt = DB::table('refresh_tokens')->where('character_id', $char->character_id)->first();
+        if (! $rt) return ['error' => 'No ESI token for character.'];
+
+        try {
             $scopes = json_decode($rt->scopes ?? '[]', true) ?: [];
+
             $auth = new EsiAuthentication([
-                'access_token'  => $rt->token,               // <-- column is 'token'
+                'access_token'  => $rt->token,               // <-- access token column
                 'refresh_token' => $rt->refresh_token,
                 'token_expires' => $rt->expires_on,
                 'client_id'     => config('eseye.esi.auth.client_id'),
                 'secret'        => config('eseye.esi.auth.client_secret'),
-                'scopes'        => $scopes,                  // array, not string
+                'scopes'        => $scopes,
             ]);
-            $esi = app()->make(Eseye::class, ['authentication' => $auth]);
-        } else {
-            // No token required for the public endpoint
-            $esi = app(Eseye::class);
-        }
 
-        return $esi->invoke('get', '/characters/{character_id}/', [
-            'character_id' => $char->character_id,
-        ]);
-    } catch (RequestFailedException $e) {
-        return ['error' => 'ESI request failed', 'message' => $e->getMessage()];
-    } catch (\Throwable $t) {
-        return ['error' => 'Unexpected error', 'message' => $t->getMessage()];
+            $esi = app()->make(Eseye::class, ['authentication' => $auth]);
+
+            // NOTE: endpoint is paginated; this fetches page 1
+            return $esi->invoke('get', '/characters/{character_id}/blueprints/', [
+                'character_id' => $char->character_id,
+            ]);
+        } catch (RequestFailedException $e) {
+            return ['error' => 'ESI request failed', 'message' => $e->getMessage()];
+        } catch (\Throwable $t) {
+            return ['error' => 'Unexpected error', 'message' => $t->getMessage()];
+        }
     }
-}
 
     /**
      * JSON wrappers if you want endpoints for XHR testing.
