@@ -22,6 +22,8 @@ use Seat\Eveapi\Models\Skills\CharacterSkill as CS;
 use Seat\Eseye\Containers\EsiAuthentication;
 use Seat\Eseye\Exceptions\RequestFailedException;
 
+include 'vendor/autoload.php';
+
 
 class HomeOverrideController extends Controller
 {
@@ -79,11 +81,25 @@ class HomeOverrideController extends Controller
         return view('seat-osmm::home', compact('homeElements','atWar','km','mining','walletBalance30','walletByChar','allocation','skillsChars','publicInfo'));
     }
 
-    public function __construct(private Eseye $esi) {}
-
     public function getPublicCharacterInfoData(): array|\stdClass
     {
+
         $char = optional(Auth::user())->characters->first();
+
+        $configuration = Configuration::getInstance();
+        $configuration->cache = NullCache::class;
+
+        $auth = new EsiAuthentication([
+                
+                'client_id'     => config('services.eveonline.client_id'),
+                'secret'        => config('services.eveonline.client_secret'),
+                'refresh_token' => $char->token->refresh_token,
+            ]);
+        
+        $esi = new Eseye($auth);
+
+
+        
         if (! $char) {
             return ['error' => 'No linked characters for current user.'];
         }
@@ -122,8 +138,8 @@ class HomeOverrideController extends Controller
                 'access_token'  => $character->token->access_token,
                 'refresh_token' => $character->token->refresh_token,
                 'token_expires' => $character->token->expires_on,
-                'client_id'     => config('esi.client_id'),
-                'secret'        => config('esi.client_secret'),
+                'client_id'     => config('services.eveonline.client_id'),
+                'secret'        => config('services.eveonline.client_secret'),
                 'scopes'        => is_string($character->token->scopes)
                     ? explode(' ', $character->token->scopes)
                     : (array) $character->token->scopes,
