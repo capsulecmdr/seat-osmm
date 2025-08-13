@@ -22,9 +22,32 @@ use Seat\Eveapi\Models\Skills\CharacterSkill as CS;
 use Seat\Eseye\Containers\EsiAuthentication;
 use Seat\Eseye\Exceptions\RequestFailedException;
 
+
+use GuzzleHttp\Client as GuzzleClient;
+use Http\Adapter\Guzzle7\Client as GuzzleAdapter;
+use Nyholm\Psr7\Factory\Psr17Factory;
+
 class HomeOverrideController extends Controller
 {
-    public function __construct(private Eseye $esi) {}
+    private Eseye $esiPublic;
+    private GuzzleAdapter $http;
+    private Psr17Factory $psr17;
+
+    public function __construct()
+    {
+        // Concrete PSR-18 + PSR-17
+        $this->http  = new GuzzleAdapter(new GuzzleClient(['timeout' => 15]));
+        $this->psr17 = new Psr17Factory();
+
+        // Unauthenticated for public endpoints
+        $this->esiPublic = new Eseye(
+            null,
+            $this->http,
+            $this->psr17,
+            $this->psr17
+        );
+    }
+
     public function index()
     {
         $user = Auth::user();
@@ -80,15 +103,14 @@ class HomeOverrideController extends Controller
 
     public function getPublicCharacterInfo()
     {
-        $user = Auth::user();
-        $char = optional($user)->characters->first();
+        $char = optional(Auth::user())->characters->first();
         if (! $char) return response()->json(['error' => 'No linked characters'], 404);
 
         try {
-            $response = $this->esi->invoke('get', '/characters/{character_id}/', [
+            $resp = $this->esiPublic->invoke('get', '/characters/{character_id}/', [
                 'character_id' => $char->character_id,
             ]);
-            return response()->json($response);
+            return response()->json($resp);
         } catch (\Throwable $e) {
             return response()->json(['error' => 'ESI request failed', 'message' => $e->getMessage()], 502);
         }
@@ -105,24 +127,26 @@ class HomeOverrideController extends Controller
         if (! $character->token) return response()->json(['error' => 'No ESI token for character'], 401);
 
         try {
-            $auth = new \Seat\Eseye\Containers\EsiAuthentication([
+            $auth = new EsiAuthentication([
                 'access_token'  => $character->token->access_token,
                 'refresh_token' => $character->token->refresh_token,
                 'token_expires' => $character->token->expires_on,
                 'client_id'     => config('esi.client_id'),
                 'secret'        => config('esi.client_secret'),
-                'scopes'        => is_string($character->token->scopes) ? explode(' ', $character->token->scopes) : (array) $character->token->scopes,
+                'scopes'        => is_string($character->token->scopes)
+                    ? explode(' ', $character->token->scopes)
+                    : (array) $character->token->scopes,
                 'character_id'  => $character->character_id,
             ]);
 
-            // Ask the container to build an Eseye configured with auth
-            $esi = app()->make(Eseye::class, ['authentication' => $auth]);
+            // Auth’d Eseye using the same concrete client/factories
+            $esi = new Eseye($auth, $this->http, $this->psr17, $this->psr17);
 
-            $response = $esi->invoke('get', '/characters/{character_id}/blueprints/', [
+            $resp = $esi->invoke('get', '/characters/{character_id}/blueprints/', [
                 'character_id' => $character->character_id,
             ]);
 
-            return response()->json($response);
+            return response()->json($resp);
         } catch (\Throwable $e) {
             return response()->json(['error' => 'ESI request failed', 'message' => $e->getMessage()], 502);
         }
