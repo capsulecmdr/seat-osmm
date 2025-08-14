@@ -14,9 +14,7 @@ class BrandingController extends Controller
         // Permission gate handled by route middleware; just render values
         return view('seat-osmm::config.branding', [
             'favicon_override_html'       => osmm_setting('favicon_override_html', ''),
-            'sidebar_branding_override'   => osmm_setting('sidebar_branding_override', ''),
-            'footer_branding_override'    => osmm_setting('footer_branding_override', ''),
-            'manifest_override'           => osmm_setting('manifest_override', ''),
+
         ]);
     }
 
