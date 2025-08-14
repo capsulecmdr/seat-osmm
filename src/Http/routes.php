@@ -1,45 +1,44 @@
 <?php
 
-\Log::info('[OSMM] routes.php was loaded.');
-
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
+
 use CapsuleCmdr\SeatOsmm\Http\Controllers\HomeOverrideController;
 use CapsuleCmdr\SeatOsmm\Http\Controllers\OsmmCalendarController;
 use CapsuleCmdr\SeatOsmm\Http\Controllers\TodoController;
 use CapsuleCmdr\SeatOsmm\Http\Controllers\Config\BrandingController;
 
-// 🟢 Override the homepage root route explicitly
-// Route::get('/', [HomeOverrideController::class, 'index'])
-//     ->middleware(['web', 'auth'])
-//     ->name('home');
+Log::info('[OSMM] routes.php loaded');
 
-// 🔵 Grouped OSMM routes (for future admin UI, etc.)
-Route::group([
-    'middleware' => ['web', 'auth'],
-    'prefix' => 'osmm',
-    'as' => 'osmm.',
-], function () {
-    // Route::get('/home', [HomeOverrideController::class, 'index'])->name('home.index');
-});
+// All OSMM routes share /osmm prefix and web+auth middleware
+Route::middleware(['web', 'auth'])
+    ->prefix('osmm')
+    ->as('osmm.')
+    ->group(function () {
 
-Route::get('/osmm/calendar/next', [OsmmCalendarController::class, 'next'])
-  ->name('osmm.calendar.next')->middleware(['web','auth']);
+        // Calendar
+        Route::get('/calendar/next', [OsmmCalendarController::class, 'next'])
+            ->name('calendar.next');
 
+        // Todos
+        Route::get('/todos', [TodoController::class, 'index'])->name('todos.index');
+        Route::post('/todos', [TodoController::class, 'store'])->name('todos.store');
+        Route::delete('/todos/{id}', [TodoController::class, 'destroy'])->name('todos.destroy');
 
-Route::middleware(['web','auth'])->prefix('osmm')->group(function () {
-    Route::get('todos',        [TodoController::class, 'index'])->name('osmm.todos.index');
-    Route::post('todos',       [TodoController::class, 'store'])->name('osmm.todos.store');
-    Route::delete('todos/{id}',[TodoController::class, 'destroy'])->name('osmm.todos.destroy');
-});
+        // Branding (admin‑gated)
+        Route::middleware('can:osmm.admin')->group(function () {
+            Route::get('/config/branding', [BrandingController::class, 'index'])
+                ->name('config.branding');
 
+            // Use PUT for update so your Blade can call route('osmm.config.branding.update')
+            Route::put('/config/branding', [BrandingController::class, 'save'])
+                ->name('config.branding.update');
+        });
 
-Route::middleware(['web', 'auth', 'can:osmm.admin'])->group(function () {
-    Route::get('/osmm/config/branding', [BrandingController::class, 'index'])
-        ->name('osmm.config.branding');
-    Route::post('/osmm/config/branding', [BrandingController::class, 'save'])
-        ->name('osmm.config.branding.save');
-});
+        // (Optional) If you later want a custom home:
+        // Route::get('/home', [HomeOverrideController::class, 'index'])->name('home.index');
+    });
 
-// Public-ish route for manifest (no auth; this is linked in <head>)
+// Public manifest (no auth; referenced in <head>)
 Route::get('/osmm/manifest.json', [BrandingController::class, 'manifest'])
     ->name('osmm.manifest');
