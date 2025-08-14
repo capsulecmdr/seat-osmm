@@ -66,9 +66,10 @@ class BrandingController extends Controller
         $uid = Auth::id();
 
         // Store booleans as 1/0
-        OsmmSetting::put('osmm_override_sidebar',  $request->boolean('osmm_override_sidebar')  ? 1 : 0, 'bool', $uid);
-        OsmmSetting::put('osmm_override_footer',   $request->boolean('osmm_override_footer')   ? 1 : 0, 'bool', $uid);
-        OsmmSetting::put('osmm_override_manifest', $request->boolean('osmm_override_manifest') ? 1 : 0, 'bool', $uid);
+        OsmmSetting::put('osmm_override_sidebar',  $request->boolean('osmm_override_sidebar')  ? 1 : 0, 'text', $uid);
+        OsmmSetting::put('osmm_override_footer',   $request->boolean('osmm_override_footer')   ? 1 : 0, 'text', $uid);
+        OsmmSetting::put('osmm_override_manifest', $request->boolean('osmm_override_manifest') ? 1 : 0, 'text', $uid);
+
 
         // Store content blobs
         OsmmSetting::put('osmm_branding_footer_html',   $data['osmm_branding_footer_html']   ?? '', 'html', $uid);
