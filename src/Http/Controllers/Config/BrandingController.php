@@ -25,7 +25,7 @@ class BrandingController extends Controller
             ])
             ->pluck('value', 'key');
 
-        return view('seat-osmm::config.branding', [
+        return view('osmm::config.branding', [
             // booleans as ints for Blade
             'osmm_override_sidebar'       => (int)($values['osmm_override_sidebar'] ?? 0),
             'osmm_override_footer'        => (int)($values['osmm_override_footer'] ?? 0),
