@@ -32,7 +32,7 @@
         <div class="card-header">
           <h3 class="card-title mb-0">Branding & Layout Overrides</h3>
         </div>
-        <form method="POST" action="{{ route('seat-osmm.config.branding.update') }}">
+        <form method="POST" action="{{ route('osmm.config.branding.update') }}">
           @csrf
           @method('PUT')
 
@@ -91,7 +91,7 @@
           </div>
 
           <div class="card-footer d-flex justify-content-between">
-            <a href="{{ route('seat-osmm.config.branding') }}" class="btn btn-default">Cancel</a>
+            <a href="{{ route('osmm.config.branding') }}" class="btn btn-default">Cancel</a>
             <button type="submit" class="btn btn-primary">
               Save Changes
             </button>
