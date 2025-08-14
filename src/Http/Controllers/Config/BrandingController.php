@@ -25,7 +25,7 @@ class BrandingController extends Controller
             ])
             ->pluck('value', 'key');
 
-        return view('osmm::config.branding', [
+        return view('seat-osmm::config.branding', [
             // booleans as ints for Blade
             'osmm_override_sidebar'       => (int)($values['osmm_override_sidebar'] ?? 0),
             'osmm_override_footer'        => (int)($values['osmm_override_footer'] ?? 0),
@@ -76,7 +76,7 @@ class BrandingController extends Controller
         OsmmSetting::put('osmm_branding_manifest_json', $data['osmm_branding_manifest_json'] ?? '', 'json', $uid);
 
         return redirect()
-            ->route('seat-osmm.config.branding')
+            ->route('osmm.config.branding')
             ->with('status', 'Branding settings saved.');
     }
 
