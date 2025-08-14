@@ -9,65 +9,97 @@ use Illuminate\Support\Facades\Auth;
 
 class BrandingController extends Controller
 {
+    /**
+     * Show the Branding settings page.
+     */
     public function index()
     {
-        // Pull all branding keys in one query
         $values = OsmmSetting::query()
             ->whereIn('key', [
-                'favicon_override_html',
-                'sidebar_branding_override',
-                'footer_branding_override',
-                'manifest_override',
+                'osmm_override_sidebar',
+                'osmm_override_footer',
+                'osmm_override_manifest',
+                'osmm_branding_footer_html',
+                'osmm_branding_sidebar_html',
+                'osmm_branding_manifest_json',
             ])
             ->pluck('value', 'key');
 
-        // Return the settings page with safe fallbacks
         return view('seat-osmm::config.branding', [
-            'favicon_override_html'     => (string)($values['favicon_override_html'] ?? ''),
-            'sidebar_branding_override' => (string)($values['sidebar_branding_override'] ?? ''),
-            'footer_branding_override'  => (string)($values['footer_branding_override'] ?? ''),
-            'manifest_override'         => (string)($values['manifest_override'] ?? ''),
+            // booleans as ints for Blade
+            'osmm_override_sidebar'       => (int)($values['osmm_override_sidebar'] ?? 0),
+            'osmm_override_footer'        => (int)($values['osmm_override_footer'] ?? 0),
+            'osmm_override_manifest'      => (int)($values['osmm_override_manifest'] ?? 0),
+
+            // content blobs
+            'osmm_branding_footer_html'   => (string)($values['osmm_branding_footer_html'] ?? ''),
+            'osmm_branding_sidebar_html'  => (string)($values['osmm_branding_sidebar_html'] ?? ''),
+            'osmm_branding_manifest_json' => (string)($values['osmm_branding_manifest_json'] ?? ''),
         ]);
     }
 
-
+    /**
+     * Persist Branding settings.
+     */
     public function save(Request $request)
     {
+        // Hidden inputs ensure 0 arrives when checkboxes are unchecked
         $data = $request->validate([
-            'favicon_override_html'     => ['nullable','string'],
-            'sidebar_branding_override' => ['nullable','string'],
-            'footer_branding_override'  => ['nullable','string'],
-            'manifest_override'         => ['nullable','string'], // validate JSON below
+            'osmm_override_sidebar'       => ['required', 'boolean'],
+            'osmm_override_footer'        => ['required', 'boolean'],
+            'osmm_override_manifest'      => ['required', 'boolean'],
+            'osmm_branding_footer_html'   => ['nullable', 'string'],
+            'osmm_branding_sidebar_html'  => ['nullable', 'string'],
+            'osmm_branding_manifest_json' => ['nullable', 'string'], // validate as JSON below
         ]);
 
-        // JSON validation (don’t mutate formatting; just check that it parses)
-        if (strlen($data['manifest_override'] ?? '') > 0) {
-            json_decode($data['manifest_override']);
+        // Validate the manifest JSON if provided (preserve formatting; just check parsability)
+        if (!empty($data['osmm_branding_manifest_json'])) {
+            json_decode($data['osmm_branding_manifest_json']);
             if (json_last_error() !== JSON_ERROR_NONE) {
-                return back()->withErrors(['manifest_override' => 'Manifest must be valid JSON.'])->withInput();
+                return back()
+                    ->withErrors(['osmm_branding_manifest_json' => 'Manifest must be valid JSON.'])
+                    ->withInput();
             }
         }
 
         $uid = Auth::id();
 
-        OsmmSetting::put('favicon_override_html',     $data['favicon_override_html'] ?? null,     'html', $uid);
-        OsmmSetting::put('sidebar_branding_override', $data['sidebar_branding_override'] ?? null, 'html', $uid);
-        OsmmSetting::put('footer_branding_override',  $data['footer_branding_override'] ?? null,  'html', $uid);
-        OsmmSetting::put('manifest_override',         $data['manifest_override'] ?? null,         'json', $uid);
+        // Store booleans as 1/0
+        OsmmSetting::put('osmm_override_sidebar',  $request->boolean('osmm_override_sidebar')  ? 1 : 0, 'bool', $uid);
+        OsmmSetting::put('osmm_override_footer',   $request->boolean('osmm_override_footer')   ? 1 : 0, 'bool', $uid);
+        OsmmSetting::put('osmm_override_manifest', $request->boolean('osmm_override_manifest') ? 1 : 0, 'bool', $uid);
 
-        return redirect()->route('osmm.config.branding')->with('status', 'Branding settings saved.');
+        // Store content blobs
+        OsmmSetting::put('osmm_branding_footer_html',   $data['osmm_branding_footer_html']   ?? '', 'html', $uid);
+        OsmmSetting::put('osmm_branding_sidebar_html',  $data['osmm_branding_sidebar_html']  ?? '', 'html', $uid);
+        OsmmSetting::put('osmm_branding_manifest_json', $data['osmm_branding_manifest_json'] ?? '', 'json', $uid);
+
+        return redirect()
+            ->route('osmm.config.branding')
+            ->with('status', 'Branding settings saved.');
     }
 
-    // Serve manifest from DB (used by our favicon include)
+    /**
+     * Serve the manifest JSON stored in settings.
+     * Route this endpoint in web.php and point your <link rel="manifest"> at it.
+     */
     public function manifest()
     {
-        $raw = osmm_setting('manifest_override');
-        if (! $raw) {
-            // Fallback: empty basic manifest to avoid 404s
-            $raw = json_encode(['name' => 'SeAT', 'short_name' => 'SeAT']);
+        $raw = osmm_setting('osmm_branding_manifest_json');
+
+        if ($raw === null || $raw === '') {
+            // Minimal fallback to avoid 404s; customize if you like
+            $raw = json_encode([
+                'name'       => 'SeAT',
+                'short_name' => 'SeAT',
+                'start_url'  => '/',
+                'display'    => 'standalone',
+            ]);
         }
+
         return response($raw, 200, [
-            'Content-Type' => 'application/manifest+json; charset=UTF-8',
+            'Content-Type'  => 'application/manifest+json; charset=UTF-8',
             'Cache-Control' => 'no-cache, no-store, must-revalidate',
         ]);
     }
