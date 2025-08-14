@@ -29,19 +29,19 @@
 
         <div class="form-group">
           <label>Sidebar Branding Override (raw HTML)</label>
-          <textarea name="sidebar_branding_override" rows="6" class="form-control" placeholder="Custom sidebar brand markup">{{ old('sidebar_branding_override', $sidebar_branding_override) }}</textarea>
+          <textarea name="sidebar_branding_override" rows="6" class="form-control" placeholder="Custom sidebar brand markup">{{ old('sidebar_branding_override', $sidebar_branding_override ?? '') }}</textarea>
           <small class="form-text text-muted">Rendered unescaped in the sidebar brand area.</small>
         </div>
 
         <div class="form-group">
           <label>Footer Branding Override (raw HTML)</label>
-          <textarea name="footer_branding_override" rows="6" class="form-control" placeholder="Custom footer markup">{{ old('footer_branding_override', $footer_branding_override) }}</textarea>
+          <textarea name="footer_branding_override" rows="6" class="form-control" placeholder="Custom footer markup">{{ old('footer_branding_override', $footer_branding_override ?? '') }}</textarea>
           <small class="form-text text-muted">Rendered unescaped in the footer include.</small>
         </div>
 
         <div class="form-group">
           <label>Manifest Override (JSON)</label>
-          <textarea name="manifest_override" rows="10" class="form-control" placeholder='{"name":"SeAT","short_name":"SeAT"}'>{{ old('manifest_override', $manifest_override) }}</textarea>
+          <textarea name="manifest_override" rows="10" class="form-control" placeholder='{"name":"SeAT","short_name":"SeAT"}'>{{ old('manifest_override', $manifest_override ?? '') }}</textarea>
           <small class="form-text text-muted">Must be valid JSON. Served from <code>{{ route('osmm.manifest') }}</code>.</small>
         </div>
 
