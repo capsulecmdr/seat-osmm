@@ -1,13 +1,16 @@
-<?php 
+<?php
 
 return [
+
+    // Adds an item under SeAT → Tools
     'tools' => [
-        'osmm-config' => [
+        [
             'name'       => 'OSMM Config',
             'icon'       => 'fa fa-cogs',
-            'route'      => 'seat-osmm.config.branding', // match your route name
+            'route'      => 'seat-osmm.config.branding', // ← matches your routes.php
             'permission' => 'osmm.admin',
-            'order'      => 999,
+            'order'      => 999, // optional
         ],
     ],
+
 ];
