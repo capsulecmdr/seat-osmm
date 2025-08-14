@@ -108,7 +108,7 @@
             Enable manifest override
           </label>
           <div class="small text-muted">
-            Served from <code>{{ route('seat-osmm.manifest') }}</code>. Your favicon include should reference this.
+            Served from <code>{{ route('osmm.manifest') }}</code>. Your favicon include should reference this.
           </div>
         </div>
 
