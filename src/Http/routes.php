@@ -42,4 +42,4 @@ Route::middleware(['web', 'auth', 'can:osmm.admin'])->group(function () {
 
 // Public-ish route for manifest (no auth; this is linked in <head>)
 Route::get('/osmm/manifest.json', [BrandingController::class, 'manifest'])
-    ->name('seat-osmm.manifest');
+    ->name('osmm.manifest');
