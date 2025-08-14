@@ -1,4 +1,3 @@
-{{-- resources/views/vendor/seat-osmm/config/branding.blade.php OR your osmm view path --}}
 @extends('web::layouts.app')
 
 @section('page_title', 'OSMM — Branding')
@@ -36,7 +35,7 @@
                 </label>
               </div>
               <small class="form-text text-muted">
-                When enabled, OSMM will render <code>web::layouts.sidebar</code> from your plugin and fall back to SeAT’s default when disabled.
+                When enabled, OSMM renders <code>web::layouts.sidebar</code> from your plugin; otherwise SeAT’s default.
               </small>
             </div>
 
@@ -59,13 +58,13 @@
                 </label>
               </div>
               <small class="form-text text-muted">
-                When enabled, OSMM will render <code>web::layouts.footer</code> from your plugin and fall back to SeAT’s default when disabled.
+                When enabled, OSMM renders <code>web::layouts.footer</code> from your plugin; otherwise SeAT’s default.
               </small>
             </div>
 
             <hr>
 
-            {{-- Manifest override (the missing toggle) --}}
+            {{-- Manifest override --}}
             <div class="form-group">
               <div class="custom-control custom-switch">
                 <input type="hidden" name="osmm_override_manifest" value="0">
@@ -82,13 +81,36 @@
                 </label>
               </div>
               <small class="form-text text-muted">
-                When enabled, OSMM will serve your stored manifest JSON from <code>{{ route('osmm.manifest') }}</code>.
+                Served from <code>{{ route('osmm.manifest') }}</code> when enabled.
               </small>
             </div>
 
             <hr>
 
-            {{-- Favicon HTML --}}
+            {{-- NEW: Favicon override --}}
+            <div class="form-group">
+              <div class="custom-control custom-switch">
+                <input type="hidden" name="osmm_override_favicon" value="0">
+                <input
+                  type="checkbox"
+                  class="custom-control-input"
+                  id="osmm_override_favicon"
+                  name="osmm_override_favicon"
+                  value="1"
+                  @checked(old('osmm_override_favicon', (int)($osmm_override_favicon ?? 0)) == 1)
+                >
+                <label class="custom-control-label" for="osmm_override_favicon">
+                  Use OSMM custom <strong>Favicon</strong>
+                </label>
+              </div>
+              <small class="form-text text-muted">
+                Inject your own <code>&lt;link rel="icon" ...&gt;</code>/<code>&lt;link rel="apple-touch-icon" ...&gt;</code> tags below.
+              </small>
+            </div>
+
+            <hr>
+
+            {{-- Sidebar Branding HTML --}}
             <div class="form-group">
               <label for="osmm_branding_sidebar_html" class="mb-1">Sidebar Branding HTML</label>
               <textarea
@@ -96,13 +118,11 @@
                 name="osmm_branding_sidebar_html"
                 class="form-control"
                 rows="4"
-                placeholder="Custom HTML for your sidebar brand block…"
+                placeholder="Custom HTML for your sidebar brand/logo…"
               >{{ old('osmm_branding_sidebar_html', $osmm_branding_sidebar_html ?? '') }}</textarea>
-              <small class="form-text text-muted">
-                Rendered where your custom sidebar expects a brand/logo block.
-              </small>
             </div>
 
+            {{-- Footer Branding HTML --}}
             <div class="form-group">
               <label for="osmm_branding_footer_html" class="mb-1">Footer Branding HTML</label>
               <textarea
@@ -114,6 +134,22 @@
               >{{ old('osmm_branding_footer_html', $osmm_branding_footer_html ?? '') }}</textarea>
             </div>
 
+            {{-- NEW: Favicon HTML --}}
+            <div class="form-group">
+              <label for="osmm_branding_favicon_html" class="mb-1">Favicon HTML (head)</label>
+              <textarea
+                id="osmm_branding_favicon_html"
+                name="osmm_branding_favicon_html"
+                class="form-control"
+                rows="5"
+                placeholder='<link rel="icon" href="{{ asset('storage/favicon-32x32.png') }}" sizes="32x32"> …'
+              >{{ old('osmm_branding_favicon_html', $osmm_branding_favicon_html ?? '') }}</textarea>
+              <small class="form-text text-muted">
+                Put one or more <code>&lt;link&gt;</code> tags. Render this only when <em>Favicon override</em> is enabled.
+              </small>
+            </div>
+
+            {{-- Manifest JSON --}}
             <div class="form-group">
               <label for="osmm_branding_manifest_json" class="mb-1">manifest.json</label>
               <textarea
@@ -124,7 +160,7 @@
                 placeholder='{"name":"SeAT","short_name":"SeAT"}'
               >{{ old('osmm_branding_manifest_json', $osmm_branding_manifest_json ?? '') }}</textarea>
               <small class="form-text text-muted">
-                Must be valid JSON (we validate on save). Pair with the Manifest toggle above.
+                Must be valid JSON (validated on save).
               </small>
             </div>
 
@@ -137,11 +173,12 @@
         </form>
       </div>
 
-      {{-- quick debug helper; remove in prod --}}
+      {{-- Debug helper; remove in prod --}}
       <div class="small text-muted mt-2">
         Current: sidebar={{ (int)($osmm_override_sidebar ?? 0) }},
         footer={{ (int)($osmm_override_footer ?? 0) }},
-        manifest={{ (int)($osmm_override_manifest ?? 0) }}
+        manifest={{ (int)($osmm_override_manifest ?? 0) }},
+        favicon={{ (int)($osmm_override_favicon ?? 0) }}
       </div>
 
     </div>

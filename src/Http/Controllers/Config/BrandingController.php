@@ -26,14 +26,14 @@ class BrandingController extends Controller
             ->pluck('value', 'key');
 
         return view('seat-osmm::config.branding', [
-            // booleans as ints for Blade
             'osmm_override_sidebar'       => (int)($values['osmm_override_sidebar'] ?? 0),
             'osmm_override_footer'        => (int)($values['osmm_override_footer'] ?? 0),
             'osmm_override_manifest'      => (int)($values['osmm_override_manifest'] ?? 0),
+            'osmm_override_favicon'       => (int)($values['osmm_override_favicon'] ?? 0), // NEW
 
-            // content blobs
-            'osmm_branding_footer_html'   => (string)($values['osmm_branding_footer_html'] ?? ''),
             'osmm_branding_sidebar_html'  => (string)($values['osmm_branding_sidebar_html'] ?? ''),
+            'osmm_branding_footer_html'   => (string)($values['osmm_branding_footer_html'] ?? ''),
+            'osmm_branding_favicon_html'  => (string)($values['osmm_branding_favicon_html'] ?? ''), // NEW
             'osmm_branding_manifest_json' => (string)($values['osmm_branding_manifest_json'] ?? ''),
         ]);
     }
