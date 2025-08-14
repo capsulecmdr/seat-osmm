@@ -5,7 +5,10 @@
     "autoload": {
         "psr-4": {
             "CapsuleCmdr\\SeatOsmm\\": "src/"
-        }
+        },
+        "files":[
+            "src/Support/osmm_settings.php"
+        ]
     },
     "authors": [
         {

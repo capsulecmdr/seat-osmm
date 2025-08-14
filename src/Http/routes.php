@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Route;
 use CapsuleCmdr\SeatOsmm\Http\Controllers\HomeOverrideController;
 use CapsuleCmdr\SeatOsmm\Http\Controllers\OsmmCalendarController;
 use CapsuleCmdr\SeatOsmm\Http\Controllers\TodoController;
+use CapsuleCmdr\SeatOsmm\Http\Controllers\Config\BrandingController;
 
 // 🟢 Override the homepage root route explicitly
 // Route::get('/', [HomeOverrideController::class, 'index'])
@@ -30,3 +31,15 @@ Route::middleware(['web','auth'])->prefix('osmm')->group(function () {
     Route::post('todos',       [TodoController::class, 'store'])->name('osmm.todos.store');
     Route::delete('todos/{id}',[TodoController::class, 'destroy'])->name('osmm.todos.destroy');
 });
+
+
+Route::middleware(['web', 'auth', 'can:osmm.admin'])->group(function () {
+    Route::get('/osmm/config/branding', [BrandingController::class, 'index'])
+        ->name('osmm.config.branding');
+    Route::post('/osmm/config/branding', [BrandingController::class, 'save'])
+        ->name('osmm.config.branding.save');
+});
+
+// Public-ish route for manifest (no auth; this is linked in <head>)
+Route::get('/osmm/manifest.json', [BrandingController::class, 'manifest'])
+    ->name('osmm.manifest');
