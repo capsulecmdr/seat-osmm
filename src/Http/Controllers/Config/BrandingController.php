@@ -42,7 +42,7 @@ class BrandingController extends Controller
         OsmmSetting::put('footer_branding_override',  $data['footer_branding_override'] ?? null,  'html', $uid);
         OsmmSetting::put('manifest_override',         $data['manifest_override'] ?? null,         'json', $uid);
 
-        return redirect()->route('seat-osmm.config.branding')->with('status', 'Branding settings saved.');
+        return redirect()->route('-osmm.config.branding')->with('status', 'Branding settings saved.');
     }
 
     // Serve manifest from DB (used by our favicon include)
