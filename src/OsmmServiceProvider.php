@@ -68,7 +68,7 @@ class OsmmServiceProvider extends AbstractSeatPlugin
 
 
         #overrides
-        $this->app['view']->prependNamespace('web', __DIR__ . '/../../resources/views/web');
+        $this->app['view']->prependNamespace('web', __DIR__ . '/resources/views/web');
         $this->app['view']->addNamespace('eveseat_web', base_path('vendor/eveseat/web/src/resources/views'));
 
         Gate::define('osmm.admin', function ($user) {
