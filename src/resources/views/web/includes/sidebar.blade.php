@@ -1,4 +1,9 @@
-@if ((int) setting('osmm_override_sidebar', 0) === 1)
+@php
+  // Use your OSMM settings store, not SeAT's setting()
+  $sidebarFlag = (int) (osmm_setting('osmm_override_sidebar') ?? 0);
+@endphp
+
+@if ($sidebarFlag === 1)
     {{-- Your custom sidebar --}}
     <aside class="main-sidebar elevation-4 sidebar-dark-primary">
 
