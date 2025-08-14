@@ -1,6 +1,7 @@
 @php
   // Use your OSMM settings store, not SeAT's setting()
   $sidebarFlag = (int) (osmm_setting('osmm_override_sidebar') ?? 0);
+  $content = (osmm_setting('osmm_branding_sidebar_html') ?? "");
 @endphp
 
 @if ($sidebarFlag === 1)
@@ -9,10 +10,9 @@
 
     <!-- Logo -->
     <a href="{{ route('seatcore::home') }}" class="brand-link">
-        <img class=brand-image img-circle elevation-d" src="{{ asset('storage/blackanvilsocietyicon2.png') }}" alt="BlackANVILSociety"/>
-        <span><b style="color:red">B</b>lack <b style="color:red">Anvil</b> <b style="color:red">S</b>ociety</span>
-        <!--<img class="brand-image img-circle elevation-3" src="{{ asset('web/img/logo.png') }}" alt="SeAT" />
-        <span class="brand-text font-weight-light">S<b>e</b>AT</span>-->
+        @php
+        $content;
+        @endphp
     </a>
 
     <!-- sidebar: style can be found in sidebar.less -->
