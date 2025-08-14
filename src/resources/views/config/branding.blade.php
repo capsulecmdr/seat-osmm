@@ -8,27 +8,6 @@
   <div class="row">
     <div class="col-md-10 col-lg-9">
 
-      {{-- Flash status --}}
-      @if (session('status'))
-        <div class="alert alert-success alert-dismissible fade show">
-          {{ session('status') }}
-          <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-            <span aria-hidden="true">&times;</span>
-          </button>
-        </div>
-      @endif
-
-      {{-- Validation errors --}}
-      @if ($errors->any())
-        <div class="alert alert-danger">
-          <ul class="mb-0">
-            @foreach ($errors->all() as $error)
-              <li>{{ $error }}</li>
-            @endforeach
-          </ul>
-        </div>
-      @endif
-
       <div class="card">
         <div class="card-header">
           <h3 class="card-title mb-0">Branding & Layout Overrides</h3>
