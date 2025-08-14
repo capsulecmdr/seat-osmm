@@ -1,6 +1,14 @@
 <footer class="main-footer">
 
-  <!-- To the right -->
+@php
+  // Use your OSMM settings store, not SeAT's setting()
+  $footerFlag = (int) (osmm_setting('osmm_override_footer') ?? 0);
+  $content = (osmm_setting('osmm_branding_footer_html') ?? "");
+@endphp
+
+@if ($footerFlag === 1)
+    {{-- Your custom footer --}}
+    <!-- To the right -->
   <div class="float-right d-none d-sm d-sm-inline">
     <i class="fas fa-server" data-toggle="tooltip" title="{{ gethostname() }}"></i>
 
@@ -25,6 +33,11 @@
   </div>
 
   <!-- Default to the left -->
-  <strong><b style="color:darkred">B</b>lack <b style="color:darkred">Anvil</b> <b style="color:darkred">S</b>ociety    </strong><sub>Powered by:  <a href="https://github.com/eveseat/seat" target="_blank">SeAT</a> | {{ trans('web::seat.copyright') }} &copy; {{ date('Y') }}</sub>
+  <strong>{!! $content !!}    </strong><sub>Powered by:  <a href="https://github.com/eveseat/seat" target="_blank">SeAT</a> | {{ trans('web::seat.copyright') }} &copy; {{ date('Y') }}</sub>
   <!--<strong>{{ trans('web::seat.copyright') }} &copy; {{ date('Y') }} | <a href="https://github.com/eveseat/seat" target="_blank">SeAT</a></strong>-->
 </footer>
+@else
+    {{-- Fall back to the original SeAT sidebar --}}
+    @include('eveseat_web::includes.footer')
+@endif
+
