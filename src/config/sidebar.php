@@ -9,10 +9,12 @@ return [
         // no 'entries' => [...] means this item itself is clickable
         'order'      => 95, // optional: position relative to other top-level items
         'entries' => [
-            'name' => 'Config Manager',
-            'icon' => 'fa fa-cogs',
-            'route' => 'seat-osmm.config.branding',
-            'permission' => 'osmm.admin',
+            [
+                'name' => 'Config Manager',
+                'icon' => 'fa fa-cogs',
+                'route' => 'seat-osmm.config.branding',
+                'permission' => 'osmm.admin',
+            ],
         ],
     ],
 ];
