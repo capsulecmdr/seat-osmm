@@ -9,7 +9,6 @@ use CapsuleCmdr\SeatOsmm\Http\Controllers\HomeOverrideController;
 use CapsuleCmdr\SeatOsmm\Support\Esi\EsiTokenStorage;
 use CapsuleCmdr\SeatOsmm\Support\Esi\SeatRelationTokenStorage;
 use Illuminate\Support\Facades\Gate;
-use Seat\Services\Menu\Facade\Menu;
 
 class OsmmServiceProvider extends AbstractSeatPlugin
 {
@@ -76,14 +75,6 @@ class OsmmServiceProvider extends AbstractSeatPlugin
             // SeAT will map this via its permission system if you also expose it in config.
             return $user->has('osmm.admin');
         });
-
-        Menu::add('OSMM Config', [
-            'icon'       => 'fa fa-cogs',
-            'route'      => 'osmm.config.branding',
-            'permission' => 'osmm.admin',
-            'parent'     => 'tools',   // places it under "SeAT Tools"
-            'order'      => 999,       // near the bottom of Tools
-        ]);
     }
     
     private function addPublications(): void
