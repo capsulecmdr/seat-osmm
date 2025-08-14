@@ -12,7 +12,7 @@ class BrandingController extends Controller
     public function index()
     {
         // Pull all branding keys in one query
-        $values = \CapsuleCmdr\SeatOsmm\Models\OsmmSetting::query()
+        $values = OsmmSetting::query()
             ->whereIn('key', [
                 'favicon_override_html',
                 'sidebar_branding_override',
@@ -22,7 +22,7 @@ class BrandingController extends Controller
             ->pluck('value', 'key');
 
         // Return the settings page with safe fallbacks
-        return view('osmm::config.branding', [
+        return view('seat-osmm::config.branding', [
             'favicon_override_html'     => (string)($values['favicon_override_html'] ?? ''),
             'sidebar_branding_override' => (string)($values['sidebar_branding_override'] ?? ''),
             'footer_branding_override'  => (string)($values['footer_branding_override'] ?? ''),
