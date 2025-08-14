@@ -76,7 +76,6 @@ class OsmmServiceProvider extends AbstractSeatPlugin
             return $user->has('osmm.admin');
         });
     }
-    
     private function addPublications(): void
     {
         // $this->publishes([
