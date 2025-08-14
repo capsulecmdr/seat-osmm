@@ -11,12 +11,25 @@ class BrandingController extends Controller
 {
     public function index()
     {
-        // Permission gate handled by route middleware; just render values
-        return view('seat-osmm::config.branding', [
-            'favicon_override_html'       => osmm_setting('favicon_override_html', ''),
+        // Pull all branding keys in one query
+        $values = \CapsuleCmdr\SeatOsmm\Models\OsmmSetting::query()
+            ->whereIn('key', [
+                'favicon_override_html',
+                'sidebar_branding_override',
+                'footer_branding_override',
+                'manifest_override',
+            ])
+            ->pluck('value', 'key');
 
+        // Return the settings page with safe fallbacks
+        return view('osmm::config.branding', [
+            'favicon_override_html'     => (string)($values['favicon_override_html'] ?? ''),
+            'sidebar_branding_override' => (string)($values['sidebar_branding_override'] ?? ''),
+            'footer_branding_override'  => (string)($values['footer_branding_override'] ?? ''),
+            'manifest_override'         => (string)($values['manifest_override'] ?? ''),
         ]);
     }
+
 
     public function save(Request $request)
     {
