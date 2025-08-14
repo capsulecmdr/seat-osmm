@@ -1,4 +1,4 @@
-@if (setting('osmm_override_sidebar', false))
+@if ((int) setting('osmm_override_sidebar', 0) === 1)
     {{-- Your custom sidebar --}}
     <aside class="main-sidebar elevation-4 sidebar-dark-primary">
 
