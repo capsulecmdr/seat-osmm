@@ -50,9 +50,13 @@ class HomeOverrideController extends Controller
         ->map(fn($c) => ['id' => (int) $c->character_id, 'name' => $c->name])
         ->values();
 
-        $publicInfo = $this->getPublicCharacterInfo($user->characters()->first()->character_id);
+        $characterId = $user->characters()->first()?->character_id;
+        $publicInfo = $characterId ? $this->getPublicCharacterInfo($characterId) : null;        
+        $blueprints = $characterId ? $this->getPublicCharacterInfo($characterId) : null;
 
-        $blueprints = $this->blueprintsView($user->characters()->first()->character_id);
+        // $publicInfo = $this->getPublicCharacterInfo($user->characters()->first()->character_id);
+
+        // $blueprints = $this->blueprintsView($user->characters()->first()->character_id);
 
 
         return view('seat-osmm::home', compact('homeElements','inWar','km','mining','walletBalance30','walletByChar','allocation','skillsChars','publicInfo','blueprints'));
