@@ -9,6 +9,7 @@ use CapsuleCmdr\SeatOsmm\Http\Controllers\HomeOverrideController;
 use CapsuleCmdr\SeatOsmm\Support\Esi\EsiTokenStorage;
 use CapsuleCmdr\SeatOsmm\Support\Esi\SeatRelationTokenStorage;
 use Illuminate\Support\Facades\Gate;
+use Seat\Services\Menu\Facade\Menu;
 
 class OsmmServiceProvider extends AbstractSeatPlugin
 {
