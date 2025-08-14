@@ -7,7 +7,8 @@
             "CapsuleCmdr\\SeatOsmm\\": "src/"
         },
         "files":[
-            "src/Support/osmm_settings.php"
+            "src/Support/osmm_settings.php",
+            "src/Support/helpers.php"
         ]
     },
     "authors": [

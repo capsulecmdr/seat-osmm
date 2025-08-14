@@ -19,8 +19,9 @@
     @if(file_exists(storage_path('version')))
       <b>{{ trans('web::seat.docker_version') }}</b> {{ file_get_contents(storage_path('version')) }}
     @else
-      <b>{{ trans('web::seat.web_version') }}</b> {{ Composer\InstalledVersions::getPrettyVersion('eveseat/web') ?? trans('web::seat.unknown') }}
+      <b>{{ trans('web::seat.web_version') }}</b> {{ Composer\InstalledVersions::getPrettyVersion('eveseat/web') ?? trans('web::seat.unknown') }} |
     @endif
+    <b>OSMM Version</b> {{ plugin_version('capsulecmdr/seat-osmm') }}
   </div>
 
   <!-- Default to the left -->
