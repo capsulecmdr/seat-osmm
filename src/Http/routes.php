@@ -35,11 +35,11 @@ Route::middleware(['web','auth'])->prefix('osmm')->group(function () {
 
 Route::middleware(['web', 'auth', 'can:osmm.admin'])->group(function () {
     Route::get('/osmm/config/branding', [BrandingController::class, 'index'])
-        ->name('osmm.config.branding');
+        ->name('seat-osmm.config.branding');
     Route::post('/osmm/config/branding', [BrandingController::class, 'save'])
-        ->name('osmm.config.branding.save');
+        ->name('seat-osmm.config.branding.save');
 });
 
 // Public-ish route for manifest (no auth; this is linked in <head>)
 Route::get('/osmm/manifest.json', [BrandingController::class, 'manifest'])
-    ->name('osmm.manifest');
+    ->name('seat-osmm.manifest');
