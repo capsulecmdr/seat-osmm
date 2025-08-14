@@ -15,7 +15,7 @@
     </div>
   @endif
 
-  <form method="POST" action="{{ route('seat-osmm.config.branding.save') }}">
+  <form method="POST" action="{{ route('osmm.config.branding.save') }}">
     @csrf
 
     {{-- Sidebar Branding --}}
