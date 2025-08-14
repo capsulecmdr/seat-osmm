@@ -35,7 +35,6 @@
     <!-- Default to the left -->
     <strong>{!! $content !!} </strong><sub>Powered by: <a href="https://github.com/eveseat/seat" target="_blank">SeAT</a>
     | {{ trans('web::seat.copyright') }} &copy; {{ date('Y') }}</sub>
-    <!--<strong>{{ trans('web::seat.copyright') }} &copy; {{ date('Y') }} | <a href="https://github.com/eveseat/seat" target="_blank">SeAT</a></strong>-->
   </footer>
 @else
   {{-- Fall back to the original SeAT sidebar --}}
