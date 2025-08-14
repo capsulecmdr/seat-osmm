@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Route;
 use CapsuleCmdr\SeatOsmm\Http\Controllers\HomeOverrideController;
 use CapsuleCmdr\SeatOsmm\Support\Esi\EsiTokenStorage;
 use CapsuleCmdr\SeatOsmm\Support\Esi\SeatRelationTokenStorage;
+use Illuminate\Support\Facades\Gate;
 
 class OsmmServiceProvider extends AbstractSeatPlugin
 {
