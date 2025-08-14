@@ -10,9 +10,7 @@
 
     <!-- Logo -->
     <a href="{{ route('seatcore::home') }}" class="brand-link">
-        @php
-        $content;
-        @endphp
+        {!! $content !!}
     </a>
 
     <!-- sidebar: style can be found in sidebar.less -->
