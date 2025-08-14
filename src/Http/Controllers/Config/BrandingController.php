@@ -76,7 +76,7 @@ class BrandingController extends Controller
         OsmmSetting::put('osmm_branding_manifest_json', $data['osmm_branding_manifest_json'] ?? '', 'json', $uid);
 
         return redirect()
-            ->route('osmm.config.branding')
+            ->route('seat-osmm.config.branding')
             ->with('status', 'Branding settings saved.');
     }
 
