@@ -643,6 +643,29 @@ class HomeOverrideController extends Controller
         return $nodes;
     }
 
+    private function computeAllocationUpdated($user): ?string
+{
+    // Collect char IDs once
+    $charIds = $user->characters()
+        ->select('character_infos.character_id')
+        ->distinct()
+        ->pluck('character_infos.character_id');
+
+    // Latest asset update across the user’s characters
+    $assetsUpdatedAt = $charIds->isNotEmpty()
+        ? DB::table('character_assets')->whereIn('character_id', $charIds)->max('updated_at')
+        : null;
+
+    // Optional: include price table freshness if it has updated_at
+    $pricesUpdatedAt = \Schema::hasTable('market_prices') && \Schema::hasColumn('market_prices','updated_at')
+        ? DB::table('market_prices')->max('updated_at')
+        : null;
+
+    $freshest = collect([$assetsUpdatedAt, $pricesUpdatedAt])->filter()->max();
+
+    return $freshest ? \Carbon\Carbon::parse($freshest, 'UTC')->toIso8601String() : null;
+}
+
 
 
 
