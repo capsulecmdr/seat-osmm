@@ -609,6 +609,147 @@ class HomeOverrideController extends Controller
         'updated' => now('UTC')->toIso8601String(),
     ];
 }
+private function resolveLocationNames(array $ids): array
+{
+    if (empty($ids)) return [];
+
+    $ids    = array_values(array_unique(array_map('strval', $ids)));
+    $idInts = array_map('intval', $ids);
+
+    $eveConn = (new CA)->getConnectionName();
+    $names   = [];
+
+    // Classify first (avoids pointless lookups)
+    $systemIds    = [];
+    $stationIds   = [];
+    $structureIds = [];
+    foreach ($ids as $sid) {
+        $n = (int) $sid;
+        if ($n < 100000000) {          // solar system
+            $systemIds[] = $n;
+        } elseif ($n < 1000000000) {   // NPC station
+            $stationIds[] = $n;
+        } else {                       // Upwell structure
+            $structureIds[] = $sid;    // keep as string for bigint-safe array keys
+        }
+    }
+
+    // 1) Upwell structures from local cache (universe_structures)
+    if (!empty($structureIds) && Schema::connection($eveConn)->hasTable('universe_structures')) {
+        try {
+            $rows = DB::connection($eveConn)->table('universe_structures')
+                ->whereIn('structure_id', array_map('intval', $structureIds))
+                ->pluck('name', 'structure_id');
+            foreach ($rows as $k => $v) $names[(string)$k] = $v;
+        } catch (\Throwable $e) {}
+    }
+
+    // 2) NPC stations from universe_stations (preferred)
+    if (!empty($stationIds) && Schema::connection($eveConn)->hasTable('universe_stations')) {
+        try {
+            $rows = DB::connection($eveConn)->table('universe_stations')
+                ->whereIn('station_id', $stationIds)
+                ->pluck('name', 'station_id');
+            foreach ($rows as $k => $v) $names[(string)$k] = $v;
+        } catch (\Throwable $e) {}
+    }
+
+    // 3) Solar systems from SDE if available
+    if (!empty($systemIds) && class_exists(\App\Models\Sde\MapSolarSystem::class)) {
+        try {
+            $rows = \App\Models\Sde\MapSolarSystem::whereIn('solarSystemID', $systemIds)
+                ->pluck('solarSystemName', 'solarSystemID');
+            foreach ($rows as $k => $v) $names[(string)$k] = $v;
+        } catch (\Throwable $e) {}
+    }
+
+    // 4) Fallback: universe_names table (covers many entities)
+    $missing = array_values(array_diff($ids, array_keys($names)));
+    if (!empty($missing) && Schema::connection($eveConn)->hasTable('universe_names')) {
+        try {
+            $rows = DB::connection($eveConn)->table('universe_names')
+                ->whereIn('entity_id', array_map('intval', $missing))
+                ->pluck('name', 'entity_id');
+            foreach ($rows as $k => $v) $names[(string)$k] = $v;
+            $missing = array_values(array_diff($ids, array_keys($names)));
+        } catch (\Throwable $e) {}
+    }
+
+    // 5) Last‑resort for structures still missing: live ESI (requires esi-universe.read_structures.v1)
+    $stillMissingStructures = array_values(array_filter($missing, fn($x) => (int)$x >= 1000000000));
+    if (!empty($stillMissingStructures)) {
+        $esiNames = $this->resolveStructureNamesViaEsi($stillMissingStructures);
+        foreach ($esiNames as $k => $v) {
+            $names[(string)$k] = $v;
+        }
+        $missing = array_values(array_diff($ids, array_keys($names)));
+    }
+
+    // 6) Human fallback for anything still unresolved
+    foreach ($ids as $id) {
+        if (!isset($names[$id])) {
+            $names[$id] = ((int)$id >= 1000000000)
+                ? "Unknown Structure (ID: {$id})"
+                : 'Location ' . $id;
+        }
+    }
+
+    return $names;
+}
+
+/**
+ * Try live ESI /universe/structures/{id} for player structures.
+ * Returns [structure_id(string) => name]
+ */
+private function resolveStructureNamesViaEsi(array $structureIds): array
+{
+    $out = [];
+
+    // Find any linked character with the needed scope
+    $char = Auth::user()->characters()
+        ->whereHas('tokens', function ($q) {
+            $q->where('scopes', 'like', '%esi-universe.read_structures.v1%');
+        })
+        ->first();
+
+    if (!$char) {
+        return $out; // no scope; caller will use fallback label
+    }
+
+    $esi = $this->makeEsiForCharacter((int) $char->character_id);
+
+    foreach ($structureIds as $sid) {
+        try {
+            // Adjust to your EsiCall signature if different
+            $resp = method_exists($esi, 'get')
+                ? $esi->get("/universe/structures/{$sid}/")
+                : $esi->invoke('get', "/universe/structures/{$sid}/");
+
+            if (is_array($resp) && !empty($resp['name'])) {
+                $out[(string)$sid] = $resp['name'];
+            } elseif (is_object($resp) && !empty($resp->name)) {
+                $out[(string)$sid] = $resp->name;
+            }
+        } catch (\Throwable $e) {
+            // 403/404/5xx — ignore; caller will fallback-name it
+        }
+    }
+
+    return $out;
+}
+
+/**
+ * Return an authenticated ESI client for the given character.
+ * Wire this to your existing OSMM ESI wrapper.
+ */
+private function makeEsiForCharacter(int $character_id)
+{
+    // If you have a custom wrapper, keep using it:
+    // withSeatUser(Auth::user()) should bind the right tokens.
+    /** @var \CapsuleCmdr\SeatOsmm\Support\Esi\EsiCall $esi */
+    $esi = app(\CapsuleCmdr\SeatOsmm\Support\Esi\EsiCall::class)->withSeatUser(Auth::user());
+    return $esi;
+}
 
 
     
