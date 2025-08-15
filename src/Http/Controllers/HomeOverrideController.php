@@ -497,43 +497,11 @@ class HomeOverrideController extends Controller
     $eveConn     = (new CA)->getConnectionName();
 
     $cols = ['character_id', 'type_id', 'quantity', 'location_id'];
-
-    $has_location_type = Schema::connection($eveConn)->hasColumn($assetsTable, 'location_type');
-    if ($has_location_type) $cols[] = 'location_type';
-
-    // (optional) if you track item_id we can avoid counting items that live inside other items
     $has_item_id = Schema::connection($eveConn)->hasColumn($assetsTable, 'item_id');
     if ($has_item_id) $cols[] = 'item_id';
 
+    // NOTE: we do NOT rely on location_type filtering anymore.
     $assets = CA::whereIn('character_id', $char_ids)->get($cols);
-
-    if ($assets->isEmpty()) {
-        return ['leaves' => [], 'updated' => $now];
-    }
-
-    // Filter: keep stations/structures/systems; drop obvious nested containers;
-    // keep NULL location_type (these are often structures or legacy rows).
-    if ($has_location_type) {
-        $containerIds = [];
-        if ($has_item_id) {
-            // normalize to string for strict in_array below
-            $containerIds = $assets->pluck('item_id')->filter()->map(fn($v) => (string)$v)->values()->all();
-        }
-
-        $assets = $assets->filter(function ($a) use ($containerIds, $has_item_id) {
-            // If we can prove it's nested in another item, drop it
-            if ($has_item_id && in_array((string)$a->location_id, $containerIds, true)) {
-                return false;
-            }
-            // Keep obvious top-levels
-            if (in_array($a->location_type, ['station', 'solar_system', 'structure', 'other'], true)) {
-                return true;
-            }
-            // Keep NULL location_type — could be a structure/system row we still want
-            return $a->location_type === null;
-        })->values();
-    }
-
     if ($assets->isEmpty()) {
         return ['leaves' => [], 'updated' => $now];
     }
@@ -566,33 +534,69 @@ class HomeOverrideController extends Controller
         return 'Other';
     };
 
-    // ---- Roll up ISK by (location_id, bucket) ----
+    // ---- Build container maps to "walk up" to the top-level place ----
+    // itemId -> parentLocationId (string keys)
+    $itemParent = [];
+    if ($has_item_id) {
+        foreach ($assets as $a) {
+            if (!is_null($a->item_id)) {
+                $itemParent[(string)$a->item_id] = (string)$a->location_id;
+            }
+        }
+    }
+
+    // set of item_ids that are referenced by some asset's location_id => this asset is a container
+    $referencedItemIds = [];
+    if ($has_item_id) {
+        $locIdsAsStr = $assets->pluck('location_id')->map(fn($v)=>(string)$v)->unique()->flip();
+        foreach ($assets as $a) {
+            if (!is_null($a->item_id) && isset($locIdsAsStr[(string)$a->item_id])) {
+                $referencedItemIds[(string)$a->item_id] = true;
+            }
+        }
+    }
+
+    // helper: follow location_id up through containers until we hit a real place id
+    $topLocationId = function (string $loc) use ($itemParent): string {
+        $guard = 0;
+        while (isset($itemParent[$loc]) && $guard++ < 20) {
+            $loc = $itemParent[$loc]; // climb: container -> its parent location_id
+        }
+        return $loc; // station_id / structure_id / solarSystemID / leftover
+    };
+
+    // ---- Roll up ISK by (top_location_id, bucket) ----
     $byLocBucket = [];
-    $locationIds = [];
+    $topLocIds = [];
 
     foreach ($assets as $a) {
         $qty = (int) $a->quantity;
         if ($qty <= 0) continue;
 
         $px  = (float) ($priceMap[(int) $a->type_id] ?? 0.0);
-        if ($px <= 0) continue; // no price data, skip
+        if ($px <= 0) continue;
 
-        $isk = $px * $qty;
+        // Skip container assets themselves (but keep their contents)
+        if ($has_item_id && isset($referencedItemIds[(string)($a->item_id ?? '')])) {
+            continue;
+        }
 
-        $loc    = (string) $a->location_id;
+        // Attribute ALL assets (even nested) to the top-level place (station/structure/system).
+        $locTop = $topLocationId((string)$a->location_id);
         $bucket = $bucketOf((int) $a->type_id);
+        $isk    = $px * $qty;
 
-        $byLocBucket[$loc][$bucket] = ($byLocBucket[$loc][$bucket] ?? 0.0) + $isk;
-        $locationIds[$loc] = true;
+        $byLocBucket[$locTop][$bucket] = ($byLocBucket[$locTop][$bucket] ?? 0.0) + $isk;
+        $topLocIds[$locTop] = true;
     }
 
     if (empty($byLocBucket)) {
         return ['leaves' => [], 'updated' => $now];
     }
 
-    // ---- Resolve location names (structures → stations → systems → universe_names → ESI) ----
-    $locIds   = array_keys($locationIds);
-    $locNames = $this->resolveLocationNames($locIds); // safe, best-effort
+    // ---- Resolve location names for the *top-level* ids ----
+    $locIds   = array_keys($topLocIds);
+    $locNames = $this->resolveLocationNames($locIds); // structures → stations → systems → universe_names → ESI
 
     // ---- Build leaves: [label, parent (location name), isk] ----
     $leaves = [];
@@ -611,7 +615,7 @@ class HomeOverrideController extends Controller
     usort($leaves, fn($a,$b)=> $b['isk'] <=> $a['isk']);
 
     return [
-        'leaves'  => $leaves, // array of {label, loc, isk}
+        'leaves'  => $leaves,
         'updated' => $now,
     ];
 }
