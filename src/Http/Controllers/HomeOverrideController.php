@@ -478,210 +478,138 @@ class HomeOverrideController extends Controller
     }
 
     private function buildAssetAllocationTreemap(): array
-    {
-        $user = Auth::user();
+{
+    $user = Auth::user();
 
-        // Linked characters
-        $char_ids = $user->characters()
-            ->select('character_infos.character_id')
-            ->distinct()
-            ->pluck('character_infos.character_id');
+    // Linked characters
+    $char_ids = $user->characters()
+        ->select('character_infos.character_id')
+        ->distinct()
+        ->pluck('character_infos.character_id');
 
-        if ($char_ids->isEmpty()) {
-            return ['leaves' => [], 'updated' => now('UTC')->toIso8601String()];
+    if ($char_ids->isEmpty()) {
+        return ['leaves' => [], 'updated' => now('UTC')->toIso8601String()];
+    }
+
+    // Pull current snapshot of assets
+    $cols = ['character_id', 'type_id', 'quantity', 'location_id'];
+    $has_location_type = Schema::connection((new CA)->getConnectionName())
+        ->hasColumn((new CA)->getTable(), 'location_type');
+
+    if ($has_location_type) $cols[] = 'location_type';
+
+    // (optional) if you track item_id we can avoid counting items that live inside other items
+    $has_item_id = Schema::connection((new CA)->getConnectionName())
+        ->hasColumn((new CA)->getTable(), 'item_id');
+    if ($has_item_id) $cols[] = 'item_id';
+
+    $assets = CA::whereIn('character_id', $char_ids)->get($cols);
+
+    if ($assets->isEmpty()) {
+        return ['leaves' => [], 'updated' => now('UTC')->toIso8601String()];
+    }
+
+    // Filter: keep stations/structures/systems; drop obvious nested containers;
+    // keep NULL location_type (these are often structures or legacy rows).
+    if ($has_location_type) {
+        $containerIds = [];
+        if ($has_item_id) {
+            $containerIds = $assets->pluck('item_id')->filter()->values()->all();
         }
 
-        // Pull current snapshot of assets
-        // If your table has location_type, we’ll prefer rows that are in stations/structures.
-        $cols = ['character_id', 'type_id', 'quantity', 'location_id'];
-        $has_location_type = Schema::connection((new CA)->getConnectionName())
-            ->hasColumn((new CA)->getTable(), 'location_type');
-
-        if ($has_location_type) $cols[] = 'location_type';
-
-        $assets = CA::whereIn('character_id', $char_ids)->get($cols);
-
-        if ($assets->isEmpty()) {
-            return ['leaves' => [], 'updated' => now('UTC')->toIso8601String()];
-        }
-
-        // Optionally filter out items whose location_id is another item (ship/container)
-        if ($has_location_type) {
-            $assets = $assets->filter(function ($a) {
-                // keep obvious station/structure/system; drop 'item' containers to avoid double-counting
-                return in_array($a->location_type, ['station', 'solar_system', 'structure', 'other'], true);
-            })->values();
-        }
-
-        if ($assets->isEmpty()) {
-            return ['leaves' => [], 'updated' => now('UTC')->toIso8601String()];
-        }
-
-        // ---- Price map (reuse your helper order or pass a preference array) ----
-        $type_ids = $assets->pluck('type_id')->unique();
-        $priceMap = $this->priceMapForTypeIds($type_ids, ['adjusted_price','average_price','sell_price','average','buy_price']);
-
-        // ---- Category mapping via SDE groups ----
-        $types  = InvType::whereIn('typeID', $type_ids)->get(['typeID','groupID']);
-        $groups = InvGroup::whereIn('groupID', $types->pluck('groupID')->unique())
-            ->get(['groupID','groupName'])->keyBy('groupID');
-
-        $bucketOf = function (int $type_id) use ($types, $groups): string {
-            $t = $types->firstWhere('typeID', $type_id);
-            $g = $t ? ($groups[$t->groupID] ?? null) : null;
-            $name = strtolower($g->groupName ?? '');
-            if (str_contains($name,'ship'))       return 'Ships';
-            if (str_contains($name,'module'))     return 'Modules';
-            if (str_contains($name,'ammunition')) return 'Ammo';
-            if (str_contains($name,'charge'))     return 'Ammo';
-            if (str_contains($name,'blueprint'))  return 'Blueprints';
-            if (str_contains($name,'mineral'))    return 'Minerals';
-            if (str_contains($name,'ore'))        return 'Ore';
-            if (str_contains($name,'planetary') ||
-                str_contains($name,'pi'))         return 'PI';
-            if (str_contains($name,'salvage'))    return 'Salvage';
-            return 'Other';
-        };
-
-        // ---- Roll up ISK by (location_id, bucket) ----
-        $byLocBucket = [];
-        $locationIds = [];
-
-        foreach ($assets as $a) {
-            $qty = (int) $a->quantity;
-            if ($qty <= 0) continue;
-
-            $px  = (float) ($priceMap[(int) $a->type_id] ?? 0.0);
-            if ($px <= 0) continue; // no price data, skip
-
-            $isk = $px * $qty;
-
-            $loc = (string) $a->location_id;
-            $bucket = $bucketOf((int) $a->type_id);
-
-            $byLocBucket[$loc][$bucket] = ($byLocBucket[$loc][$bucket] ?? 0.0) + $isk;
-            $locationIds[$loc] = true;
-        }
-
-        if (empty($byLocBucket)) {
-            return ['leaves' => [], 'updated' => now('UTC')->toIso8601String()];
-        }
-
-        // ---- Resolve location names ----
-        $locIds = array_keys($locationIds);
-        $locNames = $this->resolveLocationNames($locIds); // safe, best-effort
-
-        // ---- Build leaves: [label, parent (location name), isk] ----
-        $leaves = [];
-        foreach ($byLocBucket as $locId => $buckets) {
-            $locName = $locNames[$locId] ?? ('Location ' . $locId);
-            foreach ($buckets as $bucket => $isk) {
-                $leaves[] = [
-                    'label' => sprintf('%s (%s)', $bucket, $locName),
-                    'loc'   => $locName,
-                    'isk'   => (float) $isk,
-                ];
+        $assets = $assets->filter(function ($a) use ($containerIds, $has_item_id) {
+            // If we can prove it's nested in another item, drop it
+            if ($has_item_id && in_array($a->location_id, $containerIds, true)) {
+                return false;
             }
-        }
-
-        // Sort largest first (optional)
-        usort($leaves, fn($a,$b)=> $b['isk'] <=> $a['isk']);
-
-        return [
-            'leaves'  => $leaves, // array of {label, loc, isk}
-            'updated' => now('UTC')->toIso8601String(),
-        ];
-    }
-
-    private function resolveTopLevelLocationName(CA $asset): string
-    {
-        // Eager load if needed (avoids N+1 when you call this in a loop)
-        if (! $asset->relationLoaded('container'))      $asset->load('container');
-        if (! $asset->relationLoaded('station'))        $asset->load('station');
-        if (! $asset->relationLoaded('structure'))      $asset->load('structure');
-        if (! $asset->relationLoaded('solar_system'))   $asset->load('solar_system');
-
-        // Walk up through containers/ship holds until we hit a real place
-        $guard = 0;
-        $node  = $asset;
-        while ($node && $node->location_type === 'other' && $guard++ < 10) {
-            if (! $node->relationLoaded('container')) $node->load('container');
-            $node = $node->container; // parent asset (item_id == this location_id)
-        }
-
-        if (! $node) return 'Unknown';
-
-        return match ($node->location_type) {
-            'station'      => $node->station->name ?? 'Unknown Station',
-            'structure'    => $node->structure->name ?? 'Unknown Structure',
-            'solar_system' => $node->solar_system->name ?? 'Unknown System',
-            default        => 'Location ' . $node->location_id,
-        };
-    }
-
-    /**
-     * Best-effort name resolver when you ONLY have raw location IDs.
-     * Tries:
-     *  - Upwell structures  -> universe_structures (eve connection)
-     *  - NPC stations       -> SDE sta_stations
-     *  - Solar systems      -> SDE mapSolarSystems
-     *  - Fallback           -> universe_names (eve connection)
-     *
-     * @param array<int|string> $ids  list of location_id values
-     * @return array<string,string>   map: (string)location_id => name
-     */
-    private function resolveLocationNames(array $ids): array
-    {
-        if (empty($ids)) return [];
-
-        $ids    = array_values(array_unique(array_map('strval', $ids)));
-        $idInts = array_map('intval', $ids);
-
-        // Same connection as assets/universe_* tables
-        $eveConn = (new CA)->getConnectionName();
-
-        $names = [];
-
-        // 1) Upwell structures (if you have esi-universe.read_structures.v1 and they’re hydrated)
-        if (Schema::connection($eveConn)->hasTable('universe_structures')) {
-            try {
-                $rows = DB::connection($eveConn)->table('universe_structures')
-                    ->whereIn('structure_id', $idInts)
-                    ->pluck('name', 'structure_id');
-                foreach ($rows as $k => $v) $names[(string)$k] = $v;
-            } catch (\Throwable $e) {}
-        }
-
-        // 2) NPC stations via universe_stations (ESI-hydrated)
-        if (Schema::connection($eveConn)->hasTable('universe_stations')) {
-            try {
-                $rows = DB::connection($eveConn)->table('universe_stations')
-                    ->whereIn('station_id', $idInts)
-                    ->pluck('name', 'station_id');
-                foreach ($rows as $k => $v) $names[(string)$k] = $v;
-            } catch (\Throwable $e) {}
-        }
-
-        // 3) Fallback: universe_names (covers many entity IDs)
-        if (Schema::connection($eveConn)->hasTable('universe_names')) {
-            $missing = array_values(array_diff($ids, array_keys($names)));
-            if (!empty($missing)) {
-                try {
-                    $rows = DB::connection($eveConn)->table('universe_names')
-                        ->whereIn('entity_id', array_map('intval', $missing))
-                        ->pluck('name', 'entity_id');
-                    foreach ($rows as $k => $v) $names[(string)$k] = $v;
-                } catch (\Throwable $e) {}
+            // Keep obvious top-levels
+            if (in_array($a->location_type, ['station', 'solar_system', 'structure', 'other'], true)) {
+                return true;
             }
-        }
-
-        // Readable fallback for anything still unresolved
-        foreach ($ids as $id) {
-            if (!isset($names[$id])) $names[$id] = 'Location ' . $id;
-        }
-
-        return $names;
+            // Keep NULL location_type — could be a structure/system row we still want
+            return $a->location_type === null;
+        })->values();
     }
+
+    if ($assets->isEmpty()) {
+        return ['leaves' => [], 'updated' => now('UTC')->toIso8601String()];
+    }
+
+    // ---- Price map ----
+    $type_ids = $assets->pluck('type_id')->unique();
+    $priceMap = $this->priceMapForTypeIds($type_ids, ['adjusted_price','average_price','sell_price','average','buy_price']);
+
+    // ---- Category mapping via SDE groups ----
+    $types  = InvType::whereIn('typeID', $type_ids)->get(['typeID','groupID']);
+    $groups = InvGroup::whereIn('groupID', $types->pluck('groupID')->unique())
+        ->get(['groupID','groupName'])->keyBy('groupID');
+
+    $bucketOf = function (int $type_id) use ($types, $groups): string {
+        $t = $types->firstWhere('typeID', $type_id);
+        $g = $t ? ($groups[$t->groupID] ?? null) : null;
+        $name = strtolower($g->groupName ?? '');
+        if (str_contains($name,'ship'))       return 'Ships';
+        if (str_contains($name,'module'))     return 'Modules';
+        if (str_contains($name,'ammunition')) return 'Ammo';
+        if (str_contains($name,'charge'))     return 'Ammo';
+        if (str_contains($name,'blueprint'))  return 'Blueprints';
+        if (str_contains($name,'mineral'))    return 'Minerals';
+        if (str_contains($name,'ore'))        return 'Ore';
+        if (str_contains($name,'planetary') || str_contains($name,'pi')) return 'PI';
+        if (str_contains($name,'salvage'))    return 'Salvage';
+        return 'Other';
+    };
+
+    // ---- Roll up ISK by (location_id, bucket) ----
+    $byLocBucket = [];
+    $locationIds = [];
+
+    foreach ($assets as $a) {
+        $qty = (int) $a->quantity;
+        if ($qty <= 0) continue;
+
+        $px  = (float) ($priceMap[(int) $a->type_id] ?? 0.0);
+        if ($px <= 0) continue; // no price data, skip
+
+        $isk = $px * $qty;
+
+        $loc = (string) $a->location_id;
+        $bucket = $bucketOf((int) $a->type_id);
+
+        $byLocBucket[$loc][$bucket] = ($byLocBucket[$loc][$bucket] ?? 0.0) + $isk;
+        $locationIds[$loc] = true;
+    }
+
+    if (empty($byLocBucket)) {
+        return ['leaves' => [], 'updated' => now('UTC')->toIso8601String()];
+    }
+
+    // ---- Resolve location names (stations + systems + structures) ----
+    $locIds   = array_keys($locationIds);
+    $locNames = $this->resolveLocationNames($locIds); // safe, best-effort
+
+    // ---- Build leaves: [label, parent (location name), isk] ----
+    $leaves = [];
+    foreach ($byLocBucket as $locId => $buckets) {
+        $locName = $locNames[$locId] ?? ('Location ' . $locId);
+        foreach ($buckets as $bucket => $isk) {
+            $leaves[] = [
+                'label' => sprintf('%s (%s)', $bucket, $locName),
+                'loc'   => $locName,
+                'isk'   => (float) $isk,
+            ];
+        }
+    }
+
+    // Sort largest first (optional)
+    usort($leaves, fn($a,$b)=> $b['isk'] <=> $a['isk']);
+
+    return [
+        'leaves'  => $leaves, // array of {label, loc, isk}
+        'updated' => now('UTC')->toIso8601String(),
+    ];
+}
+
 
     
 
