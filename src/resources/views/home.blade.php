@@ -776,108 +776,7 @@
     chart.draw(data, options);
     }
 
-     google.charts.load('current', { packages: ['treemap'] });
-  google.charts.setOnLoadCallback(drawAlloc);
-
-  // Abbreviate ISK in JS (server should send raw numbers)
-  function abbreviate(n) {
-    if (n == null || isNaN(n)) return '';
-    const a = Math.abs(n);
-    if (a >= 1e12) return (n/1e12).toFixed(2).replace(/\.00$/,'')+'t';
-    if (a >= 1e9)  return (n/1e9 ).toFixed(2).replace(/\.00$/,'')+'b';
-    if (a >= 1e6)  return (n/1e6 ).toFixed(2).replace(/\.00$/,'')+'m';
-    if (a >= 1e3)  return (n/1e3 ).toFixed(2).replace(/\.00$/,'')+'k';
-    return Math.round(n).toString();
-  }
-
-  function drawAlloc() {
-    /** nodes: [{ id, parent (or null), label, value (number), color? }] */
-    const nodes = @json($allocation['nodes'] ?? []);
-
-    // --- Build quick indexes ---
-    const byId = new Map();
-    const children = new Map();
-    let rootId = null;
-
-    for (const n of nodes) {
-      const id = String(n.id);
-      const parent = n.parent == null ? null : String(n.parent);
-      byId.set(id, { ...n, id, parent, value: Number(n.value || 0) });
-      if (parent == null) rootId = id;
-      if (!children.has(parent)) children.set(parent, []);
-      children.get(parent).push(id);
-    }
-
-    if (!rootId) {
-      // Try to infer a single root if not explicitly marked
-      const allIds = new Set([...byId.keys()]);
-      for (const n of byId.values()) if (n.parent) allIds.delete(n.parent);
-      rootId = allIds.values().next().value || 'root';
-      if (!byId.has(rootId)) byId.set(rootId, { id: rootId, parent: null, label: 'Assets', value: 0 });
-    }
-
-    // --- Compute aggregate totals for tooltips (leaf values roll up) ---
-    const memo = new Map();
-    function totalOf(id) {
-      if (memo.has(id)) return memo.get(id);
-      const kidIds = children.get(id) || [];
-      if (kidIds.length === 0) {
-        const v = byId.get(id)?.value || 0;
-        memo.set(id, v);
-        return v;
-      }
-      let sum = 0;
-      for (const k of kidIds) sum += totalOf(k);
-      memo.set(id, sum);
-      return sum;
-    }
-    totalOf(rootId); // prime
-
-    // --- DataTable: Id, Parent, Size, Color, Tooltip ---
-    const dt = new google.visualization.DataTable();
-    dt.addColumn('string', 'Id');                       // v: machine id, f: display label
-    dt.addColumn('string', 'Parent');                   // machine id or null
-    dt.addColumn('number', 'Size');                     // area size (leaves should have value > 0; others 0)
-    dt.addColumn('number', 'Color');                    // numeric color; we use aggregate total for better contrast
-    dt.addColumn({ type: 'string', role: 'tooltip' });  // tooltip text
-
-    const rows = [];
-    for (const n of byId.values()) {
-      const id     = n.id;
-      const parent = n.parent === null ? null : n.parent;
-      const size   = Number(n.value || 0);
-      const agg    = totalOf(id);
-      const color  = Number(n.color != null ? n.color : agg);
-      const label  = n.label || id;
-      const tip    = `${label} — ISK ${abbreviate(agg)}`;
-      rows.push([{ v: id, f: label }, parent, size, color, tip]);
-    }
-    dt.addRows(rows);
-
-    // --- Draw ---
-    const el = document.getElementById('chart_allocation_div');
-    if (!el) return;
-    const tree = new google.visualization.TreeMap(el);
-    tree.draw(dt, {
-      minColor: '#cfe0fd',
-      midColor: '#a7c3fb',
-      maxColor: '#7aa4f7',
-      showScale: false,
-      headerHeight: 18,
-      fontColor: '#111',
-      generateTooltip: (row) => dt.getValue(row, 4),
-      useWeightedAverageForAggregation: true
-    });
-  }
-
-  // Redraw on resize (debounced)
-  (function () {
-    let t = null;
-    window.addEventListener('resize', () => {
-      clearTimeout(t);
-      t = setTimeout(drawAlloc, 150);
-    });
-  })();
+     
 
     function loadSkillsCoverageChart(chars) {
     if (!chars.length) {
@@ -1022,5 +921,109 @@
     loadUpcomingEvents();
     });
   </script>
+  <script>
+google.charts.load('current', { packages: ['treemap'] });
+  google.charts.setOnLoadCallback(drawAlloc);
+
+  // Abbreviate ISK in JS (server should send raw numbers)
+  function abbreviate(n) {
+    if (n == null || isNaN(n)) return '';
+    const a = Math.abs(n);
+    if (a >= 1e12) return (n/1e12).toFixed(2).replace(/\.00$/,'')+'t';
+    if (a >= 1e9)  return (n/1e9 ).toFixed(2).replace(/\.00$/,'')+'b';
+    if (a >= 1e6)  return (n/1e6 ).toFixed(2).replace(/\.00$/,'')+'m';
+    if (a >= 1e3)  return (n/1e3 ).toFixed(2).replace(/\.00$/,'')+'k';
+    return Math.round(n).toString();
+  }
+
+  function drawAlloc() {
+    /** nodes: [{ id, parent (or null), label, value (number), color? }] */
+    const nodes = @json($allocation['nodes'] ?? []);
+
+    // --- Build quick indexes ---
+    const byId = new Map();
+    const children = new Map();
+    let rootId = null;
+
+    for (const n of nodes) {
+      const id = String(n.id);
+      const parent = n.parent == null ? null : String(n.parent);
+      byId.set(id, { ...n, id, parent, value: Number(n.value || 0) });
+      if (parent == null) rootId = id;
+      if (!children.has(parent)) children.set(parent, []);
+      children.get(parent).push(id);
+    }
+
+    if (!rootId) {
+      // Try to infer a single root if not explicitly marked
+      const allIds = new Set([...byId.keys()]);
+      for (const n of byId.values()) if (n.parent) allIds.delete(n.parent);
+      rootId = allIds.values().next().value || 'root';
+      if (!byId.has(rootId)) byId.set(rootId, { id: rootId, parent: null, label: 'Assets', value: 0 });
+    }
+
+    // --- Compute aggregate totals for tooltips (leaf values roll up) ---
+    const memo = new Map();
+    function totalOf(id) {
+      if (memo.has(id)) return memo.get(id);
+      const kidIds = children.get(id) || [];
+      if (kidIds.length === 0) {
+        const v = byId.get(id)?.value || 0;
+        memo.set(id, v);
+        return v;
+      }
+      let sum = 0;
+      for (const k of kidIds) sum += totalOf(k);
+      memo.set(id, sum);
+      return sum;
+    }
+    totalOf(rootId); // prime
+
+    // --- DataTable: Id, Parent, Size, Color, Tooltip ---
+    const dt = new google.visualization.DataTable();
+    dt.addColumn('string', 'Id');                       // v: machine id, f: display label
+    dt.addColumn('string', 'Parent');                   // machine id or null
+    dt.addColumn('number', 'Size');                     // area size (leaves should have value > 0; others 0)
+    dt.addColumn('number', 'Color');                    // numeric color; we use aggregate total for better contrast
+    dt.addColumn({ type: 'string', role: 'tooltip' });  // tooltip text
+
+    const rows = [];
+    for (const n of byId.values()) {
+      const id     = n.id;
+      const parent = n.parent === null ? null : n.parent;
+      const size   = Number(n.value || 0);
+      const agg    = totalOf(id);
+      const color  = Number(n.color != null ? n.color : agg);
+      const label  = n.label || id;
+      const tip    = `${label} — ISK ${abbreviate(agg)}`;
+      rows.push([{ v: id, f: label }, parent, size, color, tip]);
+    }
+    dt.addRows(rows);
+
+    // --- Draw ---
+    const el = document.getElementById('chart_allocation_div');
+    if (!el) return;
+    const tree = new google.visualization.TreeMap(el);
+    tree.draw(dt, {
+      minColor: '#cfe0fd',
+      midColor: '#a7c3fb',
+      maxColor: '#7aa4f7',
+      showScale: false,
+      headerHeight: 18,
+      fontColor: '#111',
+      generateTooltip: (row) => dt.getValue(row, 4),
+      useWeightedAverageForAggregation: true
+    });
+  }
+
+  // Redraw on resize (debounced)
+  (function () {
+    let t = null;
+    window.addEventListener('resize', () => {
+      clearTimeout(t);
+      t = setTimeout(drawAlloc, 150);
+    });
+  })();
+    </script>
 
 @endsection
