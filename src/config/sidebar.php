@@ -10,8 +10,8 @@ return [
         'order'      => 95, // optional: position relative to other top-level items
         'entries' => [
             [
-                'name' => 'Config Manager',
-                'icon' => 'fa fa-cogs',
+                'name' => 'Branding',
+                'icon' => 'fa fa-map-signs',
                 'route' => 'osmm.config.branding',
                 'permission' => 'osmm.admin',
             ],
