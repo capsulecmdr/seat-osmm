@@ -21,7 +21,6 @@ use Illuminate\Support\Facades\Log;
 use CapsuleCmdr\SeatOsmm\Support\Esi\EsiCall;
 use Seat\Eveapi\Models\Character\CharacterInfo;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Str;
 
 
 class HomeOverrideController extends Controller
@@ -484,202 +483,85 @@ class HomeOverrideController extends Controller
         ];
     }
 
-    protected function buildAssetTableRows($user): \Illuminate\Support\Collection
-{
-    // 1) Fetch minimal asset fields first
-    $charIds = $user->characters()
-        ->select('character_infos.character_id')
-        ->distinct()
-        ->pluck('character_infos.character_id');
+    protected function buildAssetTableRows($user): Collection
+    {
+        // Get user character ids
+        $charIds = $user->characters()
+            ->select('character_infos.character_id')
+            ->distinct()
+            ->pluck('character_infos.character_id');
 
-    if ($charIds->isEmpty()) return collect();
-
-    $assets = DB::table('character_assets as a')
-        ->whereIn('a.character_id', $charIds)
-        ->get([
-            'a.item_id',
-            'a.type_id',
-            'a.quantity',
-            'a.location_id',
-            'a.location_type',
-            'a.location_flag',
-        ]);
-
-    if ($assets->isEmpty()) return collect();
-
-    // 2) Resolve ROOT (top-level) location for every asset
-    //    Build quick index: item_id -> asset
-    $byItemId = $assets->keyBy('item_id');
-
-    // Cache: item_id => [root_type, root_id]
-    $rootCache = [];
-
-    $resolveRoot = function ($asset) use (&$rootCache, $byItemId) {
-        $curType = strtolower((string) $asset->location_type);
-        $curId   = (int) $asset->location_id;
-
-        // Walk up item->parent->... until not an item or missing parent
-        $guard = 0;
-        while ($curType === 'item' && $guard++ < 50) {
-            // If we’ve already solved this parent, jump straight to it.
-            if (isset($rootCache[$curId])) {
-                [$curType, $curId] = $rootCache[$curId];
-                break;
-            }
-
-            $parent = $byItemId->get($curId);
-            if (!$parent) break; // parent not in this page/snapshot → stop
-
-            $curType = strtolower((string) $parent->location_type);
-            $curId   = (int) $parent->location_id;
+        if ($charIds->isEmpty()) {
+            return collect();
         }
 
-        // Heuristic: structures are giant snowflake IDs (~1e12+)
-        if ($curType === 'other' || $curType === '') {
-            if ($curId >= 1000000000000) {
-                $curType = 'structure';
-            }
-        }
+        // Notes:
+        // - We detect STATION vs STRUCTURE by whichever join matches the location_id
+        // - system_id is derived from structure.solar_system_id OR station.system_id
+        // - region_id from solar_systems.region_id
+        // - price from market_prices.average_price (fallback 0)
+        //
+        // IMPORTANT: All table names below assume they live in your *default* connection.
+        // If your actual names differ, just swap them.
+        $q = DB::table('character_assets as a')
+            ->whereIn('a.character_id', $charIds)
+            // Type name
+            ->leftJoin('invTypes as t', 't.typeID', '=', 'a.type_id')
+            // Avg price (nullable)
+            ->leftJoin('market_prices as mp', 'mp.type_id', '=', 'a.type_id')
+            // Try structure first
+            ->leftJoin('universe_structures as us', 'us.structure_id', '=', 'a.location_id')
+            // Also try station (one of these will match; occasionally neither if asset safety or odd edge)
+            ->leftJoin('universe_stations as st', 'st.station_id', '=', 'a.location_id')
+            // System is from structure.solar_system_id OR station.system_id
+            ->leftJoin('solar_systems as sys', function ($join) {
+                $join->on('sys.system_id', '=', DB::raw('COALESCE(us.solar_system_id, st.system_id)'));
+            })
+            // Region from system.region_id
+            ->leftJoin('regions as r', 'r.region_id', '=', 'sys.region_id')
+            ->select([
+                'a.item_id',
+                'a.type_id',
+                DB::raw('COALESCE(t.typeName, CONCAT("type:", a.type_id)) as type_name'),
+                // Price * qty; fall back to 0 if no price
+                DB::raw('COALESCE(mp.average_price, 0) * a.quantity as type_value'),
+                // Station
+                'st.station_id',
+                DB::raw('COALESCE(st.name, NULL) as station_name'),
+                // Structure
+                'us.structure_id',
+                DB::raw('COALESCE(us.name, NULL) as structure_name'),
+                // System + region
+                DB::raw('COALESCE(sys.name, NULL) as solar_system_name'),
+                DB::raw('COALESCE(r.name, NULL) as region_name'),
+                // Helpful extras (not in your table but sometimes useful)
+                'a.quantity',
+                'a.location_flag',
+                'a.location_id',
+            ]);
 
-        return $rootCache[$asset->item_id] = [$curType, $curId];
-    };
+        // You had a .limit(5) in your prototype; remove or keep as you like:
+        // $q->limit(5);
 
-    $roots = [];
-    foreach ($assets as $a) {
-        $roots[$a->item_id] = $resolveRoot($a);
+        $rows = collect($q->get())->map(function ($r) {
+            // Ensure *either* station or structure column is null when not applicable (cosmetic)
+            // (Left joins already handle this; keep as-is unless you want explicit casting.)
+            return (object) [
+                'item_id'           => $r->item_id,
+                'type_id'           => $r->type_id,
+                'type_name'         => $r->type_name,
+                'type_value'        => (float) $r->type_value,
+                'station_id'        => $r->station_id,
+                'station_name'      => $r->station_name,
+                'structure_id'      => $r->structure_id,
+                'structure_name'    => $r->structure_name,
+                'solar_system_name' => $r->solar_system_name,
+                'region_name'       => $r->region_name,
+            ];
+        });
+
+        return $rows;
     }
-
-    // 3) Collect unique IDs for bulk lookups
-    $typeIds      = $assets->pluck('type_id')->unique()->values();
-    $stationIds   = [];
-    $structureIds = [];
-    $systemIds    = [];
-
-    foreach ($assets as $a) {
-        [$rt, $rid] = $roots[$a->item_id];
-        if ($rt === 'station')        $stationIds[]   = $rid;
-        elseif ($rt === 'structure')  $structureIds[] = $rid;
-        elseif ($rt === 'solar_system') $systemIds[]  = $rid;
-        // If still 'item' after walk, we didn’t find a parent; leave unknown.
-    }
-    $stationIds   = collect($stationIds)->unique()->values();
-    $structureIds = collect($structureIds)->unique()->values();
-    $systemIds    = collect($systemIds)->unique()->values();
-
-    // 4) Bulk fetch names / joins
-    // Type names
-    $typeNames = DB::table('invTypes')
-        ->whereIn('typeID', $typeIds)
-        ->pluck('typeName', 'typeID');
-
-    // Prices (reuse your price helper if you prefer)
-    $priceMap = $this->priceMapForTypeIds($typeIds, ['average_price','adjusted_price','sell_price','average','buy_price']);
-
-    // Structures
-    $structures = $structureIds->isNotEmpty()
-        ? DB::table('universe_structures')
-            ->whereIn('structure_id', $structureIds)
-            ->get(['structure_id','name','solar_system_id'])
-            ->keyBy('structure_id')
-        : collect();
-
-    // Stations
-    $stations = $stationIds->isNotEmpty()
-        ? DB::table('universe_stations')
-            ->whereIn('station_id', $stationIds)
-            ->get(['station_id','name','system_id'])
-            ->keyBy('station_id')
-        : collect();
-
-    // Systems: include those referenced directly + from structures/stations
-    $sysFromStructs = $structures->pluck('solar_system_id')->filter()->unique();
-    $sysFromStations= $stations->pluck('system_id')->filter()->unique();
-    $allSystemIds   = $systemIds->merge($sysFromStructs)->merge($sysFromStations)->unique()->values();
-
-    $systems = $allSystemIds->isNotEmpty()
-        ? DB::table('solar_systems')->whereIn('system_id', $allSystemIds)
-            ->get(['system_id','name','region_id'])
-            ->keyBy('system_id')
-        : collect();
-
-    // Regions
-    $regionIds = $systems->pluck('region_id')->filter()->unique()->values();
-    $regions   = $regionIds->isNotEmpty()
-        ? DB::table('regions')->whereIn('region_id', $regionIds)
-            ->pluck('name','region_id')
-        : collect();
-
-    // 5) Build output rows
-    $rows = $assets->map(function ($a) use ($roots, $typeNames, $priceMap, $structures, $stations, $systems, $regions) {
-        [$rootType, $rootId] = $roots[$a->item_id];
-
-        $stationId   = null; $stationName   = null;
-        $structureId = null; $structureName = null;
-        $systemName  = null; $regionName    = null;
-
-        if ($rootType === 'structure') {
-            $structureId = $rootId;
-            $s = $structures->get($structureId);
-            if ($s) {
-                $structureName = $s->name ?: "Structure {$structureId}";
-                $sys = $systems->get($s->solar_system_id);
-                if ($sys) {
-                    $systemName = $sys->name ?: null;
-                    $regionName = $regions[$sys->region_id] ?? null;
-                }
-            } else {
-                // no record for the structure; still show a readable fallback
-                $structureName = "Structure {$structureId}";
-            }
-        } elseif ($rootType === 'station') {
-            $stationId = $rootId;
-            $st = $stations->get($stationId);
-            if ($st) {
-                $stationName = $st->name ?: "Station {$stationId}";
-                $sys = $systems->get($st->system_id);
-                if ($sys) {
-                    $systemName = $sys->name ?: null;
-                    $regionName = $regions[$sys->region_id] ?? null;
-                }
-            } else {
-                $stationName = "Station {$stationId}";
-            }
-        } elseif ($rootType === 'solar_system') {
-            $sys = $systems->get($rootId);
-            if ($sys) {
-                $systemName = $sys->name ?: null;
-                $regionName = $regions[$sys->region_id] ?? null;
-            } else {
-                $systemName = null;
-            }
-        }
-
-        $typeName = $typeNames[$a->type_id] ?? "type:{$a->type_id}";
-        $price    = (float) ($priceMap[$a->type_id] ?? 0.0);
-        $value    = $price * (int) $a->quantity;
-
-        return (object) [
-            'item_id'           => (int) $a->item_id,
-            'type_id'           => (int) $a->type_id,
-            'type_name'         => $typeName,
-            'type_value'        => $value,
-            'station_id'        => $stationId,
-            'station_name'      => $stationName,
-            'structure_id'      => $structureId,
-            'structure_name'    => $structureName,
-            'solar_system_name' => $systemName,
-            'region_name'       => $regionName,
-        ];
-    });
-
-    return $rows;
-}
-
-private function isLikelyStructureId(int $id): bool
-{
-    // “Giant” EVE structure IDs are in the trillions. Keep heuristic local.
-    return $id >= 1000000000000;
-}
 
     /**
      * Build hierarchical nodes for your Google TreeMap:
