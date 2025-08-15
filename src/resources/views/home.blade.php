@@ -776,98 +776,79 @@
     chart.draw(data, options);
     }
 
-    google.charts.load('current', { packages: ['treemap'] });
+     google.charts.load('current', { packages: ['treemap'] });
   google.charts.setOnLoadCallback(drawAlloc);
 
   function abbreviate(n) {
     if (n == null || isNaN(n)) return '';
-    const abs = Math.abs(n);
-    if (abs >= 1e12) return (n / 1e12).toFixed(2).replace(/\.00$/, '') + 't';
-    if (abs >= 1e9)  return (n / 1e9 ).toFixed(2).replace(/\.00$/, '') + 'b';
-    if (abs >= 1e6)  return (n / 1e6 ).toFixed(2).replace(/\.00$/, '') + 'm';
-    if (abs >= 1e3)  return (n / 1e3 ).toFixed(2).replace(/\.00$/, '') + 'k';
+    const a = Math.abs(n);
+    if (a >= 1e12) return (n/1e12).toFixed(2).replace(/\.00$/,'')+'t';
+    if (a >= 1e9)  return (n/1e9 ).toFixed(2).replace(/\.00$/,'')+'b';
+    if (a >= 1e6)  return (n/1e6 ).toFixed(2).replace(/\.00$/,'')+'m';
+    if (a >= 1e3)  return (n/1e3 ).toFixed(2).replace(/\.00$/,'')+'k';
     return Math.round(n).toString();
   }
 
-  // Keep labels clean while ensuring unique IDs
-  const ZWJ = '\u2063'; // invisible separator
-  const idMap = new Map();    // sourceId -> displayId
-  const labelMap = new Map(); // displayId -> label
-  function makeDisplayId(label, uniqueKey) {
-    const id = `${label}${ZWJ}${uniqueKey}`;
-    labelMap.set(id, label);
-    return id;
-  }
-
   function drawAlloc() {
-    const allocation = @json($allocation ?? []);
+    const allocation = @json($allocation ?? {});
 
     const dt = new google.visualization.DataTable();
-    dt.addColumn('string', 'Id');
-    dt.addColumn('string', 'Parent');
-    dt.addColumn('number', 'Size');
-    dt.addColumn('number', 'Color');                     // <-- numeric
-    dt.addColumn({ type: 'string', role: 'tooltip' });   // <-- tooltip now 5th
+    dt.addColumn('string', 'Id');                       // v: unique id, f: label to display
+    dt.addColumn('string', 'Parent');                   // parent id or null
+    dt.addColumn('number', 'Size');                     // numeric size
+    dt.addColumn('number', 'Color');                    // numeric color (we reuse size)
+    dt.addColumn({ type: 'string', role: 'tooltip' });  // tooltip text
 
     const rows = [];
 
-    if (Array.isArray(allocation?.nodes)) {
-      // New hierarchical shape
-      idMap.clear(); labelMap.clear();
+    if (Array.isArray(allocation.nodes)) {
+      // --- New hierarchical payload ---
+      // Build a quick map so parents can be referenced
+      const idSet = new Set(allocation.nodes.map(n => String(n.id)));
 
-      // Create display IDs first so parents resolve
       for (const n of allocation.nodes) {
-        const label = n.label || String(n.id);
-        const displayId = makeDisplayId(label, n.id);
-        idMap.set(n.id, displayId);
+        const id     = String(n.id);
+        const parent = n.parent != null ? String(n.parent) : null;
+        const size   = Number(n.value || 0);
+        const color  = Number((n.color != null ? n.color : size));
+        const label  = n.label || id;
+        const tip    = n.tooltip || `${label} — ISK ${abbreviate(size)}`;
+
+        // First column: value is the machine id, formatted is the clean label
+        rows.push([{ v: id, f: label }, parent, size, color, tip]);
       }
 
-      // Add rows (use size for color by default)
-      for (const n of allocation.nodes) {
-        const displayId = idMap.get(n.id);
-        const parentId  = n.parent ? idMap.get(n.parent) : null;
-        const size      = Number(n.value || 0);
-        const color     = Number((n.color != null ? n.color : size)); // numeric
-        const tip       = n.tooltip || `${labelMap.get(displayId)} — ISK ${abbreviate(size)}`;
-        rows.push([displayId, parentId, size, color, tip]);
-      }
-
-    } else if (Array.isArray(allocation?.leaves)) {
-      // Legacy leaves: [{label, loc, isk}]
+    } else if (Array.isArray(allocation.leaves)) {
+      // --- Legacy payload: [{label, loc, isk}] ---
       const leaves = allocation.leaves;
 
-      // Totals per location
+      // Totals per location for parent tooltips/colors
       const totals = {};
       for (const { loc, isk } of leaves) {
         const v = Number(isk || 0);
         totals[loc] = (totals[loc] || 0) + v;
       }
 
-      const rootId = makeDisplayId('Assets', 'root');
-      const rootTotal = Object.values(totals).reduce((a,b)=>a+b,0);
-      rows.push([rootId, null, 0, 0, `Assets — ISK ${abbreviate(rootTotal)}`]);
+      const rootId = 'root';
+      const rootTotal = Object.values(totals).reduce((a,b)=>a+b, 0);
+      rows.push([{ v: rootId, f: 'Assets' }, null, 0, 0, `Assets — ISK ${abbreviate(rootTotal)}`]);
 
-      // Location parents
-      const locDisp = {};
-      Object.keys(totals).forEach(loc => {
-        const id = makeDisplayId(loc, `loc:${loc}`);
-        locDisp[loc] = id;
+      // Parent nodes (locations)
+      for (const loc of Object.keys(totals)) {
         const tot = totals[loc];
-        rows.push([id, rootId, 0, tot, `${loc} — ISK ${abbreviate(tot)}`]); // color uses total
-      });
+        const id  = `loc:${loc}`;
+        rows.push([{ v: id, f: loc }, rootId, 0, tot, `${loc} — ISK ${abbreviate(tot)}`]);
+      }
 
       // Leaves
       for (const { label, loc, isk } of leaves) {
-        const parent = locDisp[loc];
         const size = Number(isk || 0);
-        const id = makeDisplayId(label, `leaf:${label}@${loc}`);
-        rows.push([id, parent, size, size, `${label} — ISK ${abbreviate(size)}`]);
+        const id   = `leaf:${label}@${loc}`;
+        rows.push([{ v: id, f: label }, `loc:${loc}`, size, size, `${label} — ISK ${abbreviate(size)}`]);
       }
-
     } else {
       // No data
-      const rootId = makeDisplayId('Assets', 'root');
-      rows.push([rootId, null, 0, 0, 'No data']);
+      rows.push([{ v: 'root', f: 'Assets' }, null, 0, 0, 'No data']);
     }
 
     dt.addRows(rows);
@@ -880,16 +861,16 @@
       minColor: '#cfe0fd',
       midColor: '#a7c3fb',
       maxColor: '#7aa4f7',
-      showScale: false,
       headerHeight: 18,
       fontColor: '#111',
-      allowHtml: true, // enable HTML tooltips if you add markup later
-      generateTooltip: (row) => dt.getValue(row, 4), // use our tooltip column
+      showScale: false,
+      // Use our tooltip column (index 4)
+      generateTooltip: (row) => dt.getValue(row, 4),
       useWeightedAverageForAggregation: true
     });
   }
 
-  // Redraw on resize
+  // Redraw on resize (debounced)
   (function () {
     let t = null;
     window.addEventListener('resize', () => {
