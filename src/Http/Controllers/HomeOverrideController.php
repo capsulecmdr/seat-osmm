@@ -20,6 +20,7 @@ use Seat\Eveapi\Models\Assets\CharacterAsset as CA;
 use Illuminate\Support\Facades\Log;
 use CapsuleCmdr\SeatOsmm\Support\Esi\EsiCall;
 use Seat\Eveapi\Models\Character\CharacterInfo;
+use Illuminate\Support\Collection;
 
 
 class HomeOverrideController extends Controller
@@ -491,7 +492,7 @@ protected function buildAssetAllocationHierarchy(): Collection
 
     // 1) Walk container chains so every asset is mapped to a non-item "root" location.
     //    This ensures items inside containers are attributed to their true place (station/system/structure).
-    $charList = implode(',', array_map('intval', $charIds));
+    $charList = implode(',', array_fill(0, count($charIds), '?'));
     $sql = <<<SQL
 WITH RECURSIVE walk AS (
   SELECT
