@@ -679,9 +679,6 @@ class HomeOverrideController extends Controller
      * @return array  [locId => [loc_type,loc_name,system_id,system_name,region_id,region_name], '__systems__'=>[sysId=>name], '__regions__'=>[regId=>name]]
      */
 
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
-
 private function resolveLocationMeta(array $locIds, ?string $eveConn = null, ?string $sdeConn = null): array
 {
     // Normalize IDs
