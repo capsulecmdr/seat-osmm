@@ -613,89 +613,117 @@ private function resolveLocationNames(array $ids): array
 {
     if (empty($ids)) return [];
 
-    $ids    = array_values(array_unique(array_map('strval', $ids)));
-    $idInts = array_map('intval', $ids);
+    // Keep string keys stable (bigints), but also prep an int list for queries
+    $idsStr = array_values(array_unique(array_map('strval', $ids)));
+    $idsInt = array_map('intval', $idsStr);
 
     $eveConn = (new CA)->getConnectionName();
     $names   = [];
 
-    // Classify first (avoids pointless lookups)
-    $systemIds    = [];
-    $stationIds   = [];
-    $structureIds = [];
-    foreach ($ids as $sid) {
-        $n = (int) $sid;
-        if ($n < 100000000) {          // solar system
-            $systemIds[] = $n;
-        } elseif ($n < 1000000000) {   // NPC station
-            $stationIds[] = $n;
-        } else {                       // Upwell structure
-            $structureIds[] = $sid;    // keep as string for bigint-safe array keys
-        }
-    }
-
-    // 1) Upwell structures from local cache (universe_structures)
-    if (!empty($structureIds) && Schema::connection($eveConn)->hasTable('universe_structures')) {
+    // ---------- 1) Player structures (local cache) ----------
+    if (Schema::connection($eveConn)->hasTable('universe_structures')) {
         try {
             $rows = DB::connection($eveConn)->table('universe_structures')
-                ->whereIn('structure_id', array_map('intval', $structureIds))
+                ->whereIn('structure_id', $idsInt)
                 ->pluck('name', 'structure_id');
             foreach ($rows as $k => $v) $names[(string)$k] = $v;
         } catch (\Throwable $e) {}
     }
 
-    // 2) NPC stations from universe_stations (preferred)
-    if (!empty($stationIds) && Schema::connection($eveConn)->hasTable('universe_stations')) {
+    // ---------- 2) NPC stations (prefer SeAT’s universe_stations) ----------
+    if (Schema::connection($eveConn)->hasTable('universe_stations')) {
         try {
             $rows = DB::connection($eveConn)->table('universe_stations')
-                ->whereIn('station_id', $stationIds)
+                ->whereIn('station_id', $idsInt)
                 ->pluck('name', 'station_id');
             foreach ($rows as $k => $v) $names[(string)$k] = $v;
         } catch (\Throwable $e) {}
     }
 
-    // 3) Solar systems from SDE if available
-    if (!empty($systemIds) && class_exists(\App\Models\Sde\MapSolarSystem::class)) {
+    // Fallback to SDE station table if present
+    if (class_exists(\App\Models\Sde\StaStation::class)) {
         try {
-            $rows = \App\Models\Sde\MapSolarSystem::whereIn('solarSystemID', $systemIds)
-                ->pluck('solarSystemName', 'solarSystemID');
-            foreach ($rows as $k => $v) $names[(string)$k] = $v;
+            $missingForStations = array_map('intval', array_values(array_diff($idsStr, array_keys($names))));
+            if (!empty($missingForStations)) {
+                $rows = \App\Models\Sde\StaStation::whereIn('stationID', $missingForStations)
+                    ->pluck('stationName', 'stationID');
+                foreach ($rows as $k => $v) $names[(string)$k] = $v;
+            }
         } catch (\Throwable $e) {}
     }
 
-    // 4) Fallback: universe_names table (covers many entities)
-    $missing = array_values(array_diff($ids, array_keys($names)));
-    if (!empty($missing) && Schema::connection($eveConn)->hasTable('universe_names')) {
+    // ---------- 3) Solar systems (SDE) ----------
+    if (class_exists(\App\Models\Sde\MapSolarSystem::class)) {
         try {
-            $rows = DB::connection($eveConn)->table('universe_names')
-                ->whereIn('entity_id', array_map('intval', $missing))
-                ->pluck('name', 'entity_id');
-            foreach ($rows as $k => $v) $names[(string)$k] = $v;
-            $missing = array_values(array_diff($ids, array_keys($names)));
+            $missingForSystems = array_map('intval', array_values(array_diff($idsStr, array_keys($names))));
+            if (!empty($missingForSystems)) {
+                $rows = \App\Models\Sde\MapSolarSystem::whereIn('solarSystemID', $missingForSystems)
+                    ->pluck('solarSystemName', 'solarSystemID');
+                foreach ($rows as $k => $v) $names[(string)$k] = $v;
+            }
         } catch (\Throwable $e) {}
     }
 
-    // 5) Last‑resort for structures still missing: live ESI (requires esi-universe.read_structures.v1)
-    $stillMissingStructures = array_values(array_filter($missing, fn($x) => (int)$x >= 1000000000));
-    if (!empty($stillMissingStructures)) {
-        $esiNames = $this->resolveStructureNamesViaEsi($stillMissingStructures);
-        foreach ($esiNames as $k => $v) {
-            $names[(string)$k] = $v;
+    // ---------- 4) universe_names (generic fallback cache) ----------
+    if (Schema::connection($eveConn)->hasTable('universe_names')) {
+        try {
+            $missingGeneric = array_map('intval', array_values(array_diff($idsStr, array_keys($names))));
+            if (!empty($missingGeneric)) {
+                $rows = DB::connection($eveConn)->table('universe_names')
+                    ->whereIn('entity_id', $missingGeneric)
+                    ->pluck('name', 'entity_id');
+                foreach ($rows as $k => $v) $names[(string)$k] = $v;
+            }
+        } catch (\Throwable $e) {}
+    }
+
+    // ---------- 5) Live ESI for any still-missing structures (best-effort) ----------
+    $stillMissing = array_values(array_diff($idsStr, array_keys($names)));
+    if (!empty($stillMissing)) {
+        // Only try ESI for likely structures (>= 1e9), but no “range” logic for stations
+        $maybeStructures = array_filter($stillMissing, fn($x) => (int)$x >= 1000000000);
+        if (!empty($maybeStructures)) {
+            try {
+                $char = Auth::user()->characters()
+                    ->whereHas('tokens', function ($q) {
+                        $q->where('scopes', 'like', '%esi-universe.read_structures.v1%');
+                    })->first();
+
+                if ($char) {
+                    /** @var \CapsuleCmdr\SeatOsmm\Support\Esi\EsiCall $esi */
+                    $esi = app(\CapsuleCmdr\SeatOsmm\Support\Esi\EsiCall::class)->withSeatUser(Auth::user());
+                    foreach ($maybeStructures as $sid) {
+                        try {
+                            $resp = method_exists($esi, 'get')
+                                ? $esi->get("/universe/structures/{$sid}/")
+                                : $esi->invoke('get', "/universe/structures/{$sid}/");
+
+                            if (is_array($resp) && !empty($resp['name'])) {
+                                $names[$sid] = $resp['name'];
+                            } elseif (is_object($resp) && !empty($resp->name)) {
+                                $names[$sid] = $resp->name;
+                            }
+                        } catch (\Throwable $e) {
+                            // ignore; fallback below
+                        }
+                    }
+                }
+            } catch (\Throwable $e) {}
         }
-        $missing = array_values(array_diff($ids, array_keys($names)));
     }
 
-    // 6) Human fallback for anything still unresolved
-    foreach ($ids as $id) {
+    // ---------- Final human fallbacks ----------
+    foreach ($idsStr as $id) {
         if (!isset($names[$id])) {
             $names[$id] = ((int)$id >= 1000000000)
                 ? "Unknown Structure (ID: {$id})"
-                : 'Location ' . $id;
+                : "Location {$id}";
         }
     }
 
     return $names;
 }
+
 
 /**
  * Try live ESI /universe/structures/{id} for player structures.
