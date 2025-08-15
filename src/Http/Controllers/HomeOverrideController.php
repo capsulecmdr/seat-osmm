@@ -477,193 +477,217 @@ class HomeOverrideController extends Controller
         ];
     }
 
-    /**
-     * Build hierarchical allocation across Region → System → LocationType → Location → ItemBucket.
-     * - Uses SDE + SeAT caches only (no ESI).
-     * - Counts ALL assets (containers + contents).
-     * - Labels are clean; tooltips show abbreviated ISK.
-     */
-    private function buildAssetAllocationHierarchy(): array
+protected function buildAssetAllocationHierarchy(array $charIds, int $limit = 50000): Collection
 {
-    $user = Auth::user();
-    $now  = now('UTC')->toIso8601String();
+    // NOTE:
+    // - Assumes SDE is in schema `sde` (invTypes/invGroups/invCategories, staStations)
+    // - SeAT universe tables assumed: universe_structures, universe_stations, market_prices
+    // - Your systems live in `solar_systems` (system_id, name, region_id, constellation_id, security)
 
-    // Linked characters
-    $char_ids = $user->characters()
-        ->select('character_infos.character_id')
-        ->distinct()
-        ->pluck('character_infos.character_id');
+    // 1) Walk container chains so every asset is mapped to a non-item "root" location.
+    //    This ensures items inside containers are attributed to their true place (station/system/structure).
+    $charList = implode(',', array_map('intval', $charIds));
+    $sql = <<<SQL
+WITH RECURSIVE walk AS (
+  SELECT
+    a.item_id        AS seed_item_id,
+    a.item_id,
+    a.location_id,
+    a.location_type,
+    a.character_id,
+    a.type_id,
+    a.quantity,
+    a.map_name,
+    a.name,
+    0 AS depth
+  FROM character_assets a
+  WHERE a.character_id IN ($charList)
 
-    if ($char_ids->isEmpty()) {
-        return ['nodes' => [], 'updated' => $now];
-    }
+  UNION ALL
 
-    // Assets (lean columns)
-    $CA        = new CA;
-    $assetsTbl = $CA->getTable();
-    $eveConn   = $CA->getConnectionName() ?: config('database.default');
-    $sdeConn   = config('database.connections.sde') ? 'sde' : $eveConn;
+  SELECT
+    w.seed_item_id,
+    p.item_id,
+    p.location_id,
+    p.location_type,
+    p.character_id,
+    p.type_id,
+    p.quantity,
+    p.map_name,
+    p.name,
+    w.depth + 1
+  FROM character_assets p
+  JOIN walk w
+    ON p.item_id = w.location_id
+  WHERE w.location_type = 'item'
+),
+rooted AS (
+  SELECT
+    w0.seed_item_id,
+    -- choose the furthest ancestor for each seed
+    (SELECT ww.location_id
+       FROM walk ww
+      WHERE ww.seed_item_id = w0.seed_item_id
+      ORDER BY ww.depth DESC LIMIT 1) AS root_location_id,
+    (SELECT ww.location_type
+       FROM walk ww
+      WHERE ww.seed_item_id = w0.seed_item_id
+      ORDER BY ww.depth DESC LIMIT 1) AS root_location_type
+  FROM walk w0
+  GROUP BY w0.seed_item_id
+),
+assets AS (
+  SELECT
+    a.item_id,
+    a.character_id,
+    a.type_id,
+    a.quantity,
+    r.root_location_id,
+    r.root_location_type
+  FROM character_assets a
+  JOIN rooted r ON r.seed_item_id = a.item_id
+  WHERE a.character_id IN ($charList)
+  LIMIT $limit
+)
 
-    $cols = ['character_id', 'type_id', 'quantity', 'location_id'];
-    $has_item_id = Schema::connection($eveConn)->hasColumn($assetsTbl, 'item_id');
-    if ($has_item_id) $cols[] = 'item_id';
+SELECT
+  -- Region (Level 0)
+  ss.region_id                                         AS region_id,
+  rgn.regionName                                       AS region_name,
 
-    $assets = CA::whereIn('character_id', $char_ids)->get($cols);
-    if ($assets->isEmpty()) {
-        return ['nodes' => [], 'updated' => $now];
-    }
+  -- System (Level 1)
+  ss.system_id                                         AS system_id,
+  ss.system_name                                       AS system_name,
 
-    // ---- Price map ----
-    $type_ids = $assets->pluck('type_id')->unique();
-    $priceMap = $this->priceMapForTypeIds(
-        $type_ids,
-        ['adjusted_price','average_price','sell_price','average','buy_price']
-    );
+  -- Location Type (Level 2)
+  CASE
+    WHEN loc.is_station = 1 THEN 'NPC Station'
+    WHEN loc.is_structure = 1 THEN 'Upwell Structure'
+    WHEN loc.kind = 'solar_system' THEN 'System'
+    ELSE 'Other'
+  END                                                  AS location_type,
 
-    // ---- Item bucket mapping via SDE groups ----
-    $types  = InvType::whereIn('typeID', $type_ids)->get(['typeID','groupID']);
-    $groups = InvGroup::whereIn('groupID', $types->pluck('groupID')->unique())
-        ->get(['groupID','groupName'])->keyBy('groupID');
+  -- Station / Structure (Level 3)
+  COALESCE(loc.station_name, loc.structure_name, NULL) AS station_name,
 
-    $bucketOf = function (int $type_id) use ($types, $groups): string {
-        $t = $types->firstWhere('typeID', $type_id);
-        $g = $t ? ($groups[$t->groupID] ?? null) : null;
-        $name = strtolower($g->groupName ?? '');
-        if (str_contains($name,'ship'))       return 'Ships';
-        if (str_contains($name,'module'))     return 'Modules';
-        if (str_contains($name,'ammunition')) return 'Ammo';
-        if (str_contains($name,'charge'))     return 'Ammo';
-        if (str_contains($name,'blueprint'))  return 'Blueprints';
-        if (str_contains($name,'mineral'))    return 'Minerals';
-        if (str_contains($name,'ore'))        return 'Ore';
-        if (str_contains($name,'planetary') || str_contains($name,'pi')) return 'PI';
-        if (str_contains($name,'salvage'))    return 'Salvage';
-        return 'Other';
-    };
+  -- Item Type Category (Level 4)
+  cat.categoryName                                     AS item_category,
 
-    // ---- Walk containers up to the top "place" (station/structure/system) ----
-    $itemParent = [];
-    if ($has_item_id) {
-        foreach ($assets as $a) {
-            if (!is_null($a->item_id)) {
-                $itemParent[(string)$a->item_id] = (string)$a->location_id;
-            }
-        }
-    }
-    $topLocationId = function (string $loc) use ($itemParent): string {
-        $guard = 0;
-        while (isset($itemParent[$loc]) && $guard++ < 25) {
-            $loc = $itemParent[$loc];
-        }
-        return $loc;
-    };
+  -- Aggregations
+  SUM(assets.quantity)                                 AS total_qty,
+  SUM(assets.quantity * COALESCE(mp.avg_price, mp.adjusted_price, 0)) AS total_value_isk
 
-    // ---- Aggregate ISK by: topLoc → bucket ----
-    $byLocBucket = [];  // [locId => [bucket => isk]]
-    $topLocIds   = [];
+FROM assets
 
-    foreach ($assets as $a) {
-        $qty = (int) $a->quantity;
-        if ($qty <= 0) continue;
-        $px = (float) ($priceMap[(int)$a->type_id] ?? 0.0);
-        if ($px <= 0) continue;
+-- Resolve location → system (via station/structure/system)
+LEFT JOIN (
+  -- Detect kind and names for the root location id
+  SELECT
+    x.id,
+    x.kind,
+    x.system_id,
+    MAX(x.station_name)   AS station_name,
+    MAX(x.structure_name) AS structure_name,
+    MAX(CASE WHEN x.kind = 'station'   THEN 1 ELSE 0 END) AS is_station,
+    MAX(CASE WHEN x.kind = 'structure' THEN 1 ELSE 0 END) AS is_structure
+  FROM (
+    -- Upwell structures (SeAT table)
+    SELECT
+      us.structure_id AS id,
+      'structure'     AS kind,
+      us.system_id    AS system_id,
+      NULL            AS station_name,
+      us.name         AS structure_name
+    FROM universe_structures us
 
-        $isk    = $px * $qty;
-        $bucket = $bucketOf((int)$a->type_id);
-        $locTop = $topLocationId((string)$a->location_id);
+    UNION ALL
 
-        $byLocBucket[$locTop][$bucket] = ($byLocBucket[$locTop][$bucket] ?? 0.0) + $isk;
-        $topLocIds[$locTop] = true;
-    }
+    -- NPC stations: prefer SeAT universe_stations; fall back to SDE station table
+    SELECT
+      ust.station_id  AS id,
+      'station'       AS kind,
+      ust.system_id   AS system_id,
+      ust.name        AS station_name,
+      NULL            AS structure_name
+    FROM universe_stations ust
 
-    if (empty($byLocBucket)) {
-        return ['nodes' => [], 'updated' => $now];
-    }
+    UNION ALL
 
-    // ---- Resolve location meta (SDE + SeAT caches only) ----
-    $locMeta = $this->resolveLocationMeta(array_keys($topLocIds), $eveConn, $sdeConn);
+    SELECT
+      ssta.stationID  AS id,
+      'station'       AS kind,
+      ssta.solarSystemID AS system_id,
+      ssta.stationName   AS station_name,
+      NULL               AS structure_name
+    FROM sde.staStations ssta
 
-    // ---- Build hierarchy sums ----
-    $rootId    = 'root';
-    $nodes     = [];
-    $sumRegion = [];   // [regionId => total]
-    $sumSystem = [];   // [regionId][systemId] => total
-    $sumType   = [];   // [regionId][systemId][locType] => total
-    $sumLoc    = [];   // [locId => total]
+    UNION ALL
 
-    foreach ($byLocBucket as $locId => $buckets) {
-        $meta = $locMeta[$locId] ?? [
-            'loc_type'     => 'Unknown',
-            'loc_name'     => "Unknown Location",
-            'system_id'    => 'unknown',
-            'system_name'  => 'Unknown System',
-            'region_id'    => 'unknown',
-            'region_name'  => 'Unknown Region',
-        ];
-        $locTotal = array_sum($buckets);
+    -- Root is directly a solar system id
+    SELECT
+      ss.system_id    AS id,
+      'solar_system'  AS kind,
+      ss.system_id    AS system_id,
+      NULL            AS station_name,
+      NULL            AS structure_name
+    FROM solar_systems ss
+  ) x
+  GROUP BY x.id, x.kind, x.system_id
+) loc
+  ON loc.id = assets.root_location_id
 
-        $sumLoc[$locId] = $locTotal;
-        $r = (string)$meta['region_id'];
-        $s = (string)$meta['system_id'];
-        $t = (string)$meta['loc_type'];
+-- System details (name/region/security)
+LEFT JOIN (
+  SELECT
+    s.system_id,
+    s.name         AS system_name,
+    s.region_id,
+    s.constellation_id,
+    s.security
+  FROM solar_systems s
+) ss
+  ON ss.system_id = COALESCE(loc.system_id,
+                              CASE WHEN assets.root_location_type = 'solar_system' THEN assets.root_location_id END)
 
-        $sumRegion[$r]           = ($sumRegion[$r] ?? 0.0) + $locTotal;
-        $sumSystem[$r][$s]       = ($sumSystem[$r][$s] ?? 0.0) + $locTotal;
-        $sumType[$r][$s][$t]     = ($sumType[$r][$s][$t] ?? 0.0) + $locTotal;
-    }
+-- Region name (from SDE; fallback to region_id only if missing)
+LEFT JOIN sde.mapRegions rgn
+  ON rgn.regionID = ss.region_id
 
-    // ---- Nodes (NO tooltips / NO abbreviations; JS handles that) ----
-    // Root
-    $rootColor = array_sum($sumRegion);
-    $nodes[] = ['id' => $rootId, 'parent' => null, 'label' => 'Assets', 'value' => 0.0, 'color' => (float)$rootColor];
+-- Item → Category via SDE
+LEFT JOIN sde.invTypes t
+  ON t.typeID = assets.type_id
+LEFT JOIN sde.invGroups g
+  ON g.groupID = t.groupID
+LEFT JOIN sde.invCategories cat
+  ON cat.categoryID = g.categoryID
 
-    // Regions → Systems → LocationType → Location → ItemBucket
-    foreach ($sumRegion as $regionId => $rTotal) {
-        $rName = ($regionId !== 'unknown')
-            ? ($locMeta['__regions__'][$regionId] ?? "Region $regionId")
-            : 'Unknown Region';
+-- Pricing
+LEFT JOIN market_prices mp
+  ON mp.type_id = assets.type_id
 
-        $rid = "region:$regionId";
-        $nodes[] = ['id' => $rid, 'parent' => $rootId, 'label' => $rName, 'value' => 0.0, 'color' => (float)$rTotal];
+GROUP BY
+  ss.region_id, rgn.regionName,
+  ss.system_id, ss.system_name,
+  location_type,
+  station_name,
+  cat.categoryName
+ORDER BY
+  rgn.regionName, ss.system_name, location_type, station_name, cat.categoryName;
+SQL;
 
-        foreach ($sumSystem[$regionId] as $systemId => $sTotal) {
-            $sName = ($systemId !== 'unknown')
-                ? ($locMeta['__systems__'][$systemId] ?? "System $systemId")
-                : 'Unknown System';
+    // 2) Run the query and return a Collection of rows to drive your chart.
+    $rows = collect(DB::select($sql));
 
-            $sid = "system:$systemId";
-            $nodes[] = ['id' => $sid, 'parent' => $rid, 'label' => $sName, 'value' => 0.0, 'color' => (float)$sTotal];
-
-            foreach ($sumType[$regionId][$systemId] as $locType => $tTotal) {
-                $tid = "ltype:$locType@sys:$systemId";
-                $nodes[] = ['id' => $tid, 'parent' => $sid, 'label' => $locType, 'value' => 0.0, 'color' => (float)$tTotal];
-
-                // Locations in this (region, system, type)
-                foreach ($byLocBucket as $locId => $buckets) {
-                    $meta = $locMeta[$locId] ?? null;
-                    if (!$meta) continue;
-                    if ((string)$meta['region_id'] !== (string)$regionId) continue;
-                    if ((string)$meta['system_id'] !== (string)$systemId) continue;
-                    if ((string)$meta['loc_type']  !== (string)$locType)  continue;
-
-                    $lid   = "loc:$locId";
-                    $lname = $meta['loc_name'];
-                    $ltot  = (float)($sumLoc[$locId] ?? 0.0);
-
-                    $nodes[] = ['id' => $lid, 'parent' => $tid, 'label' => $lname, 'value' => 0.0, 'color' => $ltot];
-
-                    foreach ($buckets as $bucket => $isk) {
-                        $bid = "bucket:$bucket@loc:$locId";
-                        $val = (float)$isk;
-                        $nodes[] = ['id' => $bid, 'parent' => $lid, 'label' => $bucket, 'value' => $val, 'color' => $val];
-                    }
-                }
-            }
-        }
-    }
-
-    return ['nodes' => $nodes, 'updated' => $now];
+    // 3) (Optional) Coerce numeric strings → numbers for frontend nicety
+    return $rows->map(function ($r) {
+        $r->region_id       = $r->region_id !== null ? (int) $r->region_id : null;
+        $r->system_id       = $r->system_id !== null ? (int) $r->system_id : null;
+        $r->total_qty       = (int) $r->total_qty;
+        $r->total_value_isk = (float) $r->total_value_isk;
+        return $r;
+    });
 }
+
 
 
 /**
