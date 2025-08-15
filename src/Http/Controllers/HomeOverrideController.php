@@ -20,7 +20,6 @@ use Seat\Eveapi\Models\Assets\CharacterAsset as CA;
 use Illuminate\Support\Facades\Log;
 use CapsuleCmdr\SeatOsmm\Support\Esi\EsiCall;
 use Seat\Eveapi\Models\Character\CharacterInfo;
-use Illuminate\Support\Collection;
 
 
 class HomeOverrideController extends Controller
@@ -42,7 +41,10 @@ class HomeOverrideController extends Controller
 
         $homeElements = collect(config('osmm.home_elements', []))->sortBy('order');
 
-        $allocation = $this->buildAssetAllocationHierarchy();
+        $rows = $this->buildAssetTableRows($user);
+        $allocation = [
+            'nodes' => $this->buildTreemapNodes($rows),
+        ];
 
         $skillsChars = $user->characters()
         ->select('character_infos.character_id', 'character_infos.name')
@@ -478,595 +480,165 @@ class HomeOverrideController extends Controller
         ];
     }
 
-protected function buildAssetAllocationHierarchy(): Collection
-{
-    $user = Auth::user();
-    $charIds = $user->characters()
+    protected function buildAssetTableRows($user): Collection
+    {
+        // Get user character ids
+        $charIds = $user->characters()
             ->select('character_infos.character_id')
             ->distinct()
             ->pluck('character_infos.character_id');
-    // NOTE:
-    // - Assumes SDE is in schema `sde` (invTypes/invGroups/invCategories, staStations)
-    // - SeAT universe tables assumed: universe_structures, universe_stations, market_prices
-    // - Your systems live in `solar_systems` (system_id, name, region_id, constellation_id, security)
 
-    // 1) Walk container chains so every asset is mapped to a non-item "root" location.
-    //    This ensures items inside containers are attributed to their true place (station/system/structure).
-    $charList = implode(',', array_fill(0, count($charIds), '?'));
-    $sql = <<<SQL
-WITH RECURSIVE walk AS (
-  SELECT
-    a.item_id        AS seed_item_id,
-    a.item_id,
-    a.location_id,
-    a.location_type,
-    a.character_id,
-    a.type_id,
-    a.quantity,
-    a.map_name,
-    a.name,
-    0 AS depth
-  FROM character_assets a
-  WHERE a.character_id IN ($charList)
-
-  UNION ALL
-
-  SELECT
-    w.seed_item_id,
-    p.item_id,
-    p.location_id,
-    p.location_type,
-    p.character_id,
-    p.type_id,
-    p.quantity,
-    p.map_name,
-    p.name,
-    w.depth + 1
-  FROM character_assets p
-  JOIN walk w
-    ON p.item_id = w.location_id
-  WHERE w.location_type = 'item'
-),
-rooted AS (
-  SELECT
-    w0.seed_item_id,
-    -- choose the furthest ancestor for each seed
-    (SELECT ww.location_id
-       FROM walk ww
-      WHERE ww.seed_item_id = w0.seed_item_id
-      ORDER BY ww.depth DESC LIMIT 1) AS root_location_id,
-    (SELECT ww.location_type
-       FROM walk ww
-      WHERE ww.seed_item_id = w0.seed_item_id
-      ORDER BY ww.depth DESC LIMIT 1) AS root_location_type
-  FROM walk w0
-  GROUP BY w0.seed_item_id
-),
-assets AS (
-  SELECT
-    a.item_id,
-    a.character_id,
-    a.type_id,
-    a.quantity,
-    r.root_location_id,
-    r.root_location_type
-  FROM character_assets a
-  JOIN rooted r ON r.seed_item_id = a.item_id
-  WHERE a.character_id IN ($charList)
-)
-
-SELECT
-  -- Region (Level 0)
-  ss.region_id                                         AS region_id,
-  rgn.regionName                                       AS region_name,
-
-  -- System (Level 1)
-  ss.system_id                                         AS system_id,
-  ss.system_name                                       AS system_name,
-
-  -- Location Type (Level 2)
-  CASE
-    WHEN loc.is_station = 1 THEN 'NPC Station'
-    WHEN loc.is_structure = 1 THEN 'Upwell Structure'
-    WHEN loc.kind = 'solar_system' THEN 'System'
-    ELSE 'Other'
-  END                                                  AS location_type,
-
-  -- Station / Structure (Level 3)
-  COALESCE(loc.station_name, loc.structure_name, NULL) AS station_name,
-
-  -- Item Type Category (Level 4)
-  cat.categoryName                                     AS item_category,
-
-  -- Aggregations
-  SUM(assets.quantity)                                 AS total_qty,
-  SUM(assets.quantity * COALESCE(mp.avg_price, mp.adjusted_price, 0)) AS total_value_isk
-
-FROM assets
-
--- Resolve location → system (via station/structure/system)
-LEFT JOIN (
-  -- Detect kind and names for the root location id
-  SELECT
-    x.id,
-    x.kind,
-    x.system_id,
-    MAX(x.station_name)   AS station_name,
-    MAX(x.structure_name) AS structure_name,
-    MAX(CASE WHEN x.kind = 'station'   THEN 1 ELSE 0 END) AS is_station,
-    MAX(CASE WHEN x.kind = 'structure' THEN 1 ELSE 0 END) AS is_structure
-  FROM (
-    -- Upwell structures (SeAT table)
-    SELECT
-      us.structure_id AS id,
-      'structure'     AS kind,
-      us.system_id    AS system_id,
-      NULL            AS station_name,
-      us.name         AS structure_name
-    FROM universe_structures us
-
-    UNION ALL
-
-    -- NPC stations: prefer SeAT universe_stations; fall back to SDE station table
-    SELECT
-      ust.station_id  AS id,
-      'station'       AS kind,
-      ust.system_id   AS system_id,
-      ust.name        AS station_name,
-      NULL            AS structure_name
-    FROM universe_stations ust
-
-    UNION ALL
-
-    SELECT
-      ssta.stationID  AS id,
-      'station'       AS kind,
-      ssta.solarSystemID AS system_id,
-      ssta.stationName   AS station_name,
-      NULL               AS structure_name
-    FROM sde.staStations ssta
-
-    UNION ALL
-
-    -- Root is directly a solar system id
-    SELECT
-      ss.system_id    AS id,
-      'solar_system'  AS kind,
-      ss.system_id    AS system_id,
-      NULL            AS station_name,
-      NULL            AS structure_name
-    FROM solar_systems ss
-  ) x
-  GROUP BY x.id, x.kind, x.system_id
-) loc
-  ON loc.id = assets.root_location_id
-
--- System details (name/region/security)
-LEFT JOIN (
-  SELECT
-    s.system_id,
-    s.name         AS system_name,
-    s.region_id,
-    s.constellation_id,
-    s.security
-  FROM solar_systems s
-) ss
-  ON ss.system_id = COALESCE(loc.system_id,
-                              CASE WHEN assets.root_location_type = 'solar_system' THEN assets.root_location_id END)
-
--- Region name (from SDE; fallback to region_id only if missing)
-LEFT JOIN sde.mapRegions rgn
-  ON rgn.regionID = ss.region_id
-
--- Item → Category via SDE
-LEFT JOIN sde.invTypes t
-  ON t.typeID = assets.type_id
-LEFT JOIN sde.invGroups g
-  ON g.groupID = t.groupID
-LEFT JOIN sde.invCategories cat
-  ON cat.categoryID = g.categoryID
-
--- Pricing
-LEFT JOIN market_prices mp
-  ON mp.type_id = assets.type_id
-
-GROUP BY
-  ss.region_id, rgn.regionName,
-  ss.system_id, ss.system_name,
-  location_type,
-  station_name,
-  cat.categoryName
-ORDER BY
-  rgn.regionName, ss.system_name, location_type, station_name, cat.categoryName;
-SQL;
-
-    // 2) Run the query and return a Collection of rows to drive your chart.
-    $rows = collect(DB::select($sql));
-
-    // 3) (Optional) Coerce numeric strings → numbers for frontend nicety
-    return $rows->map(function ($r) {
-        $r->region_id       = $r->region_id !== null ? (int) $r->region_id : null;
-        $r->system_id       = $r->system_id !== null ? (int) $r->system_id : null;
-        $r->total_qty       = (int) $r->total_qty;
-        $r->total_value_isk = (float) $r->total_value_isk;
-        return $r;
-    });
-}
-
-
-
-/**
- * Resolve location metadata with zero ESI by default, optional public-ESI name fallback.
- * Returns:
- *  [
- *    '<locId>' => [
- *       'loc_type'    => 'NPC Station'|'Upwell'|'Solar System'|'Other',
- *       'loc_name'    => string,
- *       'system_id'   => string|'unknown',
- *       'system_name' => string|null,
- *       'region_id'   => string|'unknown',
- *       'region_name' => string|null,
- *    ],
- *    '__systems__' => [ '<systemId>' => '<systemName>' ],
- *    '__regions__' => [ '<regionId>' => '<regionName>' ],
- *  ]
- */
-private function resolveLocationMeta(array $locIds, ?string $eveConn = null, ?string $sdeConn = null): array
-{
-    // -------- helpers --------
-    $allConnections = array_keys(config('database.connections') ?? []);
-
-    // Find first connection (pref list -> all others) that has $table
-    $pickConn = function (string $table, array $prefs = []) use ($allConnections): ?string {
-        $order = array_values(array_unique(array_merge(array_filter($prefs), $allConnections)));
-        foreach ($order as $conn) {
-            if (!config("database.connections.$conn")) continue;
-            try {
-                if (Schema::connection($conn)->hasTable($table)) return $conn;
-            } catch (\Throwable $e) { /* ignore broken conn */ }
+        if ($charIds->isEmpty()) {
+            return collect();
         }
-        return null;
-    };
 
-    $getCols = function (?string $conn, string $table): array {
-        if (!$conn) return [];
-        try { return Schema::connection($conn)->getColumnListing($table) ?? []; }
-        catch (\Throwable $e) { return []; }
-    };
+        // Notes:
+        // - We detect STATION vs STRUCTURE by whichever join matches the location_id
+        // - system_id is derived from structure.solar_system_id OR station.system_id
+        // - region_id from solar_systems.region_id
+        // - price from market_prices.average_price (fallback 0)
+        //
+        // IMPORTANT: All table names below assume they live in your *default* connection.
+        // If your actual names differ, just swap them.
+        $q = DB::table('character_assets as a')
+            ->whereIn('a.character_id', $charIds)
+            // Type name
+            ->leftJoin('invTypes as t', 't.typeID', '=', 'a.type_id')
+            // Avg price (nullable)
+            ->leftJoin('market_prices as mp', 'mp.type_id', '=', 'a.type_id')
+            // Try structure first
+            ->leftJoin('universe_structures as us', 'us.structure_id', '=', 'a.location_id')
+            // Also try station (one of these will match; occasionally neither if asset safety or odd edge)
+            ->leftJoin('universe_stations as st', 'st.station_id', '=', 'a.location_id')
+            // System is from structure.solar_system_id OR station.system_id
+            ->leftJoin('solar_systems as sys', function ($join) {
+                $join->on('sys.system_id', '=', DB::raw('COALESCE(us.solar_system_id, st.system_id)'));
+            })
+            // Region from system.region_id
+            ->leftJoin('regions as r', 'r.region_id', '=', 'sys.region_id')
+            ->select([
+                'a.item_id',
+                'a.type_id',
+                DB::raw('COALESCE(t.typeName, CONCAT("type:", a.type_id)) as type_name'),
+                // Price * qty; fall back to 0 if no price
+                DB::raw('COALESCE(mp.average_price, 0) * a.quantity as type_value'),
+                // Station
+                'st.station_id',
+                DB::raw('COALESCE(st.name, NULL) as station_name'),
+                // Structure
+                'us.structure_id',
+                DB::raw('COALESCE(us.name, NULL) as structure_name'),
+                // System + region
+                DB::raw('COALESCE(sys.name, NULL) as solar_system_name'),
+                DB::raw('COALESCE(r.name, NULL) as region_name'),
+                // Helpful extras (not in your table but sometimes useful)
+                'a.quantity',
+                'a.location_flag',
+                'a.location_id',
+            ]);
 
-    // -------- normalize inputs --------
-    $locIdsStr = array_values(array_unique(array_map('strval', $locIds)));
-    $locIdsInt = array_map('intval', $locIdsStr);
+        // You had a .limit(5) in your prototype; remove or keep as you like:
+        // $q->limit(5);
 
-    // -------- choose connections dynamically --------
-    $prefsEve = array_values(array_filter([$eveConn, 'eve', config('database.default')]));
-    $prefsSde = array_values(array_filter([$sdeConn, 'sde', 'eve', config('database.default')]));
-
-    $connStations     = $pickConn('universe_stations',       $prefsEve);
-    $connStructures   = $pickConn('universe_structures',     $prefsEve);
-    $connSystems      = $pickConn('universe_systems',        $prefsEve);
-    $connRegions      = $pickConn('universe_regions',        $prefsEve);
-    $connConst        = $pickConn('universe_constellations', $prefsEve);
-    $connNames        = $pickConn('universe_names',          $prefsEve);
-
-    $connSdeSolar     = $pickConn('mapSolarSystems',         $prefsSde);
-    $connSdeRegion    = $pickConn('mapRegions',              $prefsSde);
-    $connStaStations  = $pickConn('staStations',             $prefsSde); // legacy SDE
-
-    // detect system_id vs solar_system_id columns
-    $sysColStations   = null;
-    if ($connStations) {
-        $cols = $getCols($connStations, 'universe_stations');
-        $sysColStations = in_array('system_id', $cols, true) ? 'system_id'
-                        : (in_array('solar_system_id', $cols, true) ? 'solar_system_id' : null);
-    }
-    $sysColStructures = null;
-    if ($connStructures) {
-        $cols = $getCols($connStructures, 'universe_structures');
-        $sysColStructures = in_array('system_id', $cols, true) ? 'system_id'
-                          : (in_array('solar_system_id', $cols, true) ? 'solar_system_id' : null);
-    }
-
-    $meta      = [];
-    $systemIds = []; // set
-
-    // -------- 1) NPC stations (universe_stations) --------
-    if ($connStations) {
-        $q = DB::connection($connStations)->table('universe_stations')
-            ->selectRaw('station_id as id, name')
-            ->whereIn('station_id', $locIdsInt);
-        if ($sysColStations) $q->addSelect(DB::raw("$sysColStations as system_id"));
-        foreach ($q->get() as $r) {
-            $id    = (string)$r->id;
-            $sysId = isset($r->system_id) ? (string)$r->system_id : 'unknown';
-            $meta[$id] = [
-                'loc_type'    => 'NPC Station',
-                'loc_name'    => $r->name ?: "Station $id",
-                'system_id'   => $sysId,
-                'system_name' => null,
-                'region_id'   => null,
-                'region_name' => null,
+        $rows = collect($q->get())->map(function ($r) {
+            // Ensure *either* station or structure column is null when not applicable (cosmetic)
+            // (Left joins already handle this; keep as-is unless you want explicit casting.)
+            return (object) [
+                'item_id'           => $r->item_id,
+                'type_id'           => $r->type_id,
+                'type_name'         => $r->type_name,
+                'type_value'        => (float) $r->type_value,
+                'station_id'        => $r->station_id,
+                'station_name'      => $r->station_name,
+                'structure_id'      => $r->structure_id,
+                'structure_name'    => $r->structure_name,
+                'solar_system_name' => $r->solar_system_name,
+                'region_name'       => $r->region_name,
             ];
-            if ($sysId !== 'unknown') $systemIds[$sysId] = true;
-        }
+        });
+
+        return $rows;
     }
 
-    // -------- 1b) Fallback stations via SDE staStations (legacy) --------
-    if ($connStaStations) {
-        $missing = array_values(array_diff($locIdsStr, array_keys($meta)));
-        if (!empty($missing)) {
-            $rows = DB::connection($connStaStations)->table('staStations')
-                ->selectRaw('stationID as id, stationName as name, solarSystemID')
-                ->whereIn('stationID', array_map('intval', $missing))->get();
-            foreach ($rows as $r) {
-                $id = (string)$r->id;
-                $sysId = (string)$r->solarSystemID;
-                $meta[$id] = [
-                    'loc_type'    => 'NPC Station',
-                    'loc_name'    => $r->name ?: "Station $id",
-                    'system_id'   => $sysId,
-                    'system_name' => null,
-                    'region_id'   => null,
-                    'region_name' => null,
-                ];
-                $systemIds[$sysId] = true;
-            }
-        }
-    }
+    /**
+     * Build hierarchical nodes for your Google TreeMap:
+     * Level 0: Root         -> "Assets"
+     * Level 1: Region       -> region_name (or "Unknown Region")
+     * Level 2: Solar System -> solar_system_name (or "Unknown System")
+     * Level 3: Location     -> structure_name || station_name || "Unknown Location"
+     * Value: sum of type_value for all assets under that node
+     */
+    protected function buildTreemapNodes(Collection $rows): array
+    {
+        $rootId = 'assets_root';
+        $nodes = [];
 
-    // -------- 2) Upwell structures (universe_structures) --------
-    if ($connStructures) {
-        $missing = array_values(array_diff($locIdsStr, array_keys($meta)));
-        if (!empty($missing)) {
-            $q = DB::connection($connStructures)->table('universe_structures')
-                ->selectRaw('structure_id as id, name')
-                ->whereIn('structure_id', array_map('intval', $missing));
-            if ($sysColStructures) $q->addSelect(DB::raw("$sysColStructures as system_id"));
-            foreach ($q->get() as $r) {
-                $id    = (string)$r->id;
-                $sysId = isset($r->system_id) ? (string)$r->system_id : 'unknown';
-                $meta[$id] = [
-                    'loc_type'    => 'Upwell',
-                    'loc_name'    => $r->name ?: "Structure $id",
-                    'system_id'   => $sysId,
-                    'system_name' => null,
-                    'region_id'   => null,
-                    'region_name' => null,
-                ];
-                if ($sysId !== 'unknown') $systemIds[$sysId] = true;
-            }
-        }
-    }
-
-    // -------- 3) “Assets in space”: treat pure system IDs as locations --------
-    $missing = array_values(array_diff($locIdsStr, array_keys($meta)));
-    if (!empty($missing)) {
-        if ($connSdeSolar) {
-            $rows = DB::connection($connSdeSolar)->table('mapSolarSystems')
-                ->selectRaw('solarSystemID as id')
-                ->whereIn('solarSystemID', array_map('intval', $missing))->get();
-            foreach ($rows as $r) {
-                $id = (string)$r->id;
-                $meta[$id] = [
-                    'loc_type'    => 'Solar System',
-                    'loc_name'    => 'System Space',
-                    'system_id'   => $id,
-                    'system_name' => null,
-                    'region_id'   => null,
-                    'region_name' => null,
-                ];
-                $systemIds[$id] = true;
-            }
-        } elseif ($connSystems) {
-            $rows = DB::connection($connSystems)->table('universe_systems')
-                ->selectRaw('system_id as id')
-                ->whereIn('system_id', array_map('intval', $missing))->get();
-            foreach ($rows as $r) {
-                $id = (string)$r->id;
-                $meta[$id] = [
-                    'loc_type'    => 'Solar System',
-                    'loc_name'    => 'System Space',
-                    'system_id'   => $id,
-                    'system_name' => null,
-                    'region_id'   => null,
-                    'region_name' => null,
-                ];
-                $systemIds[$id] = true;
-            }
-        }
-    }
-
-    // -------- 4) Anything still unknown --------
-    foreach (array_values(array_diff($locIdsStr, array_keys($meta))) as $id) {
-        $meta[$id] = [
-            'loc_type'    => 'Other',
-            'loc_name'    => "Location $id",
-            'system_id'   => 'unknown',
-            'system_name' => null,
-            'region_id'   => 'unknown',
-            'region_name' => null,
+        // Root
+        $nodes[] = [
+            'id'     => $rootId,
+            'parent' => null,
+            'label'  => 'Assets',
+            'value'  => 0,   // non-leaf
         ];
-    }
 
-    // -------- 5) Build systems -> (name, region_id) and regions -> name --------
-    $systems = []; // [sid => ['name'=>..., 'region_id'=>...]]
-    $regions = []; // [rid => name]
+        // Group by region → system → location
+        // Define helpers that stabilize IDs and labels even when nulls happen
+        $regKey = fn($name) => 'region:' . ($name ?: 'Unknown Region');
+        $sysKey = fn($rName, $sName) => $regKey($rName) . '|system:' . ($sName ?: 'Unknown System');
+        $locKey = function ($rName, $sName, $stName, $usName) use ($sysKey) {
+            $loc = $usName ?: $stName ?: 'Unknown Location';
+            return $sysKey($rName, $sName) . '|loc:' . $loc;
+        };
 
-    if (!empty($systemIds)) {
-        $sysIdsInt = array_map('intval', array_keys($systemIds));
+        // 1) Region nodes
+        $byRegion = $rows->groupBy(fn($r) => $regKey($r->region_name));
+        foreach ($byRegion as $rk => $regionRows) {
+            $regionName = $regionRows->first()->region_name ?? 'Unknown Region';
+            $nodes[] = [
+                'id'     => $rk,
+                'parent' => $rootId,
+                'label'  => $regionName ?: 'Unknown Region',
+                'value'  => 0,
+            ];
 
-        if ($connSdeSolar && $connSdeRegion) {
-            // Preferred: SDE path
-            $sysRows = DB::connection($connSdeSolar)->table('mapSolarSystems')
-                ->selectRaw('solarSystemID as id, solarSystemName as name, regionID')
-                ->whereIn('solarSystemID', $sysIdsInt)->get();
+            // 2) System nodes under each region
+            $bySystem = $regionRows->groupBy(fn($r) => $sysKey($r->region_name, $r->solar_system_name));
+            foreach ($bySystem as $sk => $systemRows) {
+                $systemName = $systemRows->first()->solar_system_name ?? 'Unknown System';
+                $nodes[] = [
+                    'id'     => $sk,
+                    'parent' => $rk,
+                    'label'  => $systemName ?: 'Unknown System',
+                    'value'  => 0,
+                ];
 
-            $regIds = [];
-            foreach ($sysRows as $r) {
-                $systems[(string)$r->id] = ['name' => $r->name, 'region_id' => (string)$r->regionID];
-                $regIds[(string)$r->regionID] = true;
-            }
-            if (!empty($regIds)) {
-                $regRows = DB::connection($connSdeRegion)->table('mapRegions')
-                    ->selectRaw('regionID as id, regionName as name')
-                    ->whereIn('regionID', array_map('intval', array_keys($regIds)))->get();
-                foreach ($regRows as $r) $regions[(string)$r->id] = $r->name;
-            }
+                // 3) Location nodes (station/structure) under each system
+                $byLocation = $systemRows->groupBy(fn($r) => $locKey(
+                    $r->region_name,
+                    $r->solar_system_name,
+                    $r->station_name,
+                    $r->structure_name
+                ));
+                foreach ($byLocation as $lk => $locRows) {
+                    $label = $locRows->first()->structure_name
+                        ?? $locRows->first()->station_name
+                        ?? 'Unknown Location';
 
-        } elseif ($connSystems) {
-            // SeAT caches path
-            $sysCols = $getCols($connSystems, 'universe_systems');
-            $hasSysRegion = in_array('region_id', $sysCols, true);
-            $hasConst     = in_array('constellation_id', $sysCols, true) && $connConst;
+                    // Sum the leaf values at the location level
+                    $value = (float) $locRows->sum('type_value');
 
-            $sysRows = DB::connection($connSystems)->table('universe_systems')
-                ->whereIn('system_id', $sysIdsInt)->get();
-
-            $regionIds = [];
-            $constIds  = [];
-
-            foreach ($sysRows as $r) {
-                $sid = (string)$r->system_id;
-                $systems[$sid] = ['name' => ($r->name ?? "System $sid"), 'region_id' => 'unknown'];
-                if ($hasSysRegion && !empty($r->region_id)) {
-                    $systems[$sid]['region_id'] = (string)$r->region_id;
-                    $regionIds[(string)$r->region_id] = true;
-                } elseif ($hasConst && !empty($r->constellation_id)) {
-                    $constIds[(string)$r->constellation_id] = true;
-                    $systems[$sid]['_constellation'] = (string)$r->constellation_id;
+                    $nodes[] = [
+                        'id'     => $lk,
+                        'parent' => $sk,
+                        'label'  => $label,
+                        'value'  => $value, // leaves carry value in your treemap
+                    ];
                 }
-            }
-
-            if (!empty($constIds)) {
-                $cRows = DB::connection($connConst)->table('universe_constellations')
-                    ->selectRaw('constellation_id, region_id')
-                    ->whereIn('constellation_id', array_map('intval', array_keys($constIds)))->get();
-                $cMap = [];
-                foreach ($cRows as $cr) $cMap[(string)$cr->constellation_id] = (string)$cr->region_id;
-                foreach ($systems as $sid => &$s) {
-                    if (($s['_constellation'] ?? null) && isset($cMap[$s['_constellation']])) {
-                        $s['region_id'] = $cMap[$s['_constellation']];
-                        $regionIds[$s['region_id']] = true;
-                    }
-                    unset($s['_constellation']);
-                }
-                unset($s);
-            }
-
-            if (!empty($regionIds) && $connRegions) {
-                $regRows = DB::connection($connRegions)->table('universe_regions')
-                    ->selectRaw('region_id as id, name')
-                    ->whereIn('region_id', array_map('intval', array_keys($regionIds)))->get();
-                foreach ($regRows as $r) $regions[(string)$r->id] = $r->name ?? ("Region {$r->id}");
             }
         }
 
-        // -------- 5b) Names fallback via universe_names (if present) --------
-        if ($connNames) {
-            // Systems that still have generic/missing names
-            $needSys = [];
-            foreach ($systems as $sid => $s)
-                if (empty($s['name']) || str_starts_with($s['name'], 'System ')) $needSys[] = (int)$sid;
-            if (!empty($needSys)) {
-                $nRows = DB::connection($connNames)->table('universe_names')
-                    ->selectRaw('entity_id, name')->whereIn('entity_id', $needSys)->get();
-                foreach ($nRows as $n) {
-                    $sid = (string)$n->entity_id;
-                    if (isset($systems[$sid])) $systems[$sid]['name'] = $n->name;
-                }
-            }
-
-            // Regions with missing names
-            $needReg = [];
-            foreach ($systems as $sid => $s) {
-                $rid = $s['region_id'] ?? null;
-                if ($rid && $rid !== 'unknown' && empty($regions[$rid])) $needReg[] = (int)$rid;
-            }
-            if (!empty($needReg)) {
-                $nRows = DB::connection($connNames)->table('universe_names')
-                    ->selectRaw('entity_id, name')->whereIn('entity_id', array_unique($needReg))->get();
-                foreach ($nRows as $n) $regions[(string)$n->entity_id] = $n->name;
-            }
-        }
+        return $nodes;
     }
-
-    // -------- 6) Optional public ESI fallback for system/region naming --------
-    if (!empty($systemIds)) {
-        try {
-            /** @var \CapsuleCmdr\SeatOsmm\Support\Esi\EsiCall $esi */
-            $esi = app(\CapsuleCmdr\SeatOsmm\Support\Esi\EsiCall::class);
-            $needSys = [];
-            foreach (array_keys($systemIds) as $sid) {
-                $sid = (string)$sid;
-                if (!isset($systems[$sid]) || empty($systems[$sid]['name']) || empty($systems[$sid]['region_id']) || $systems[$sid]['region_id'] === 'unknown') {
-                    $needSys[] = (int)$sid;
-                }
-            }
-            if (!empty($needSys)) {
-                $constToRegion = [];
-                $regionIds = [];
-                foreach ($needSys as $sid) {
-                    try {
-                        $resp = method_exists($esi, 'get') ? $esi->get("/universe/systems/{$sid}/")
-                                                           : $esi->invoke('get', "/universe/systems/{$sid}/");
-                        $name = is_array($resp) ? ($resp['name'] ?? null) : ($resp->name ?? null);
-                        $cid  = is_array($resp) ? ($resp['constellation_id'] ?? null) : ($resp->constellation_id ?? null);
-                        $rid  = 'unknown';
-                        if ($cid) {
-                            if (!array_key_exists($cid, $constToRegion)) {
-                                $cres = method_exists($esi, 'get') ? $esi->get("/universe/constellations/{$cid}/")
-                                                                   : $esi->invoke('get', "/universe/constellations/{$cid}/");
-                                $constToRegion[$cid] = is_array($cres) ? ($cres['region_id'] ?? null) : ($cres->region_id ?? null);
-                            }
-                            if (!empty($constToRegion[$cid])) $rid = (string)$constToRegion[$cid];
-                        }
-                        $systems[(string)$sid] = [
-                            'name'      => $name ?? "System {$sid}",
-                            'region_id' => $rid,
-                        ];
-                        if ($rid !== 'unknown') $regionIds[$rid] = true;
-                    } catch (\Throwable $e) { /* ignore */ }
-                }
-                foreach (array_keys($regionIds) as $rid) {
-                    $ridStr = (string)$rid;
-                    if (!isset($regions[$ridStr])) {
-                        try {
-                            $r = method_exists($esi, 'get') ? $esi->get("/universe/regions/{$rid}/")
-                                                            : $esi->invoke('get', "/universe/regions/{$rid}/");
-                            $regions[$ridStr] = is_array($r) ? ($r['name'] ?? "Region {$rid}") : ($r->name ?? "Region {$rid}");
-                        } catch (\Throwable $e) {
-                            $regions[$ridStr] = "Region {$rid}";
-                        }
-                    }
-                }
-            }
-        } catch (\Throwable $e) { /* ignore completely */ }
-    }
-
-    // -------- 7) Fill names back into meta --------
-    foreach ($meta as $id => &$m) {
-        $sid = (string)$m['system_id'];
-        if ($sid !== 'unknown' && isset($systems[$sid])) {
-            $m['system_name'] = $systems[$sid]['name'] ?? "System $sid";
-            $rid              = $systems[$sid]['region_id'] ?? 'unknown';
-            $m['region_id']   = $rid;
-            $m['region_name'] = $regions[$rid] ?? ($rid !== 'unknown' ? "Region $rid" : 'Unknown Region');
-        } else {
-            $m['system_name'] = $m['system_name'] ?? 'Unknown System';
-            $m['region_id']   = $m['region_id']   ?? 'unknown';
-            $m['region_name'] = $m['region_name'] ?? 'Unknown Region';
-        }
-    }
-    unset($m);
-
-    // Convenience maps for renderer
-    $sysNames = [];
-    foreach ($systems as $sid => $v) $sysNames[$sid] = $v['name'] ?? "System $sid";
-    $meta['__systems__'] = $sysNames;
-    $meta['__regions__'] = $regions;
-
-    return $meta;
-}
 
 
 
