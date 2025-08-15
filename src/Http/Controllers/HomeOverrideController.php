@@ -501,8 +501,8 @@ class HomeOverrideController extends Controller
         // Assets (lean columns)
         $CA        = new CA;
         $assetsTbl = $CA->getTable();
-        $eveConn   = $CA->getConnectionName();
-        $sdeConn   = 'sde'; // adjust if your SDE connection is named differently
+        $eveConn = $CA->getConnectionName() ?: config('database.default');
+        $sdeConn = config('database.connections.sde') ? 'sde' : $eveConn;
 
         $cols = ['character_id', 'type_id', 'quantity', 'location_id'];
         $has_item_id = Schema::connection($eveConn)->hasColumn($assetsTbl, 'item_id');
@@ -674,169 +674,161 @@ class HomeOverrideController extends Controller
      * @param string $sdeConn
      * @return array  [locId => [loc_type,loc_name,system_id,system_name,region_id,region_name], '__systems__'=>[sysId=>name], '__regions__'=>[regId=>name]]
      */
-    private function resolveLocationMeta(array $locIds, string $eveConn, string $sdeConn): array
-    {
-        $locIdsStr = array_values(array_unique(array_map('strval', $locIds)));
-        $locIdsInt = array_map('intval', $locIdsStr);
+    private function resolveLocationMeta(array $locIds, ?string $eveConn = null, ?string $sdeConn = null): array
+{
+    // Fallbacks
+    $eveConn = $eveConn ?: config('database.default');
+    $sdeConn = $sdeConn ?: (config('database.connections.sde') ? 'sde' : $eveConn);
 
-        $meta = [];
-        $systemIds = [];
+    // Check SDE availability once
+    $hasSde = false;
+    try { DB::connection($sdeConn)->getPdo(); $hasSde = true; } catch (\Throwable $e) { $hasSde = false; }
 
-        // ---- 1) NPC stations (preferred: universe_stations) ----
-        if (Schema::connection($eveConn)->hasTable('universe_stations')) {
-            $rows = DB::connection($eveConn)->table('universe_stations')
-                ->select(['station_id as id','name','system_id'])
-                ->whereIn('station_id', $locIdsInt)
-                ->get();
+    $locIdsStr = array_values(array_unique(array_map('strval', $locIds)));
+    $locIdsInt = array_map('intval', $locIdsStr);
 
+    $meta = [];
+    $systemIds = [];
+
+    // ---- NPC stations (SeAT cache) ----
+    if (Schema::connection($eveConn)->hasTable('universe_stations')) {
+        $rows = DB::connection($eveConn)->table('universe_stations')
+            ->select(['station_id as id','name','system_id'])
+            ->whereIn('station_id', $locIdsInt)->get();
+        foreach ($rows as $r) {
+            $id = (string)$r->id;
+            $meta[$id] = [
+                'loc_type'    => 'NPC Station',
+                'loc_name'    => $r->name ?: "Station $id",
+                'system_id'   => (string)$r->system_id,
+                'system_name' => null,
+                'region_id'   => null,
+                'region_name' => null,
+            ];
+            $systemIds[(string)$r->system_id] = true;
+        }
+    }
+
+    // ---- NPC stations fallback: SDE ----
+    if ($hasSde && class_exists(\App\Models\Sde\StaStation::class)) {
+        $missing = array_values(array_diff($locIdsStr, array_keys($meta)));
+        if (!empty($missing)) {
+            $rows = \App\Models\Sde\StaStation::whereIn('stationID', array_map('intval', $missing))
+                ->get(['stationID as id','stationName as name','solarSystemID']);
             foreach ($rows as $r) {
                 $id = (string)$r->id;
                 $meta[$id] = [
                     'loc_type'    => 'NPC Station',
                     'loc_name'    => $r->name ?: "Station $id",
-                    'system_id'   => (string)$r->system_id,
-                    'system_name' => null,    // fill later
-                    'region_id'   => null,    // fill later
+                    'system_id'   => (string)$r->solarSystemID,
+                    'system_name' => null,
+                    'region_id'   => null,
                     'region_name' => null,
                 ];
-                $systemIds[(string)$r->system_id] = true;
+                $systemIds[(string)$r->solarSystemID] = true;
             }
         }
-
-        // ---- 1b) NPC stations fallback: SDE staStations ----
-        if (class_exists(\App\Models\Sde\StaStation::class)) {
-            $missing = array_values(array_diff($locIdsStr, array_keys($meta)));
-            if (!empty($missing)) {
-                $rows = \App\Models\Sde\StaStation::whereIn('stationID', array_map('intval', $missing))
-                    ->get(['stationID as id','stationName as name','solarSystemID']);
-                foreach ($rows as $r) {
-                    $id = (string)$r->id;
-                    $meta[$id] = [
-                        'loc_type'    => 'NPC Station',
-                        'loc_name'    => $r->name ?: "Station $id",
-                        'system_id'   => (string)$r->solarSystemID,
-                        'system_name' => null,
-                        'region_id'   => null,
-                        'region_name' => null,
-                    ];
-                    $systemIds[(string)$r->solarSystemID] = true;
-                }
-            }
-        }
-
-        // ---- 2) Upwell structures: universe_structures (SeAT cache) ----
-        if (Schema::connection($eveConn)->hasTable('universe_structures')) {
-            $missing = array_values(array_diff($locIdsStr, array_keys($meta)));
-            if (!empty($missing)) {
-                $rows = DB::connection($eveConn)->table('universe_structures')
-                    ->select(['structure_id as id','name','system_id'])
-                    ->whereIn('structure_id', array_map('intval', $missing))
-                    ->get();
-
-                foreach ($rows as $r) {
-                    $id = (string)$r->id;
-                    $meta[$id] = [
-                        'loc_type'    => 'Upwell',
-                        'loc_name'    => ($r->name ?: "Structure $id"),
-                        'system_id'   => (string)$r->system_id,
-                        'system_name' => null,
-                        'region_id'   => null,
-                        'region_name' => null,
-                    ];
-                    if (!is_null($r->system_id)) {
-                        $systemIds[(string)$r->system_id] = true;
-                    }
-                }
-            }
-        }
-
-        // ---- 3) Solar system level locations (in space / safety) ----
-        if (Schema::connection($sdeConn)->getPdo()) {
-            $missing = array_values(array_diff($locIdsStr, array_keys($meta)));
-            if (!empty($missing)) {
-                $rows = DB::connection($sdeConn)->table('mapSolarSystems')
-                    ->select(['solarSystemID as id'])
-                    ->whereIn('solarSystemID', array_map('intval', $missing))
-                    ->get();
-
-                foreach ($rows as $r) {
-                    $id = (string)$r->id;
-                    $meta[$id] = [
-                        'loc_type'    => 'Solar System',
-                        'loc_name'    => 'System Space',
-                        'system_id'   => $id,
-                        'system_name' => null,
-                        'region_id'   => null,
-                        'region_name' => null,
-                    ];
-                    $systemIds[$id] = true;
-                }
-            }
-        }
-
-        // ---- 4) Anything left: "Other" (unknown) ----
-        $still = array_values(array_diff($locIdsStr, array_keys($meta)));
-        foreach ($still as $id) {
-            $meta[$id] = [
-                'loc_type'    => 'Other',
-                'loc_name'    => "Location $id",
-                'system_id'   => 'unknown',
-                'system_name' => null,
-                'region_id'   => 'unknown',
-                'region_name' => null,
-            ];
-        }
-
-        // ---- Map systems → names + regions, and regions → names (SDE) ----
-        $systemIds = array_keys($systemIds);
-        $systems   = [];
-        $regions   = [];
-
-        if (!empty($systemIds) && Schema::connection($sdeConn)->getPdo()) {
-            $sysRows = DB::connection($sdeConn)->table('mapSolarSystems')
-                ->select(['solarSystemID as id','solarSystemName as name','regionID'])
-                ->whereIn('solarSystemID', array_map('intval', $systemIds))
-                ->get();
-
-            $regionIds = [];
-            foreach ($sysRows as $r) {
-                $systems[(string)$r->id] = ['name' => $r->name, 'region_id' => (string)$r->regionID];
-                $regionIds[(string)$r->regionID] = true;
-            }
-
-            if (!empty($regionIds)) {
-                $regRows = DB::connection($sdeConn)->table('mapRegions')
-                    ->select(['regionID as id','regionName as name'])
-                    ->whereIn('regionID', array_map('intval', array_keys($regionIds)))
-                    ->get();
-                foreach ($regRows as $r) {
-                    $regions[(string)$r->id] = $r->name;
-                }
-            }
-        }
-
-        // Fill in system/region names on meta
-        foreach ($meta as $id => &$m) {
-            $sid = (string)$m['system_id'];
-            if ($sid !== 'unknown' && isset($systems[$sid])) {
-                $m['system_name'] = $systems[$sid]['name'];
-                $rid = $systems[$sid]['region_id'];
-                $m['region_id']   = $rid;
-                $m['region_name'] = $regions[$rid] ?? ("Region $rid");
-            } else {
-                $m['system_name'] = $m['system_name'] ?? 'Unknown System';
-                $m['region_id']   = $m['region_id']   ?? 'unknown';
-                $m['region_name'] = $m['region_name'] ?? 'Unknown Region';
-            }
-        }
-        unset($m);
-
-        // Stash system/region name maps for fast lookups when building nodes
-        $meta['__systems__'] = collect($systems)->map(fn($v)=>$v['name'])->all();
-        $meta['__regions__'] = $regions;
-
-        return $meta;
     }
+
+    // ---- Upwell structures (SeAT cache) ----
+    if (Schema::connection($eveConn)->hasTable('universe_structures')) {
+        $missing = array_values(array_diff($locIdsStr, array_keys($meta)));
+        if (!empty($missing)) {
+            $rows = DB::connection($eveConn)->table('universe_structures')
+                ->select(['structure_id as id','name','system_id'])
+                ->whereIn('structure_id', array_map('intval', $missing))->get();
+            foreach ($rows as $r) {
+                $id = (string)$r->id;
+                $meta[$id] = [
+                    'loc_type'    => 'Upwell',
+                    'loc_name'    => ($r->name ?: "Structure $id"),
+                    'system_id'   => (string)$r->system_id,
+                    'system_name' => null,
+                    'region_id'   => null,
+                    'region_name' => null,
+                ];
+                if (!is_null($r->system_id)) $systemIds[(string)$r->system_id] = true;
+            }
+        }
+    }
+
+    // ---- System-level locations ----
+    if ($hasSde) {
+        $missing = array_values(array_diff($locIdsStr, array_keys($meta)));
+        if (!empty($missing)) {
+            $rows = DB::connection($sdeConn)->table('mapSolarSystems')
+                ->select(['solarSystemID as id'])
+                ->whereIn('solarSystemID', array_map('intval', $missing))->get();
+            foreach ($rows as $r) {
+                $id = (string)$r->id;
+                $meta[$id] = [
+                    'loc_type'    => 'Solar System',
+                    'loc_name'    => 'System Space',
+                    'system_id'   => $id,
+                    'system_name' => null,
+                    'region_id'   => null,
+                    'region_name' => null,
+                ];
+                $systemIds[$id] = true;
+            }
+        }
+    }
+
+    // ---- Remaining fallback ----
+    $still = array_values(array_diff($locIdsStr, array_keys($meta)));
+    foreach ($still as $id) {
+        $meta[$id] = [
+            'loc_type'    => 'Other',
+            'loc_name'    => "Location $id",
+            'system_id'   => 'unknown',
+            'system_name' => null,
+            'region_id'   => 'unknown',
+            'region_name' => null,
+        ];
+    }
+
+    // ---- Map systems → names/regions (SDE) ----
+    $systems = [];
+    $regions = [];
+    if (!empty($systemIds) && $hasSde) {
+        $sysRows = DB::connection($sdeConn)->table('mapSolarSystems')
+            ->select(['solarSystemID as id','solarSystemName as name','regionID'])
+            ->whereIn('solarSystemID', array_map('intval', array_keys($systemIds)))->get();
+
+        $regionIds = [];
+        foreach ($sysRows as $r) {
+            $systems[(string)$r->id] = ['name' => $r->name, 'region_id' => (string)$r->regionID];
+            $regionIds[(string)$r->regionID] = true;
+        }
+
+        if (!empty($regionIds)) {
+            $regRows = DB::connection($sdeConn)->table('mapRegions')
+                ->select(['regionID as id','regionName as name'])
+                ->whereIn('regionID', array_map('intval', array_keys($regionIds)))->get();
+            foreach ($regRows as $r) $regions[(string)$r->id] = $r->name;
+        }
+    }
+
+    foreach ($meta as $id => &$m) {
+        $sid = (string)$m['system_id'];
+        if ($sid !== 'unknown' && isset($systems[$sid])) {
+            $m['system_name'] = $systems[$sid]['name'];
+            $rid              = $systems[$sid]['region_id'];
+            $m['region_id']   = $rid;
+            $m['region_name'] = $regions[$rid] ?? ("Region $rid");
+        } else {
+            $m['system_name'] = $m['system_name'] ?? 'Unknown System';
+            $m['region_id']   = $m['region_id']   ?? 'unknown';
+            $m['region_name'] = $m['region_name'] ?? 'Unknown Region';
+        }
+    }
+    unset($m);
+
+    $meta['__systems__'] = collect($systems)->map(fn($v)=>$v['name'])->all();
+    $meta['__regions__'] = $regions;
+
+    return $meta;
+}
 
     /** Abbreviate ISK values: 1_234 → 1.23k ISK, 2_500_000_000 → 2.5b ISK */
     private function abbrISK(float $v): string
