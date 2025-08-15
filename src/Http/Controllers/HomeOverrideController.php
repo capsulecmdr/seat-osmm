@@ -679,51 +679,65 @@ class HomeOverrideController extends Controller
      * @return array  [locId => [loc_type,loc_name,system_id,system_name,region_id,region_name], '__systems__'=>[sysId=>name], '__regions__'=>[regId=>name]]
      */
 
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+
 private function resolveLocationMeta(array $locIds, ?string $eveConn = null, ?string $sdeConn = null): array
 {
-    // Connections (safe defaults)
-    $eveConn = $eveConn ?: config('database.default');
-    $sdeConn = $sdeConn ?: (config('database.connections.sde') ? 'sde' : $eveConn);
-
     // Normalize IDs
     $locIdsStr = array_values(array_unique(array_map('strval', $locIds)));
     $locIdsInt = array_map('intval', $locIdsStr);
 
-    // What tables do we actually have?
-    $hasSdeSolar  = Schema::connection($sdeConn)->hasTable('mapSolarSystems');
-    $hasSdeRegion = Schema::connection($sdeConn)->hasTable('mapRegions');
+    // Scan all configured connections for a given table and return the first that has it
+    $allConnections = array_keys(config('database.connections') ?? []);
+    $pickConn = function (string $table, array $prefs = []) use ($allConnections): ?string {
+        $order = array_values(array_unique(array_merge($prefs, $allConnections)));
+        foreach ($order as $conn) {
+            if (!config("database.connections.$conn")) continue;
+            try {
+                if (Schema::connection($conn)->hasTable($table)) return $conn;
+            } catch (\Throwable $e) {}
+        }
+        return null;
+    };
 
-    $hasSeatStations   = Schema::connection($eveConn)->hasTable('universe_stations');
-    $hasSeatStructures = Schema::connection($eveConn)->hasTable('universe_structures');
-    $hasSeatSystems    = Schema::connection($eveConn)->hasTable('universe_systems');
-    $hasSeatRegions    = Schema::connection($eveConn)->hasTable('universe_regions');
-    $hasSeatConst      = Schema::connection($eveConn)->hasTable('universe_constellations');
+    // Try preferred names first, then fall back to scanning everything
+    $prefsEve = array_values(array_filter([$eveConn, 'eve', config('database.default')]));
+    $prefsSde = array_values(array_filter([$sdeConn, 'sde', 'eve', config('database.default')]));
 
-    // Detect system_id column names on SeAT caches
-    $stationSysCol = null;
-    if ($hasSeatStations) {
-        $cols = Schema::connection($eveConn)->getColumnListing('universe_stations');
-        if (in_array('system_id', $cols, true)) $stationSysCol = 'system_id';
-        elseif (in_array('solar_system_id', $cols, true)) $stationSysCol = 'solar_system_id';
+    $connStations     = $pickConn('universe_stations',       $prefsEve);
+    $connStructures   = $pickConn('universe_structures',     $prefsEve);
+    $connSystems      = $pickConn('universe_systems',        $prefsEve);
+    $connRegions      = $pickConn('universe_regions',        $prefsEve);
+    $connConst        = $pickConn('universe_constellations', $prefsEve);
+    $connNames        = $pickConn('universe_names',          $prefsEve);
+    $connStaStations  = $pickConn('staStations',             $prefsSde); // legacy SDE
+    $connSdeSolar     = $pickConn('mapSolarSystems',         $prefsSde);
+    $connSdeRegion    = $pickConn('mapRegions',              $prefsSde);
+
+    // Detect system_id column on caches
+    $sysColStations = null;
+    if ($connStations) {
+        $cols = Schema::connection($connStations)->getColumnListing('universe_stations');
+        $sysColStations = in_array('system_id', $cols, true) ? 'system_id'
+                        : (in_array('solar_system_id', $cols, true) ? 'solar_system_id' : null);
     }
-    $structureSysCol = null;
-    if ($hasSeatStructures) {
-        $cols = Schema::connection($eveConn)->getColumnListing('universe_structures');
-        if (in_array('system_id', $cols, true)) $structureSysCol = 'system_id';
-        elseif (in_array('solar_system_id', $cols, true)) $structureSysCol = 'solar_system_id';
+    $sysColStructures = null;
+    if ($connStructures) {
+        $cols = Schema::connection($connStructures)->getColumnListing('universe_structures');
+        $sysColStructures = in_array('system_id', $cols, true) ? 'system_id'
+                          : (in_array('solar_system_id', $cols, true) ? 'solar_system_id' : null);
     }
 
     $meta      = [];
     $systemIds = [];
 
-    // ---- 1) NPC stations (SeAT cache) ----
-    if ($hasSeatStations) {
-        $q = DB::connection($eveConn)->table('universe_stations')
-            ->select([DB::raw('station_id as id'), DB::raw('name as name')])
+    // --- NPC stations (universe_stations) ---
+    if ($connStations) {
+        $q = DB::connection($connStations)->table('universe_stations')
+            ->selectRaw('station_id as id, name')
             ->whereIn('station_id', $locIdsInt);
-
-        if ($stationSysCol) $q->addSelect(DB::raw("$stationSysCol as system_id"));
-
+        if ($sysColStations) $q->addSelect(DB::raw("$sysColStations as system_id"));
         foreach ($q->get() as $r) {
             $id    = (string)$r->id;
             $sysId = isset($r->system_id) ? (string)$r->system_id : 'unknown';
@@ -739,22 +753,43 @@ private function resolveLocationMeta(array $locIds, ?string $eveConn = null, ?st
         }
     }
 
-    // ---- 2) Upwell structures (SeAT cache) ----
-    if ($hasSeatStructures) {
+    // --- Fallback for stations: SDE staStations (legacy) ---
+    if ($connStaStations) {
         $missing = array_values(array_diff($locIdsStr, array_keys($meta)));
         if (!empty($missing)) {
-            $q = DB::connection($eveConn)->table('universe_structures')
-                ->select([DB::raw('structure_id as id'), DB::raw('name as name')])
+            $rows = DB::connection($connStaStations)->table('staStations')
+                ->selectRaw('stationID as id, stationName as name, solarSystemID')
+                ->whereIn('stationID', array_map('intval', $missing))
+                ->get();
+            foreach ($rows as $r) {
+                $id = (string)$r->id;
+                $meta[$id] = [
+                    'loc_type'    => 'NPC Station',
+                    'loc_name'    => $r->name ?: "Station $id",
+                    'system_id'   => (string)$r->solarSystemID,
+                    'system_name' => null,
+                    'region_id'   => null,
+                    'region_name' => null,
+                ];
+                $systemIds[(string)$r->solarSystemID] = true;
+            }
+        }
+    }
+
+    // --- Upwell structures (universe_structures) ---
+    if ($connStructures) {
+        $missing = array_values(array_diff($locIdsStr, array_keys($meta)));
+        if (!empty($missing)) {
+            $q = DB::connection($connStructures)->table('universe_structures')
+                ->selectRaw('structure_id as id, name')
                 ->whereIn('structure_id', array_map('intval', $missing));
-
-            if ($structureSysCol) $q->addSelect(DB::raw("$structureSysCol as system_id"));
-
+            if ($sysColStructures) $q->addSelect(DB::raw("$sysColStructures as system_id"));
             foreach ($q->get() as $r) {
                 $id    = (string)$r->id;
                 $sysId = isset($r->system_id) ? (string)$r->system_id : 'unknown';
                 $meta[$id] = [
                     'loc_type'    => 'Upwell',
-                    'loc_name'    => ($r->name ?: "Structure $id"),
+                    'loc_name'    => $r->name ?: "Structure $id",
                     'system_id'   => $sysId,
                     'system_name' => null,
                     'region_id'   => null,
@@ -765,13 +800,12 @@ private function resolveLocationMeta(array $locIds, ?string $eveConn = null, ?st
         }
     }
 
-    // ---- 3) System-level locations (assets directly in a system) ----
-    // Prefer SDE; else use SeAT universe_systems
+    // --- “Assets in space”: treat as Solar System nodes ---
     $missing = array_values(array_diff($locIdsStr, array_keys($meta)));
     if (!empty($missing)) {
-        if ($hasSdeSolar) {
-            $rows = DB::connection($sdeConn)->table('mapSolarSystems')
-                ->select(['solarSystemID as id'])
+        if ($connSdeSolar) {
+            $rows = DB::connection($connSdeSolar)->table('mapSolarSystems')
+                ->selectRaw('solarSystemID as id')
                 ->whereIn('solarSystemID', array_map('intval', $missing))->get();
             foreach ($rows as $r) {
                 $id = (string)$r->id;
@@ -785,9 +819,9 @@ private function resolveLocationMeta(array $locIds, ?string $eveConn = null, ?st
                 ];
                 $systemIds[$id] = true;
             }
-        } elseif ($hasSeatSystems) {
-            $rows = DB::connection($eveConn)->table('universe_systems')
-                ->select(['system_id as id'])
+        } elseif ($connSystems) {
+            $rows = DB::connection($connSystems)->table('universe_systems')
+                ->selectRaw('system_id as id')
                 ->whereIn('system_id', array_map('intval', $missing))->get();
             foreach ($rows as $r) {
                 $id = (string)$r->id;
@@ -804,9 +838,8 @@ private function resolveLocationMeta(array $locIds, ?string $eveConn = null, ?st
         }
     }
 
-    // ---- 4) Remaining unknowns ----
-    $still = array_values(array_diff($locIdsStr, array_keys($meta)));
-    foreach ($still as $id) {
+    // --- Any remaining: “Other” ---
+    foreach (array_values(array_diff($locIdsStr, array_keys($meta))) as $id) {
         $meta[$id] = [
             'loc_type'    => 'Other',
             'loc_name'    => "Location $id",
@@ -817,106 +850,108 @@ private function resolveLocationMeta(array $locIds, ?string $eveConn = null, ?st
         ];
     }
 
-    // ---- 5) Map systems → names + regions ----
-    $systems = []; // [id => ['name'=>..., 'region_id'=>...]]
-    $regions = []; // [id => name]
+    // --- Build system → (name, region_id) ---
+    $systems = []; // [sysId => ['name'=>..., 'region_id'=>...]]
+    $regions = []; // [regId => name]
 
     if (!empty($systemIds)) {
         $sysIdsInt = array_map('intval', array_keys($systemIds));
 
-        if ($hasSdeSolar && $hasSdeRegion) {
-            // SDE: direct system→region
-            $sysRows = DB::connection($sdeConn)->table('mapSolarSystems')
-                ->select(['solarSystemID as id','solarSystemName as name','regionID'])
+        if ($connSdeSolar && $connSdeRegion) {
+            // SDE path
+            $sysRows = DB::connection($connSdeSolar)->table('mapSolarSystems')
+                ->selectRaw('solarSystemID as id, solarSystemName as name, regionID')
                 ->whereIn('solarSystemID', $sysIdsInt)->get();
-
             $regIds = [];
             foreach ($sysRows as $r) {
                 $systems[(string)$r->id] = ['name' => $r->name, 'region_id' => (string)$r->regionID];
                 $regIds[(string)$r->regionID] = true;
             }
-
             if (!empty($regIds)) {
-                $regRows = DB::connection($sdeConn)->table('mapRegions')
-                    ->select(['regionID as id','regionName as name'])
+                $regRows = DB::connection($connSdeRegion)->table('mapRegions')
+                    ->selectRaw('regionID as id, regionName as name')
                     ->whereIn('regionID', array_map('intval', array_keys($regIds)))->get();
                 foreach ($regRows as $r) $regions[(string)$r->id] = $r->name;
             }
-        } elseif ($hasSeatSystems && $hasSeatRegions) {
-            // SeAT caches: system may or may not have region_id; fall back via constellations
-            $sysCols = Schema::connection($eveConn)->getColumnListing('universe_systems');
-            $hasSysRegionCol = in_array('region_id', $sysCols, true);
-            $hasSysConstCol  = in_array('constellation_id', $sysCols, true);
 
-            $sysRows = DB::connection($eveConn)->table('universe_systems')
-                ->whereIn('system_id', $sysIdsInt)
-                ->get(); // get all columns, we’ll inspect dynamically
+        } elseif ($connSystems) {
+            // SeAT caches path
+            $sysCols = Schema::connection($connSystems)->getColumnListing('universe_systems');
+            $hasSysRegion = in_array('region_id', $sysCols, true);
+            $hasConst     = in_array('constellation_id', $sysCols, true) && $connConst;
+
+            $sysRows = DB::connection($connSystems)->table('universe_systems')
+                ->whereIn('system_id', $sysIdsInt)->get();
 
             $regionIds = [];
+            $constIds  = [];
 
-            if ($hasSysRegionCol) {
-                foreach ($sysRows as $r) {
-                    $sid = (string)$r->system_id;
-                    $systems[$sid] = [
-                        'name'      => $r->name ?? "System $sid",
-                        'region_id' => (string)($r->region_id ?? 'unknown'),
-                    ];
-                    if (!empty($r->region_id)) $regionIds[(string)$r->region_id] = true;
-                }
-            } elseif ($hasSysConstCol && $hasSeatConst) {
-                // Join systems -> constellations to get region_id
-                $constIds = [];
-                foreach ($sysRows as $r) {
-                    if (!empty($r->constellation_id)) $constIds[(string)$r->constellation_id] = true;
-                }
-                $constMap = [];
-                if (!empty($constIds)) {
-                    $constRows = DB::connection($eveConn)->table('universe_constellations')
-                        ->select(['constellation_id','region_id'])
-                        ->whereIn('constellation_id', array_map('intval', array_keys($constIds)))->get();
-                    foreach ($constRows as $cr) {
-                        $constMap[(string)$cr->constellation_id] = (string)$cr->region_id;
-                        $regionIds[(string)$cr->region_id] = true;
-                    }
-                }
-                foreach ($sysRows as $r) {
-                    $sid = (string)$r->system_id;
-                    $rid = isset($constMap[(string)$r->constellation_id]) ? $constMap[(string)$r->constellation_id] : 'unknown';
-                    $systems[$sid] = [
-                        'name'      => $r->name ?? "System $sid",
-                        'region_id' => $rid,
-                    ];
-                }
-            } else {
-                // As a last resort, keep system names and leave region unknown
-                foreach ($sysRows as $r) {
-                    $sid = (string)$r->system_id;
-                    $systems[$sid] = [
-                        'name'      => $r->name ?? "System $sid",
-                        'region_id' => 'unknown',
-                    ];
+            foreach ($sysRows as $r) {
+                $sid = (string)$r->system_id;
+                $systems[$sid] = ['name' => ($r->name ?? "System $sid"), 'region_id' => 'unknown'];
+                if ($hasSysRegion && !empty($r->region_id)) {
+                    $systems[$sid]['region_id'] = (string)$r->region_id;
+                    $regionIds[(string)$r->region_id] = true;
+                } elseif ($hasConst && !empty($r->constellation_id)) {
+                    $constIds[(string)$r->constellation_id] = true;
+                    $systems[$sid]['_constellation'] = (string)$r->constellation_id;
                 }
             }
 
-            // Load region names if we have IDs
-            if (!empty($hasSeatRegions)) {
-                $toLoad = array_filter(array_unique(array_map(fn($v)=>$v['region_id'], $systems)), fn($x)=>$x !== 'unknown');
-                if (!empty($toLoad)) {
-                    $regRows = DB::connection($eveConn)->table('universe_regions')
-                        ->select(['region_id as id','name'])
-                        ->whereIn('region_id', array_map('intval', $toLoad))->get();
-                    foreach ($regRows as $r) $regions[(string)$r->id] = $r->name ?? ("Region {$r->id}");
+            if (!empty($constIds)) {
+                $cRows = DB::connection($connConst)->table('universe_constellations')
+                    ->selectRaw('constellation_id, region_id')
+                    ->whereIn('constellation_id', array_map('intval', array_keys($constIds)))->get();
+                $cMap = [];
+                foreach ($cRows as $cr) $cMap[(string)$cr->constellation_id] = (string)$cr->region_id;
+                foreach ($systems as $sid => &$s) {
+                    if (($s['_constellation'] ?? null) && isset($cMap[$s['_constellation']])) {
+                        $s['region_id'] = $cMap[$s['_constellation']];
+                        $regionIds[$s['region_id']] = true;
+                    }
+                    unset($s['_constellation']);
                 }
+                unset($s);
+            }
+
+            if (!empty($regionIds) && $connRegions) {
+                $regRows = DB::connection($connRegions)->table('universe_regions')
+                    ->selectRaw('region_id as id, name')
+                    ->whereIn('region_id', array_map('intval', array_keys($regionIds)))->get();
+                foreach ($regRows as $r) $regions[(string)$r->id] = $r->name ?? ("Region {$r->id}");
+            }
+        }
+
+        // Optional: names via cache table if present
+        if ($connNames) {
+            // system names
+            $needSys = [];
+            foreach ($systems as $sid => $s) if (empty($s['name']) || str_starts_with($s['name'], 'System ')) $needSys[] = (int)$sid;
+            if (!empty($needSys)) {
+                $nRows = DB::connection($connNames)->table('universe_names')
+                    ->selectRaw('entity_id, name')->whereIn('entity_id', $needSys)->get();
+                foreach ($nRows as $n) {
+                    $sid = (string)$n->entity_id;
+                    if (isset($systems[$sid])) $systems[$sid]['name'] = $n->name;
+                }
+            }
+            // region names
+            $needReg = [];
+            foreach ($systems as $sid => $s) if (!empty($s['region_id']) && $s['region_id'] !== 'unknown' && empty($regions[$s['region_id']])) $needReg[] = (int)$s['region_id'];
+            if (!empty($needReg)) {
+                $nRows = DB::connection($connNames)->table('universe_names')
+                    ->selectRaw('entity_id, name')->whereIn('entity_id', array_unique($needReg))->get();
+                foreach ($nRows as $n) $regions[(string)$n->entity_id] = $n->name;
             }
         }
     }
 
-    // ---- Fill names on meta ----
+    // Fill back into meta
     foreach ($meta as $id => &$m) {
         $sid = (string)$m['system_id'];
         if ($sid !== 'unknown' && isset($systems[$sid])) {
-            $m['system_name'] = $systems[$sid]['name'];
-            $rid              = $systems[$sid]['region_id'];
+            $m['system_name'] = $systems[$sid]['name'] ?? "System $sid";
+            $rid              = $systems[$sid]['region_id'] ?? 'unknown';
             $m['region_id']   = $rid;
             $m['region_name'] = $regions[$rid] ?? ($rid !== 'unknown' ? "Region $rid" : 'Unknown Region');
         } else {
@@ -927,14 +962,14 @@ private function resolveLocationMeta(array $locIds, ?string $eveConn = null, ?st
     }
     unset($m);
 
-    // Convenience maps for your renderer
     $sysNames = [];
-    foreach ($systems as $sid => $v) $sysNames[$sid] = $v['name'];
+    foreach ($systems as $sid => $v) $sysNames[$sid] = $v['name'] ?? "System $sid";
     $meta['__systems__'] = $sysNames;
     $meta['__regions__'] = $regions;
 
     return $meta;
 }
+
 
 
 
