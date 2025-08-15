@@ -9,7 +9,7 @@
 
 @if ($faviconFlag === 1)
   {!! $content !!}
-  <link rel="manifest" href="{{ asset('manifest.json') }}">
+  <link rel="manifest" href="{{ asset('web/img/favicon/manifest.json') }}">
 @else
   {{-- Fall back to the original SeAT sidebar --}}
   @include('eveseat_web::includes.favicon')
