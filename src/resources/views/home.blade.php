@@ -779,6 +779,7 @@
      google.charts.load('current', { packages: ['treemap'] });
   google.charts.setOnLoadCallback(drawAlloc);
 
+  // Abbreviate ISK in JS (server should send raw numbers)
   function abbreviate(n) {
     if (n == null || isNaN(n)) return '';
     const a = Math.abs(n);
@@ -790,81 +791,80 @@
   }
 
   function drawAlloc() {
-    const allocation = @json($allocation ?? {});
+    /** nodes: [{ id, parent (or null), label, value (number), color? }] */
+    const nodes = @json($allocation['nodes'] ?? []);
 
+    // --- Build quick indexes ---
+    const byId = new Map();
+    const children = new Map();
+    let rootId = null;
+
+    for (const n of nodes) {
+      const id = String(n.id);
+      const parent = n.parent == null ? null : String(n.parent);
+      byId.set(id, { ...n, id, parent, value: Number(n.value || 0) });
+      if (parent == null) rootId = id;
+      if (!children.has(parent)) children.set(parent, []);
+      children.get(parent).push(id);
+    }
+
+    if (!rootId) {
+      // Try to infer a single root if not explicitly marked
+      const allIds = new Set([...byId.keys()]);
+      for (const n of byId.values()) if (n.parent) allIds.delete(n.parent);
+      rootId = allIds.values().next().value || 'root';
+      if (!byId.has(rootId)) byId.set(rootId, { id: rootId, parent: null, label: 'Assets', value: 0 });
+    }
+
+    // --- Compute aggregate totals for tooltips (leaf values roll up) ---
+    const memo = new Map();
+    function totalOf(id) {
+      if (memo.has(id)) return memo.get(id);
+      const kidIds = children.get(id) || [];
+      if (kidIds.length === 0) {
+        const v = byId.get(id)?.value || 0;
+        memo.set(id, v);
+        return v;
+      }
+      let sum = 0;
+      for (const k of kidIds) sum += totalOf(k);
+      memo.set(id, sum);
+      return sum;
+    }
+    totalOf(rootId); // prime
+
+    // --- DataTable: Id, Parent, Size, Color, Tooltip ---
     const dt = new google.visualization.DataTable();
-    dt.addColumn('string', 'Id');                       // v: unique id, f: label to display
-    dt.addColumn('string', 'Parent');                   // parent id or null
-    dt.addColumn('number', 'Size');                     // numeric size
-    dt.addColumn('number', 'Color');                    // numeric color (we reuse size)
+    dt.addColumn('string', 'Id');                       // v: machine id, f: display label
+    dt.addColumn('string', 'Parent');                   // machine id or null
+    dt.addColumn('number', 'Size');                     // area size (leaves should have value > 0; others 0)
+    dt.addColumn('number', 'Color');                    // numeric color; we use aggregate total for better contrast
     dt.addColumn({ type: 'string', role: 'tooltip' });  // tooltip text
 
     const rows = [];
-
-    if (Array.isArray(allocation.nodes)) {
-      // --- New hierarchical payload ---
-      // Build a quick map so parents can be referenced
-      const idSet = new Set(allocation.nodes.map(n => String(n.id)));
-
-      for (const n of allocation.nodes) {
-        const id     = String(n.id);
-        const parent = n.parent != null ? String(n.parent) : null;
-        const size   = Number(n.value || 0);
-        const color  = Number((n.color != null ? n.color : size));
-        const label  = n.label || id;
-        const tip    = n.tooltip || `${label} — ISK ${abbreviate(size)}`;
-
-        // First column: value is the machine id, formatted is the clean label
-        rows.push([{ v: id, f: label }, parent, size, color, tip]);
-      }
-
-    } else if (Array.isArray(allocation.leaves)) {
-      // --- Legacy payload: [{label, loc, isk}] ---
-      const leaves = allocation.leaves;
-
-      // Totals per location for parent tooltips/colors
-      const totals = {};
-      for (const { loc, isk } of leaves) {
-        const v = Number(isk || 0);
-        totals[loc] = (totals[loc] || 0) + v;
-      }
-
-      const rootId = 'root';
-      const rootTotal = Object.values(totals).reduce((a,b)=>a+b, 0);
-      rows.push([{ v: rootId, f: 'Assets' }, null, 0, 0, `Assets — ISK ${abbreviate(rootTotal)}`]);
-
-      // Parent nodes (locations)
-      for (const loc of Object.keys(totals)) {
-        const tot = totals[loc];
-        const id  = `loc:${loc}`;
-        rows.push([{ v: id, f: loc }, rootId, 0, tot, `${loc} — ISK ${abbreviate(tot)}`]);
-      }
-
-      // Leaves
-      for (const { label, loc, isk } of leaves) {
-        const size = Number(isk || 0);
-        const id   = `leaf:${label}@${loc}`;
-        rows.push([{ v: id, f: label }, `loc:${loc}`, size, size, `${label} — ISK ${abbreviate(size)}`]);
-      }
-    } else {
-      // No data
-      rows.push([{ v: 'root', f: 'Assets' }, null, 0, 0, 'No data']);
+    for (const n of byId.values()) {
+      const id     = n.id;
+      const parent = n.parent === null ? null : n.parent;
+      const size   = Number(n.value || 0);
+      const agg    = totalOf(id);
+      const color  = Number(n.color != null ? n.color : agg);
+      const label  = n.label || id;
+      const tip    = `${label} — ISK ${abbreviate(agg)}`;
+      rows.push([{ v: id, f: label }, parent, size, color, tip]);
     }
-
     dt.addRows(rows);
 
+    // --- Draw ---
     const el = document.getElementById('chart_allocation_div');
     if (!el) return;
-
     const tree = new google.visualization.TreeMap(el);
     tree.draw(dt, {
       minColor: '#cfe0fd',
       midColor: '#a7c3fb',
       maxColor: '#7aa4f7',
+      showScale: false,
       headerHeight: 18,
       fontColor: '#111',
-      showScale: false,
-      // Use our tooltip column (index 4)
       generateTooltip: (row) => dt.getValue(row, 4),
       useWeightedAverageForAggregation: true
     });
