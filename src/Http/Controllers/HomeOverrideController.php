@@ -41,7 +41,7 @@ class HomeOverrideController extends Controller
 
         $homeElements = collect(config('osmm.home_elements', []))->sortBy('order');
 
-        $allocation = $this->buildAssetAllocationTreemap();
+        $allocation = $this->buildAssetAllocationHierarchy();
 
         $skillsChars = $user->characters()
         ->select('character_infos.character_id', 'character_infos.name')
