@@ -674,9 +674,10 @@ class HomeOverrideController extends Controller
      * @param string $sdeConn
      * @return array  [locId => [loc_type,loc_name,system_id,system_name,region_id,region_name], '__systems__'=>[sysId=>name], '__regions__'=>[regId=>name]]
      */
-    private function resolveLocationMeta(array $locIds, ?string $eveConn = null, ?string $sdeConn = null): array
+
+private function resolveLocationMeta(array $locIds, ?string $eveConn = null, ?string $sdeConn = null): array
 {
-    // Fallbacks
+    // Connection fallbacks
     $eveConn = $eveConn ?: config('database.default');
     $sdeConn = $sdeConn ?: (config('database.connections.sde') ? 'sde' : $eveConn);
 
@@ -687,29 +688,57 @@ class HomeOverrideController extends Controller
     $locIdsStr = array_values(array_unique(array_map('strval', $locIds)));
     $locIdsInt = array_map('intval', $locIdsStr);
 
+    // --- Detect column names dynamically ---
+    $stationSysCol   = null;
+    $structureSysCol = null;
+
+    if (Schema::connection($eveConn)->hasTable('universe_stations')) {
+        try {
+            $cols = Schema::connection($eveConn)->getColumnListing('universe_stations');
+            if (in_array('system_id', $cols, true))       $stationSysCol = 'system_id';
+            elseif (in_array('solar_system_id', $cols, true)) $stationSysCol = 'solar_system_id';
+        } catch (\Throwable $e) {}
+    }
+    if (Schema::connection($eveConn)->hasTable('universe_structures')) {
+        try {
+            $cols = Schema::connection($eveConn)->getColumnListing('universe_structures');
+            if (in_array('system_id', $cols, true))       $structureSysCol = 'system_id';
+            elseif (in_array('solar_system_id', $cols, true)) $structureSysCol = 'solar_system_id';
+        } catch (\Throwable $e) {}
+    }
+
     $meta = [];
     $systemIds = [];
 
-    // ---- NPC stations (SeAT cache) ----
+    // ---- 1) NPC stations (SeAT cache) ----
     if (Schema::connection($eveConn)->hasTable('universe_stations')) {
-        $rows = DB::connection($eveConn)->table('universe_stations')
-            ->select(['station_id as id','name','system_id'])
-            ->whereIn('station_id', $locIdsInt)->get();
-        foreach ($rows as $r) {
+        $query = DB::connection($eveConn)->table('universe_stations')
+            ->select([
+                DB::raw('station_id as id'),
+                DB::raw('name as name'),
+            ])
+            ->whereIn('station_id', $locIdsInt);
+
+        if ($stationSysCol) {
+            $query->addSelect(DB::raw("$stationSysCol as system_id"));
+        }
+
+        foreach ($query->get() as $r) {
             $id = (string)$r->id;
+            $sysId = isset($r->system_id) ? (string)$r->system_id : 'unknown';
             $meta[$id] = [
                 'loc_type'    => 'NPC Station',
                 'loc_name'    => $r->name ?: "Station $id",
-                'system_id'   => (string)$r->system_id,
+                'system_id'   => $sysId,
                 'system_name' => null,
                 'region_id'   => null,
                 'region_name' => null,
             ];
-            $systemIds[(string)$r->system_id] = true;
+            if ($sysId !== 'unknown') $systemIds[$sysId] = true;
         }
     }
 
-    // ---- NPC stations fallback: SDE ----
+    // ---- 1b) NPC stations fallback: SDE staStations ----
     if ($hasSde && class_exists(\App\Models\Sde\StaStation::class)) {
         $missing = array_values(array_diff($locIdsStr, array_keys($meta)));
         if (!empty($missing)) {
@@ -717,42 +746,52 @@ class HomeOverrideController extends Controller
                 ->get(['stationID as id','stationName as name','solarSystemID']);
             foreach ($rows as $r) {
                 $id = (string)$r->id;
+                $sysId = (string)$r->solarSystemID;
                 $meta[$id] = [
                     'loc_type'    => 'NPC Station',
                     'loc_name'    => $r->name ?: "Station $id",
-                    'system_id'   => (string)$r->solarSystemID,
+                    'system_id'   => $sysId,
                     'system_name' => null,
                     'region_id'   => null,
                     'region_name' => null,
                 ];
-                $systemIds[(string)$r->solarSystemID] = true;
+                $systemIds[$sysId] = true;
             }
         }
     }
 
-    // ---- Upwell structures (SeAT cache) ----
+    // ---- 2) Upwell structures (SeAT cache) ----
     if (Schema::connection($eveConn)->hasTable('universe_structures')) {
         $missing = array_values(array_diff($locIdsStr, array_keys($meta)));
         if (!empty($missing)) {
-            $rows = DB::connection($eveConn)->table('universe_structures')
-                ->select(['structure_id as id','name','system_id'])
-                ->whereIn('structure_id', array_map('intval', $missing))->get();
-            foreach ($rows as $r) {
+            $query = DB::connection($eveConn)->table('universe_structures')
+                ->select([
+                    DB::raw('structure_id as id'),
+                    DB::raw('name as name'),
+                ])
+                ->whereIn('structure_id', array_map('intval', $missing));
+
+            if ($structureSysCol) {
+                $query->addSelect(DB::raw("$structureSysCol as system_id"));
+            }
+
+            foreach ($query->get() as $r) {
                 $id = (string)$r->id;
+                $sysId = isset($r->system_id) ? (string)$r->system_id : 'unknown';
                 $meta[$id] = [
                     'loc_type'    => 'Upwell',
                     'loc_name'    => ($r->name ?: "Structure $id"),
-                    'system_id'   => (string)$r->system_id,
+                    'system_id'   => $sysId,
                     'system_name' => null,
                     'region_id'   => null,
                     'region_name' => null,
                 ];
-                if (!is_null($r->system_id)) $systemIds[(string)$r->system_id] = true;
+                if ($sysId !== 'unknown') $systemIds[$sysId] = true;
             }
         }
     }
 
-    // ---- System-level locations ----
+    // ---- 3) System-level locations (in-space / safety) ----
     if ($hasSde) {
         $missing = array_values(array_diff($locIdsStr, array_keys($meta)));
         if (!empty($missing)) {
@@ -774,7 +813,7 @@ class HomeOverrideController extends Controller
         }
     }
 
-    // ---- Remaining fallback ----
+    // ---- 4) Remaining fallback ----
     $still = array_values(array_diff($locIdsStr, array_keys($meta)));
     foreach ($still as $id) {
         $meta[$id] = [
@@ -787,7 +826,7 @@ class HomeOverrideController extends Controller
         ];
     }
 
-    // ---- Map systems → names/regions (SDE) ----
+    // ---- Map systems → names + regions (SDE) ----
     $systems = [];
     $regions = [];
     if (!empty($systemIds) && $hasSde) {
@@ -809,6 +848,7 @@ class HomeOverrideController extends Controller
         }
     }
 
+    // Fill system/region names
     foreach ($meta as $id => &$m) {
         $sid = (string)$m['system_id'];
         if ($sid !== 'unknown' && isset($systems[$sid])) {
@@ -824,11 +864,13 @@ class HomeOverrideController extends Controller
     }
     unset($m);
 
+    // Convenience maps for renderer
     $meta['__systems__'] = collect($systems)->map(fn($v)=>$v['name'])->all();
     $meta['__regions__'] = $regions;
 
     return $meta;
 }
+
 
     /** Abbreviate ISK values: 1_234 → 1.23k ISK, 2_500_000_000 → 2.5b ISK */
     private function abbrISK(float $v): string
