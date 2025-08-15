@@ -487,26 +487,28 @@ class HomeOverrideController extends Controller
         ->distinct()
         ->pluck('character_infos.character_id');
 
+    $now = now('UTC')->toIso8601String();
     if ($char_ids->isEmpty()) {
-        return ['leaves' => [], 'updated' => now('UTC')->toIso8601String()];
+        return ['leaves' => [], 'updated' => $now];
     }
 
     // Pull current snapshot of assets
-    $cols = ['character_id', 'type_id', 'quantity', 'location_id'];
-    $has_location_type = Schema::connection((new CA)->getConnectionName())
-        ->hasColumn((new CA)->getTable(), 'location_type');
+    $assetsTable = (new CA)->getTable();
+    $eveConn     = (new CA)->getConnectionName();
 
+    $cols = ['character_id', 'type_id', 'quantity', 'location_id'];
+
+    $has_location_type = Schema::connection($eveConn)->hasColumn($assetsTable, 'location_type');
     if ($has_location_type) $cols[] = 'location_type';
 
     // (optional) if you track item_id we can avoid counting items that live inside other items
-    $has_item_id = Schema::connection((new CA)->getConnectionName())
-        ->hasColumn((new CA)->getTable(), 'item_id');
+    $has_item_id = Schema::connection($eveConn)->hasColumn($assetsTable, 'item_id');
     if ($has_item_id) $cols[] = 'item_id';
 
     $assets = CA::whereIn('character_id', $char_ids)->get($cols);
 
     if ($assets->isEmpty()) {
-        return ['leaves' => [], 'updated' => now('UTC')->toIso8601String()];
+        return ['leaves' => [], 'updated' => $now];
     }
 
     // Filter: keep stations/structures/systems; drop obvious nested containers;
@@ -514,12 +516,13 @@ class HomeOverrideController extends Controller
     if ($has_location_type) {
         $containerIds = [];
         if ($has_item_id) {
-            $containerIds = $assets->pluck('item_id')->filter()->values()->all();
+            // normalize to string for strict in_array below
+            $containerIds = $assets->pluck('item_id')->filter()->map(fn($v) => (string)$v)->values()->all();
         }
 
         $assets = $assets->filter(function ($a) use ($containerIds, $has_item_id) {
             // If we can prove it's nested in another item, drop it
-            if ($has_item_id && in_array($a->location_id, $containerIds, true)) {
+            if ($has_item_id && in_array((string)$a->location_id, $containerIds, true)) {
                 return false;
             }
             // Keep obvious top-levels
@@ -532,12 +535,15 @@ class HomeOverrideController extends Controller
     }
 
     if ($assets->isEmpty()) {
-        return ['leaves' => [], 'updated' => now('UTC')->toIso8601String()];
+        return ['leaves' => [], 'updated' => $now];
     }
 
     // ---- Price map ----
     $type_ids = $assets->pluck('type_id')->unique();
-    $priceMap = $this->priceMapForTypeIds($type_ids, ['adjusted_price','average_price','sell_price','average','buy_price']);
+    $priceMap = $this->priceMapForTypeIds(
+        $type_ids,
+        ['adjusted_price','average_price','sell_price','average','buy_price']
+    );
 
     // ---- Category mapping via SDE groups ----
     $types  = InvType::whereIn('typeID', $type_ids)->get(['typeID','groupID']);
@@ -573,7 +579,7 @@ class HomeOverrideController extends Controller
 
         $isk = $px * $qty;
 
-        $loc = (string) $a->location_id;
+        $loc    = (string) $a->location_id;
         $bucket = $bucketOf((int) $a->type_id);
 
         $byLocBucket[$loc][$bucket] = ($byLocBucket[$loc][$bucket] ?? 0.0) + $isk;
@@ -581,10 +587,10 @@ class HomeOverrideController extends Controller
     }
 
     if (empty($byLocBucket)) {
-        return ['leaves' => [], 'updated' => now('UTC')->toIso8601String()];
+        return ['leaves' => [], 'updated' => $now];
     }
 
-    // ---- Resolve location names (stations + systems + structures) ----
+    // ---- Resolve location names (structures → stations → systems → universe_names → ESI) ----
     $locIds   = array_keys($locationIds);
     $locNames = $this->resolveLocationNames($locIds); // safe, best-effort
 
@@ -606,14 +612,22 @@ class HomeOverrideController extends Controller
 
     return [
         'leaves'  => $leaves, // array of {label, loc, isk}
-        'updated' => now('UTC')->toIso8601String(),
+        'updated' => $now,
     ];
 }
+
+/**
+ * Resolve raw location IDs to human names.
+ * Order: universe_structures → universe_stations → SDE mapSolarSystems → universe_names → live ESI (structures).
+ *
+ * @param array<int|string> $ids
+ * @return array<string,string> [location_id(string) => name]
+ */
 private function resolveLocationNames(array $ids): array
 {
     if (empty($ids)) return [];
 
-    // Keep string keys stable (bigints), but also prep an int list for queries
+    // Stable string keys (bigint-safe) + ints for queries
     $idsStr = array_values(array_unique(array_map('strval', $ids)));
     $idsInt = array_map('intval', $idsStr);
 
@@ -680,35 +694,37 @@ private function resolveLocationNames(array $ids): array
     // ---------- 5) Live ESI for any still-missing structures (best-effort) ----------
     $stillMissing = array_values(array_diff($idsStr, array_keys($names)));
     if (!empty($stillMissing)) {
-        // Only try ESI for likely structures (>= 1e9), but no “range” logic for stations
+        // Only try ESI for likely structures (>= 1e9). We avoid ranges for stations.
         $maybeStructures = array_filter($stillMissing, fn($x) => (int)$x >= 1000000000);
         if (!empty($maybeStructures)) {
             try {
-                $char = Auth::user()->characters()
-                    ->whereHas('tokens', function ($q) {
-                        $q->where('scopes', 'like', '%esi-universe.read_structures.v1%');
-                    })->first();
+                // Bind your OSMM ESI wrapper to the current Seat user
+                /** @var \CapsuleCmdr\SeatOsmm\Support\Esi\EsiCall $esi */
+                $esi = app(\CapsuleCmdr\SeatOsmm\Support\Esi\EsiCall::class)->withSeatUser(Auth::user());
 
-                if ($char) {
-                    /** @var \CapsuleCmdr\SeatOsmm\Support\Esi\EsiCall $esi */
-                    $esi = app(\CapsuleCmdr\SeatOsmm\Support\Esi\EsiCall::class)->withSeatUser(Auth::user());
-                    foreach ($maybeStructures as $sid) {
-                        try {
-                            $resp = method_exists($esi, 'get')
-                                ? $esi->get("/universe/structures/{$sid}/")
-                                : $esi->invoke('get', "/universe/structures/{$sid}/");
+                foreach ($maybeStructures as $sid) {
+                    try {
+                        $path = "/universe/structures/{$sid}/";
+                        $resp = method_exists($esi, 'get')
+                            ? $esi->get($path)
+                            : (method_exists($esi, 'invoke') ? $esi->invoke('get', $path) : null);
 
-                            if (is_array($resp) && !empty($resp['name'])) {
-                                $names[$sid] = $resp['name'];
-                            } elseif (is_object($resp) && !empty($resp->name)) {
-                                $names[$sid] = $resp->name;
-                            }
-                        } catch (\Throwable $e) {
-                            // ignore; fallback below
+                        if (is_array($resp) && !empty($resp['name'])) {
+                            $names[$sid] = $resp['name'];
+                        } elseif (is_object($resp) && !empty($resp->name)) {
+                            $names[$sid] = $resp->name;
+                        } elseif (is_string($resp)) {
+                            // Some wrappers may return JSON string
+                            $obj = json_decode($resp, false);
+                            if ($obj && !empty($obj->name)) $names[$sid] = $obj->name;
                         }
+                    } catch (\Throwable $e) {
+                        // 403/404/5xx — ignore; fallback label below
                     }
                 }
-            } catch (\Throwable $e) {}
+            } catch (\Throwable $e) {
+                // ESI wrapper not available — ignore
+            }
         }
     }
 
@@ -722,61 +738,6 @@ private function resolveLocationNames(array $ids): array
     }
 
     return $names;
-}
-
-
-/**
- * Try live ESI /universe/structures/{id} for player structures.
- * Returns [structure_id(string) => name]
- */
-private function resolveStructureNamesViaEsi(array $structureIds): array
-{
-    $out = [];
-
-    // Find any linked character with the needed scope
-    $char = Auth::user()->characters()
-        ->whereHas('tokens', function ($q) {
-            $q->where('scopes', 'like', '%esi-universe.read_structures.v1%');
-        })
-        ->first();
-
-    if (!$char) {
-        return $out; // no scope; caller will use fallback label
-    }
-
-    $esi = $this->makeEsiForCharacter((int) $char->character_id);
-
-    foreach ($structureIds as $sid) {
-        try {
-            // Adjust to your EsiCall signature if different
-            $resp = method_exists($esi, 'get')
-                ? $esi->get("/universe/structures/{$sid}/")
-                : $esi->invoke('get', "/universe/structures/{$sid}/");
-
-            if (is_array($resp) && !empty($resp['name'])) {
-                $out[(string)$sid] = $resp['name'];
-            } elseif (is_object($resp) && !empty($resp->name)) {
-                $out[(string)$sid] = $resp->name;
-            }
-        } catch (\Throwable $e) {
-            // 403/404/5xx — ignore; caller will fallback-name it
-        }
-    }
-
-    return $out;
-}
-
-/**
- * Return an authenticated ESI client for the given character.
- * Wire this to your existing OSMM ESI wrapper.
- */
-private function makeEsiForCharacter(int $character_id)
-{
-    // If you have a custom wrapper, keep using it:
-    // withSeatUser(Auth::user()) should bind the right tokens.
-    /** @var \CapsuleCmdr\SeatOsmm\Support\Esi\EsiCall $esi */
-    $esi = app(\CapsuleCmdr\SeatOsmm\Support\Esi\EsiCall::class)->withSeatUser(Auth::user());
-    return $esi;
 }
 
 
