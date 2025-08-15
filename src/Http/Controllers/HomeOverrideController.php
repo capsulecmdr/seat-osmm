@@ -43,8 +43,10 @@ class HomeOverrideController extends Controller
         $homeElements = collect(config('osmm.home_elements', []))->sortBy('order');
 
         $rows = $this->buildAssetTableRows($user);
+
         $allocation = [
             'nodes' => $this->buildTreemapNodes($rows),
+            'updated' => $this->computeAllocationUpdated($user),
         ];
 
         $skillsChars = $user->characters()
