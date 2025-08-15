@@ -48,9 +48,11 @@ class BrandingController extends Controller
             'osmm_override_sidebar'       => ['required', 'boolean'],
             'osmm_override_footer'        => ['required', 'boolean'],
             'osmm_override_manifest'      => ['required', 'boolean'],
+            'osmm_override_favicon'      => ['required', 'boolean'],
             'osmm_branding_footer_html'   => ['nullable', 'string'],
             'osmm_branding_sidebar_html'  => ['nullable', 'string'],
             'osmm_branding_manifest_json' => ['nullable', 'string'], // validate as JSON below
+            'osmm_branding_favicon_html'  => ['nullable', 'string'],
         ]);
 
         // Validate the manifest JSON if provided (preserve formatting; just check parsability)
@@ -69,12 +71,14 @@ class BrandingController extends Controller
         OsmmSetting::put('osmm_override_sidebar',  $request->boolean('osmm_override_sidebar')  ? 1 : 0, 'text', $uid);
         OsmmSetting::put('osmm_override_footer',   $request->boolean('osmm_override_footer')   ? 1 : 0, 'text', $uid);
         OsmmSetting::put('osmm_override_manifest', $request->boolean('osmm_override_manifest') ? 1 : 0, 'text', $uid);
+        OsmmSetting::put('osmm_override_manifest', $request->boolean('osmm_override_favicon') ? 1 : 0, 'text', $uid);
 
 
         // Store content blobs
         OsmmSetting::put('osmm_branding_footer_html',   $data['osmm_branding_footer_html']   ?? '', 'html', $uid);
         OsmmSetting::put('osmm_branding_sidebar_html',  $data['osmm_branding_sidebar_html']  ?? '', 'html', $uid);
         OsmmSetting::put('osmm_branding_manifest_json', $data['osmm_branding_manifest_json'] ?? '', 'json', $uid);
+        OsmmSetting::put('osmm_branding_sidebar_html',  $data['osmm_branding_favicon_html']  ?? '', 'html', $uid);
 
         return redirect()
             ->route('osmm.config.branding')
