@@ -776,75 +776,130 @@
     chart.draw(data, options);
     }
 
-    google.charts.load('current', { packages: ['treemap'] });
-    google.charts.setOnLoadCallback(drawAlloc);
+    // Load Google Charts
+  google.charts.load('current', { packages: ['treemap'] });
+  google.charts.setOnLoadCallback(drawAlloc);
 
-    function abbreviate(n) {
-    if (n === null || n === undefined) return '';
+  // --- Helpers ---
+  function abbreviate(n) {
+    if (n == null || isNaN(n)) return '';
     const abs = Math.abs(n);
-    if (abs >= 1e12) return (n / 1e12).toFixed(1).replace(/\.0$/, '') + 't';
-    if (abs >= 1e9) return (n / 1e9).toFixed(1).replace(/\.0$/, '') + 'b';
-    if (abs >= 1e6) return (n / 1e6).toFixed(1).replace(/\.0$/, '') + 'm';
-    if (abs >= 1e3) return (n / 1e3).toFixed(1).replace(/\.0$/, '') + 'k';
+    if (abs >= 1e12) return (n / 1e12).toFixed(2).replace(/\.00$/, '') + 't';
+    if (abs >= 1e9)  return (n / 1e9 ).toFixed(2).replace(/\.00$/, '') + 'b';
+    if (abs >= 1e6)  return (n / 1e6 ).toFixed(2).replace(/\.00$/, '') + 'm';
+    if (abs >= 1e3)  return (n / 1e3 ).toFixed(2).replace(/\.00$/, '') + 'k';
     return Math.round(n).toString();
-    }
+  }
 
-    function drawAlloc() {
-    const leaves = @json($allocation['leaves']); // [{label, loc, isk}, ...]
+  // Use an invisible suffix to keep IDs unique while displaying clean labels
+  const ZWJ = '\u2063'; // Invisible separator
+  const idMap = new Map();  // sourceId -> displayId
+  const labelMap = new Map(); // displayId -> label
 
-    // 1) Totals per location
-    const totals = {};
-    for (const { loc, isk } of leaves) {
-      totals[loc] = (totals[loc] || 0) + (isk || 0);
-    }
+  function makeDisplayId(label, uniqueKey) {
+    const id = `${label}${ZWJ}${uniqueKey}`;
+    labelMap.set(id, label);
+    return id;
+  }
 
-    // 2) Final parent labels with abbreviated totals
-    const locLabel = {};
-    Object.keys(totals).forEach(loc => {
-      locLabel[loc] = `${loc} — ISK ${abbreviate(totals[loc])}`;
-    });
+  function drawAlloc() {
+    // Accept either structure:
+    // - Legacy: { leaves: [{label, loc, isk}, ...] }
+    // - New:    { nodes:  [{id, parent|null, label, value, tooltip?}, ...] }
+    const allocation = @json($allocation ?? []);
 
-    // 3) Build DataTable
     const dt = new google.visualization.DataTable();
-    dt.addColumn('string', 'Node');
-    dt.addColumn('string', 'Parent');
-    dt.addColumn('number', 'Total ISK (size)');
-    dt.addColumn('number', 'Color');
+    dt.addColumn('string', 'Id');            // (display id, shown as label)
+    dt.addColumn('string', 'Parent');        // (display parent id or null)
+    dt.addColumn('number', 'Size');          // (numeric value for area)
+    dt.addColumn({ type: 'string', role: 'tooltip' }); // hover text
 
+    // --- Build rows ---
     const rows = [];
-    rows.push(['Assets', null, 0, 0]); // root
 
-    Object.keys(totals).forEach(loc => {
-      rows.push([locLabel[loc], 'Assets', 0, 0]); // container nodes
-    });
+    if (Array.isArray(allocation?.nodes)) {
+      // New hierarchical data: region → system → location type → location → bucket
+      idMap.clear(); labelMap.clear();
 
-    leaves.forEach(({ label, loc, isk }) => {
-      rows.push([`${label} — ISK ${abbreviate(isk)}`, locLabel[loc], Number(isk) || 0, 0]);
-    });
+      // 1) First pass: create display IDs so parents resolve
+      for (const n of allocation.nodes) {
+        const label = n.label || String(n.id);
+        const displayId = makeDisplayId(label, n.id);
+        idMap.set(n.id, displayId);
+      }
+
+      // 2) Second pass: add rows
+      for (const n of allocation.nodes) {
+        const displayId = idMap.get(n.id);
+        const parentId  = n.parent ? idMap.get(n.parent) : null;
+        const size      = Number(n.value || 0);
+        const tip       = n.tooltip || `${labelMap.get(displayId)} — ISK ${abbreviate(size)}`;
+        rows.push([displayId, parentId, size, tip]);
+      }
+
+    } else if (Array.isArray(allocation?.leaves)) {
+      // Legacy two-tier data: root → location → leaf (bucket@location)
+      const leaves = allocation.leaves;
+
+      // 1) Totals per location (for parent tooltips)
+      const totals = {};
+      for (const { loc, isk } of leaves) {
+        const v = Number(isk || 0);
+        totals[loc] = (totals[loc] || 0) + v;
+      }
+
+      // 2) Root
+      const rootId = makeDisplayId('Assets', 'root');
+      rows.push([rootId, null, 0, `Assets — ISK ${abbreviate(Object.values(totals).reduce((a,b)=>a+b,0))}`]);
+
+      // 3) Location parents (clean label, size 0)
+      const locDisp = {};
+      Object.keys(totals).forEach((loc) => {
+        const id = makeDisplayId(loc, `loc:${loc}`);
+        locDisp[loc] = id;
+        rows.push([id, rootId, 0, `${loc} — ISK ${abbreviate(totals[loc])}`]);
+      });
+
+      // 4) Leaves (clean label, size = isk)
+      for (const { label, loc, isk } of leaves) {
+        const parent = locDisp[loc];
+        const size = Number(isk || 0);
+        const id = makeDisplayId(label, `leaf:${label}@${loc}`);
+        rows.push([id, parent, size, `${label} — ISK ${abbreviate(size)}`]);
+      }
+    } else {
+      // No data
+      const rootId = makeDisplayId('Assets', 'root');
+      rows.push([rootId, null, 0, 'No data']);
+    }
 
     dt.addRows(rows);
 
-    const tree = new google.visualization.TreeMap(document.getElementById('chart_allocation_div'));
+    // --- Draw ---
+    const el = document.getElementById('chart_allocation_div');
+    if (!el) return;
+    const tree = new google.visualization.TreeMap(el);
+
     tree.draw(dt, {
-      minColor: '#63a4ff',
-      midColor: '#63a4ff',
-      maxColor: '#63a4ff',
+      minColor: '#cfe0fd',
+      midColor: '#a7c3fb',
+      maxColor: '#7aa4f7',
       showScale: false,
       headerHeight: 18,
       fontColor: '#111',
-      generateTooltip: (row, size, value) => {
-      // Custom tooltip with full numbers and location nesting
-      const node = dt.getValue(row, 0);
-      const parent = dt.getValue(row, 1);
-      const val = dt.getValue(row, 2);
-      return `<div style="padding:6px 8px;font-size:12px">
-            <div><strong>${node}</strong></div>
-            <div>Value: ISK ${val.toLocaleString()}</div>
-            </div>`;
-      }
+      // Let the tooltip column provide content
+      generateTooltip: (row) => dt.getValue(row, 3),
     });
-    }
+  }
 
+  // Redraw on resize (debounced)
+  (function () {
+    let t = null;
+    window.addEventListener('resize', () => {
+      clearTimeout(t);
+      t = setTimeout(drawAlloc, 150);
+    });
+  })();
 
     function loadSkillsCoverageChart(chars) {
     if (!chars.length) {
