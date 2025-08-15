@@ -12,5 +12,5 @@
   {!! $content !!}
 @else
   {{-- Fall back to the original SeAT sidebar --}}
-  @include('eveseat_web::includes.footer')
+  @include('eveseat_web::includes.favicon')
 @endif
