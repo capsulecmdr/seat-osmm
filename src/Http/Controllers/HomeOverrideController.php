@@ -962,7 +962,7 @@ private function resolveLocationMeta(array $locIds, ?string $eveConn = null, ?st
     }
 
     // -------- 6) Optional public ESI fallback for system/region naming --------
-    if (!empty($systemIds) && (bool) env('OSMM_ESI_UNIVERSE_FALLBACK', true)) {
+    if (!empty($systemIds)) {
         try {
             /** @var \CapsuleCmdr\SeatOsmm\Support\Esi\EsiCall $esi */
             $esi = app(\CapsuleCmdr\SeatOsmm\Support\Esi\EsiCall::class);
