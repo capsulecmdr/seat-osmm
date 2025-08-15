@@ -938,19 +938,6 @@ private function resolveLocationMeta(array $locIds, ?string $eveConn = null, ?st
 
 
 
-    /** Abbreviate ISK values: 1_234 → 1.23k ISK, 2_500_000_000 → 2.5b ISK */
-    private function abbrISK(float $v): string
-    {
-        $abs = abs($v);
-        if ($abs >= 1_000_000_000_000) return round($v/1_000_000_000_000, 2) . 't ISK';
-        if ($abs >= 1_000_000_000)     return round($v/1_000_000_000, 2)     . 'b ISK';
-        if ($abs >= 1_000_000)         return round($v/1_000_000, 2)         . 'm ISK';
-        if ($abs >= 1_000)             return round($v/1_000, 2)             . 'k ISK';
-        return number_format($v, 0) . ' ISK';
-    }
-
-
-
     
 
 }
