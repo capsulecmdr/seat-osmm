@@ -20,6 +20,7 @@ use Seat\Eveapi\Models\Assets\CharacterAsset as CA;
 use Illuminate\Support\Facades\Log;
 use CapsuleCmdr\SeatOsmm\Support\Esi\EsiCall;
 use Seat\Eveapi\Models\Character\CharacterInfo;
+use Illuminate\Support\Collection;
 
 
 class HomeOverrideController extends Controller
