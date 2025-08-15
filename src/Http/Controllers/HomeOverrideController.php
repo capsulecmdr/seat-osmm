@@ -484,183 +484,187 @@ class HomeOverrideController extends Controller
      * - Labels are clean; tooltips show abbreviated ISK.
      */
     private function buildAssetAllocationHierarchy(): array
-    {
-        $user = Auth::user();
-        $now  = now('UTC')->toIso8601String();
+{
+    $user = Auth::user();
+    $now  = now('UTC')->toIso8601String();
 
-        // Linked characters
-        $char_ids = $user->characters()
-            ->select('character_infos.character_id')
-            ->distinct()
-            ->pluck('character_infos.character_id');
+    // Linked characters
+    $char_ids = $user->characters()
+        ->select('character_infos.character_id')
+        ->distinct()
+        ->pluck('character_infos.character_id');
 
-        if ($char_ids->isEmpty()) {
-            return ['nodes' => [], 'updated' => $now];
-        }
+    if ($char_ids->isEmpty()) {
+        return ['nodes' => [], 'updated' => $now];
+    }
 
-        // Assets (lean columns)
-        $CA        = new CA;
-        $assetsTbl = $CA->getTable();
-        $eveConn = $CA->getConnectionName() ?: config('database.default');
-        $sdeConn = config('database.connections.sde') ? 'sde' : $eveConn;
+    // Assets (lean columns)
+    $CA        = new CA;
+    $assetsTbl = $CA->getTable();
+    $eveConn   = $CA->getConnectionName() ?: config('database.default');
+    $sdeConn   = config('database.connections.sde') ? 'sde' : $eveConn;
 
-        $cols = ['character_id', 'type_id', 'quantity', 'location_id'];
-        $has_item_id = Schema::connection($eveConn)->hasColumn($assetsTbl, 'item_id');
-        if ($has_item_id) $cols[] = 'item_id';
+    $cols = ['character_id', 'type_id', 'quantity', 'location_id'];
+    $has_item_id = Schema::connection($eveConn)->hasColumn($assetsTbl, 'item_id');
+    if ($has_item_id) $cols[] = 'item_id';
 
-        $assets = CA::whereIn('character_id', $char_ids)->get($cols);
-        if ($assets->isEmpty()) {
-            return ['nodes' => [], 'updated' => $now];
-        }
+    $assets = CA::whereIn('character_id', $char_ids)->get($cols);
+    if ($assets->isEmpty()) {
+        return ['nodes' => [], 'updated' => $now];
+    }
 
-        // ---- Price map (skip rows with no price or qty <= 0) ----
-        $type_ids = $assets->pluck('type_id')->unique();
-        $priceMap = $this->priceMapForTypeIds($type_ids, ['adjusted_price','average_price','sell_price','average','buy_price']);
+    // ---- Price map ----
+    $type_ids = $assets->pluck('type_id')->unique();
+    $priceMap = $this->priceMapForTypeIds(
+        $type_ids,
+        ['adjusted_price','average_price','sell_price','average','buy_price']
+    );
 
-        // ---- Item bucket mapping via SDE groups ----
-        $types  = InvType::whereIn('typeID', $type_ids)->get(['typeID','groupID']);
-        $groups = InvGroup::whereIn('groupID', $types->pluck('groupID')->unique())
-            ->get(['groupID','groupName'])->keyBy('groupID');
+    // ---- Item bucket mapping via SDE groups ----
+    $types  = InvType::whereIn('typeID', $type_ids)->get(['typeID','groupID']);
+    $groups = InvGroup::whereIn('groupID', $types->pluck('groupID')->unique())
+        ->get(['groupID','groupName'])->keyBy('groupID');
 
-        $bucketOf = function (int $type_id) use ($types, $groups): string {
-            $t = $types->firstWhere('typeID', $type_id);
-            $g = $t ? ($groups[$t->groupID] ?? null) : null;
-            $name = strtolower($g->groupName ?? '');
-            if (str_contains($name,'ship'))       return 'Ships';
-            if (str_contains($name,'module'))     return 'Modules';
-            if (str_contains($name,'ammunition')) return 'Ammo';
-            if (str_contains($name,'charge'))     return 'Ammo';
-            if (str_contains($name,'blueprint'))  return 'Blueprints';
-            if (str_contains($name,'mineral'))    return 'Minerals';
-            if (str_contains($name,'ore'))        return 'Ore';
-            if (str_contains($name,'planetary') || str_contains($name,'pi')) return 'PI';
-            if (str_contains($name,'salvage'))    return 'Salvage';
-            return 'Other';
-        };
+    $bucketOf = function (int $type_id) use ($types, $groups): string {
+        $t = $types->firstWhere('typeID', $type_id);
+        $g = $t ? ($groups[$t->groupID] ?? null) : null;
+        $name = strtolower($g->groupName ?? '');
+        if (str_contains($name,'ship'))       return 'Ships';
+        if (str_contains($name,'module'))     return 'Modules';
+        if (str_contains($name,'ammunition')) return 'Ammo';
+        if (str_contains($name,'charge'))     return 'Ammo';
+        if (str_contains($name,'blueprint'))  return 'Blueprints';
+        if (str_contains($name,'mineral'))    return 'Minerals';
+        if (str_contains($name,'ore'))        return 'Ore';
+        if (str_contains($name,'planetary') || str_contains($name,'pi')) return 'PI';
+        if (str_contains($name,'salvage'))    return 'Salvage';
+        return 'Other';
+    };
 
-        // ---- Walk containers up to the top "place" (station/structure/system) ----
-        // Map: item_id(string) -> parent location_id(string)
-        $itemParent = [];
-        if ($has_item_id) {
-            foreach ($assets as $a) {
-                if (!is_null($a->item_id)) {
-                    $itemParent[(string)$a->item_id] = (string)$a->location_id;
-                }
-            }
-        }
-        $topLocationId = function (string $loc) use ($itemParent): string {
-            $guard = 0;
-            while (isset($itemParent[$loc]) && $guard++ < 25) {
-                $loc = $itemParent[$loc];
-            }
-            return $loc;
-        };
-
-        // ---- Aggregate ISK by: topLoc → bucket ----
-        $byLocBucket = [];     // [locId(string) => [bucket => isk]]
-        $topLocIds   = [];     // set of top location ids we saw
-
+    // ---- Walk containers up to the top "place" (station/structure/system) ----
+    $itemParent = [];
+    if ($has_item_id) {
         foreach ($assets as $a) {
-            $qty = (int) $a->quantity;
-            if ($qty <= 0) continue;
-
-            $px = (float) ($priceMap[(int)$a->type_id] ?? 0.0);
-            if ($px <= 0) continue;
-
-            $isk    = $px * $qty;
-            $bucket = $bucketOf((int)$a->type_id);
-            $locTop = $topLocationId((string)$a->location_id);
-
-            $byLocBucket[$locTop][$bucket] = ($byLocBucket[$locTop][$bucket] ?? 0.0) + $isk;
-            $topLocIds[$locTop] = true;
+            if (!is_null($a->item_id)) {
+                $itemParent[(string)$a->item_id] = (string)$a->location_id;
+            }
         }
-
-        if (empty($byLocBucket)) {
-            return ['nodes' => [], 'updated' => $now];
+    }
+    $topLocationId = function (string $loc) use ($itemParent): string {
+        $guard = 0;
+        while (isset($itemParent[$loc]) && $guard++ < 25) {
+            $loc = $itemParent[$loc];
         }
+        return $loc;
+    };
 
-        // ---- Resolve location meta (type/name/system/region) using SDE + SeAT caches only ----
-        $locMeta = $this->resolveLocationMeta(array_keys($topLocIds), $eveConn, $sdeConn);
+    // ---- Aggregate ISK by: topLoc → bucket ----
+    $byLocBucket = [];  // [locId => [bucket => isk]]
+    $topLocIds   = [];
 
-        // ---- Build hierarchy sums and nodes ----
-        $rootId   = 'root';
-        $nodes    = [];
-        $sumRegion = [];             // [regionId => total]
-        $sumSystem = [];             // [regionId][systemId] => total
-        $sumType   = [];             // [regionId][systemId][locType] => total
-        $sumLoc    = [];             // [locId] => total
+    foreach ($assets as $a) {
+        $qty = (int) $a->quantity;
+        if ($qty <= 0) continue;
+        $px = (float) ($priceMap[(int)$a->type_id] ?? 0.0);
+        if ($px <= 0) continue;
 
-        // Precompute totals
-        foreach ($byLocBucket as $locId => $buckets) {
-            $meta = $locMeta[$locId] ?? [
-                'loc_type'     => 'Unknown',
-                'loc_name'     => "Unknown Location (ID: $locId)",
-                'system_id'    => 'unknown',
-                'system_name'  => 'Unknown System',
-                'region_id'    => 'unknown',
-                'region_name'  => 'Unknown Region',
-            ];
-            $locTotal = array_sum($buckets);
+        $isk    = $px * $qty;
+        $bucket = $bucketOf((int)$a->type_id);
+        $locTop = $topLocationId((string)$a->location_id);
 
-            $sumLoc[$locId] = $locTotal;
-            $r = (string)$meta['region_id'];
-            $s = (string)$meta['system_id'];
-            $t = (string)$meta['loc_type'];
+        $byLocBucket[$locTop][$bucket] = ($byLocBucket[$locTop][$bucket] ?? 0.0) + $isk;
+        $topLocIds[$locTop] = true;
+    }
 
-            $sumRegion[$r]                     = ($sumRegion[$r] ?? 0) + $locTotal;
-            $sumSystem[$r][$s]                 = ($sumSystem[$r][$s] ?? 0) + $locTotal;
-            $sumType[$r][$s][$t]               = ($sumType[$r][$s][$t] ?? 0) + $locTotal;
-        }
+    if (empty($byLocBucket)) {
+        return ['nodes' => [], 'updated' => $now];
+    }
 
-        // Root
-        $nodes[] = ['id' => $rootId, 'parent' => null, 'label' => 'Assets', 'value' => 0.0, 'tooltip' => $this->abbrISK(array_sum($sumRegion))];
+    // ---- Resolve location meta (SDE + SeAT caches only) ----
+    $locMeta = $this->resolveLocationMeta(array_keys($topLocIds), $eveConn, $sdeConn);
 
-        // Regions → Systems → LocationType → Location → ItemBucket
-        foreach ($sumRegion as $regionId => $rTotal) {
-            $rName = ($regionId !== 'unknown')
-                ? ($locMeta['__regions__'][$regionId] ?? "Region $regionId")
-                : 'Unknown Region';
+    // ---- Build hierarchy sums ----
+    $rootId    = 'root';
+    $nodes     = [];
+    $sumRegion = [];   // [regionId => total]
+    $sumSystem = [];   // [regionId][systemId] => total
+    $sumType   = [];   // [regionId][systemId][locType] => total
+    $sumLoc    = [];   // [locId => total]
 
-            $rid = "region:$regionId";
-            $nodes[] = ['id' => $rid, 'parent' => $rootId, 'label' => $rName, 'value' => 0.0, 'tooltip' => $this->abbrISK($rTotal)];
+    foreach ($byLocBucket as $locId => $buckets) {
+        $meta = $locMeta[$locId] ?? [
+            'loc_type'     => 'Unknown',
+            'loc_name'     => "Unknown Location",
+            'system_id'    => 'unknown',
+            'system_name'  => 'Unknown System',
+            'region_id'    => 'unknown',
+            'region_name'  => 'Unknown Region',
+        ];
+        $locTotal = array_sum($buckets);
 
-            foreach ($sumSystem[$regionId] as $systemId => $sTotal) {
-                $sName = ($systemId !== 'unknown')
-                    ? ($locMeta['__systems__'][$systemId] ?? "System $systemId")
-                    : 'Unknown System';
+        $sumLoc[$locId] = $locTotal;
+        $r = (string)$meta['region_id'];
+        $s = (string)$meta['system_id'];
+        $t = (string)$meta['loc_type'];
 
-                $sid = "system:$systemId";
-                $nodes[] = ['id' => $sid, 'parent' => $rid, 'label' => $sName, 'value' => 0.0, 'tooltip' => $this->abbrISK($sTotal)];
+        $sumRegion[$r]           = ($sumRegion[$r] ?? 0.0) + $locTotal;
+        $sumSystem[$r][$s]       = ($sumSystem[$r][$s] ?? 0.0) + $locTotal;
+        $sumType[$r][$s][$t]     = ($sumType[$r][$s][$t] ?? 0.0) + $locTotal;
+    }
 
-                foreach ($sumType[$regionId][$systemId] as $locType => $tTotal) {
-                    $tid = "ltype:$locType@sys:$systemId";
-                    $nodes[] = ['id' => $tid, 'parent' => $sid, 'label' => $locType, 'value' => 0.0, 'tooltip' => $this->abbrISK($tTotal)];
+    // ---- Nodes (NO tooltips / NO abbreviations; JS handles that) ----
+    // Root
+    $rootColor = array_sum($sumRegion);
+    $nodes[] = ['id' => $rootId, 'parent' => null, 'label' => 'Assets', 'value' => 0.0, 'color' => (float)$rootColor];
 
-                    // Locations in this (region, system, type)
-                    foreach ($byLocBucket as $locId => $buckets) {
-                        $meta = $locMeta[$locId] ?? null;
-                        if (!$meta) continue;
-                        if ((string)$meta['region_id'] !== (string)$regionId) continue;
-                        if ((string)$meta['system_id'] !== (string)$systemId) continue;
-                        if ((string)$meta['loc_type']  !== (string)$locType) continue;
+    // Regions → Systems → LocationType → Location → ItemBucket
+    foreach ($sumRegion as $regionId => $rTotal) {
+        $rName = ($regionId !== 'unknown')
+            ? ($locMeta['__regions__'][$regionId] ?? "Region $regionId")
+            : 'Unknown Region';
 
-                        $lid   = "loc:$locId";
-                        $lname = $meta['loc_name'];
-                        $ltot  = $sumLoc[$locId] ?? 0;
+        $rid = "region:$regionId";
+        $nodes[] = ['id' => $rid, 'parent' => $rootId, 'label' => $rName, 'value' => 0.0, 'color' => (float)$rTotal];
 
-                        $nodes[] = ['id' => $lid, 'parent' => $tid, 'label' => $lname, 'value' => 0.0, 'tooltip' => $this->abbrISK($ltot)];
+        foreach ($sumSystem[$regionId] as $systemId => $sTotal) {
+            $sName = ($systemId !== 'unknown')
+                ? ($locMeta['__systems__'][$systemId] ?? "System $systemId")
+                : 'Unknown System';
 
-                        foreach ($buckets as $bucket => $isk) {
-                            $bid = "bucket:$bucket@loc:$locId";
-                            $nodes[] = ['id' => $bid, 'parent' => $lid, 'label' => $bucket, 'value' => (float)$isk, 'tooltip' => $this->abbrISK($isk)];
-                        }
+            $sid = "system:$systemId";
+            $nodes[] = ['id' => $sid, 'parent' => $rid, 'label' => $sName, 'value' => 0.0, 'color' => (float)$sTotal];
+
+            foreach ($sumType[$regionId][$systemId] as $locType => $tTotal) {
+                $tid = "ltype:$locType@sys:$systemId";
+                $nodes[] = ['id' => $tid, 'parent' => $sid, 'label' => $locType, 'value' => 0.0, 'color' => (float)$tTotal];
+
+                // Locations in this (region, system, type)
+                foreach ($byLocBucket as $locId => $buckets) {
+                    $meta = $locMeta[$locId] ?? null;
+                    if (!$meta) continue;
+                    if ((string)$meta['region_id'] !== (string)$regionId) continue;
+                    if ((string)$meta['system_id'] !== (string)$systemId) continue;
+                    if ((string)$meta['loc_type']  !== (string)$locType)  continue;
+
+                    $lid   = "loc:$locId";
+                    $lname = $meta['loc_name'];
+                    $ltot  = (float)($sumLoc[$locId] ?? 0.0);
+
+                    $nodes[] = ['id' => $lid, 'parent' => $tid, 'label' => $lname, 'value' => 0.0, 'color' => $ltot];
+
+                    foreach ($buckets as $bucket => $isk) {
+                        $bid = "bucket:$bucket@loc:$locId";
+                        $val = (float)$isk;
+                        $nodes[] = ['id' => $bid, 'parent' => $lid, 'label' => $bucket, 'value' => $val, 'color' => $val];
                     }
                 }
             }
         }
-
-        return ['nodes' => $nodes, 'updated' => $now];
     }
+
+    return ['nodes' => $nodes, 'updated' => $now];
+}
+
 
     /**
      * Resolve location metadata (NO ESI):
