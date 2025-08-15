@@ -477,8 +477,13 @@ class HomeOverrideController extends Controller
         ];
     }
 
-protected function buildAssetAllocationHierarchy(array $charIds, int $limit = 50000): Collection
+protected function buildAssetAllocationHierarchy(): Collection
 {
+    $user = Auth::user();
+    $charIds = $user->characters()
+            ->select('character_infos.character_id')
+            ->distinct()
+            ->pluck('character_infos.character_id');
     // NOTE:
     // - Assumes SDE is in schema `sde` (invTypes/invGroups/invCategories, staStations)
     // - SeAT universe tables assumed: universe_structures, universe_stations, market_prices
@@ -547,7 +552,6 @@ assets AS (
   FROM character_assets a
   JOIN rooted r ON r.seed_item_id = a.item_id
   WHERE a.character_id IN ($charList)
-  LIMIT $limit
 )
 
 SELECT
