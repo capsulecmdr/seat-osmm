@@ -477,272 +477,378 @@ class HomeOverrideController extends Controller
         ];
     }
 
-    private function buildAssetAllocationTreemap(): array
-{
-    $user = Auth::user();
+    /**
+     * Build hierarchical allocation across Region → System → LocationType → Location → ItemBucket.
+     * - Uses SDE + SeAT caches only (no ESI).
+     * - Counts ALL assets (containers + contents).
+     * - Labels are clean; tooltips show abbreviated ISK.
+     */
+    private function buildAssetAllocationHierarchy(): array
+    {
+        $user = Auth::user();
+        $now  = now('UTC')->toIso8601String();
 
-    // Linked characters
-    $char_ids = $user->characters()
-        ->select('character_infos.character_id')
-        ->distinct()
-        ->pluck('character_infos.character_id');
+        // Linked characters
+        $char_ids = $user->characters()
+            ->select('character_infos.character_id')
+            ->distinct()
+            ->pluck('character_infos.character_id');
 
-    $now = now('UTC')->toIso8601String();
-    if ($char_ids->isEmpty()) {
-        return ['leaves' => [], 'updated' => $now];
-    }
+        if ($char_ids->isEmpty()) {
+            return ['nodes' => [], 'updated' => $now];
+        }
 
-    // Pull current snapshot of assets
-    $assetsTable = (new CA)->getTable();
-    $eveConn     = (new CA)->getConnectionName();
+        // Assets (lean columns)
+        $CA        = new CA;
+        $assetsTbl = $CA->getTable();
+        $eveConn   = $CA->getConnectionName();
+        $sdeConn   = 'sde'; // adjust if your SDE connection is named differently
 
-    $cols = ['character_id', 'type_id', 'quantity', 'location_id'];
-    $has_item_id = Schema::connection($eveConn)->hasColumn($assetsTable, 'item_id');
-    if ($has_item_id) $cols[] = 'item_id';
+        $cols = ['character_id', 'type_id', 'quantity', 'location_id'];
+        $has_item_id = Schema::connection($eveConn)->hasColumn($assetsTbl, 'item_id');
+        if ($has_item_id) $cols[] = 'item_id';
 
-    // NOTE: we do NOT rely on location_type filtering anymore.
-    $assets = CA::whereIn('character_id', $char_ids)->get($cols);
-    if ($assets->isEmpty()) {
-        return ['leaves' => [], 'updated' => $now];
-    }
+        $assets = CA::whereIn('character_id', $char_ids)->get($cols);
+        if ($assets->isEmpty()) {
+            return ['nodes' => [], 'updated' => $now];
+        }
 
-    // ---- Price map ----
-    $type_ids = $assets->pluck('type_id')->unique();
-    $priceMap = $this->priceMapForTypeIds(
-        $type_ids,
-        ['adjusted_price','average_price','sell_price','average','buy_price']
-    );
+        // ---- Price map (skip rows with no price or qty <= 0) ----
+        $type_ids = $assets->pluck('type_id')->unique();
+        $priceMap = $this->priceMapForTypeIds($type_ids, ['adjusted_price','average_price','sell_price','average','buy_price']);
 
-    // ---- Category mapping via SDE groups ----
-    $types  = InvType::whereIn('typeID', $type_ids)->get(['typeID','groupID']);
-    $groups = InvGroup::whereIn('groupID', $types->pluck('groupID')->unique())
-        ->get(['groupID','groupName'])->keyBy('groupID');
+        // ---- Item bucket mapping via SDE groups ----
+        $types  = InvType::whereIn('typeID', $type_ids)->get(['typeID','groupID']);
+        $groups = InvGroup::whereIn('groupID', $types->pluck('groupID')->unique())
+            ->get(['groupID','groupName'])->keyBy('groupID');
 
-    $bucketOf = function (int $type_id) use ($types, $groups): string {
-        $t = $types->firstWhere('typeID', $type_id);
-        $g = $t ? ($groups[$t->groupID] ?? null) : null;
-        $name = strtolower($g->groupName ?? '');
-        if (str_contains($name,'ship'))       return 'Ships';
-        if (str_contains($name,'module'))     return 'Modules';
-        if (str_contains($name,'ammunition')) return 'Ammo';
-        if (str_contains($name,'charge'))     return 'Ammo';
-        if (str_contains($name,'blueprint'))  return 'Blueprints';
-        if (str_contains($name,'mineral'))    return 'Minerals';
-        if (str_contains($name,'ore'))        return 'Ore';
-        if (str_contains($name,'planetary') || str_contains($name,'pi')) return 'PI';
-        if (str_contains($name,'salvage'))    return 'Salvage';
-        return 'Other';
-    };
+        $bucketOf = function (int $type_id) use ($types, $groups): string {
+            $t = $types->firstWhere('typeID', $type_id);
+            $g = $t ? ($groups[$t->groupID] ?? null) : null;
+            $name = strtolower($g->groupName ?? '');
+            if (str_contains($name,'ship'))       return 'Ships';
+            if (str_contains($name,'module'))     return 'Modules';
+            if (str_contains($name,'ammunition')) return 'Ammo';
+            if (str_contains($name,'charge'))     return 'Ammo';
+            if (str_contains($name,'blueprint'))  return 'Blueprints';
+            if (str_contains($name,'mineral'))    return 'Minerals';
+            if (str_contains($name,'ore'))        return 'Ore';
+            if (str_contains($name,'planetary') || str_contains($name,'pi')) return 'PI';
+            if (str_contains($name,'salvage'))    return 'Salvage';
+            return 'Other';
+        };
 
-    // ---- Build container maps to "walk up" to the top-level place ----
-    // itemId -> parentLocationId (string keys)
-    $itemParent = [];
-    if ($has_item_id) {
-        foreach ($assets as $a) {
-            if (!is_null($a->item_id)) {
-                $itemParent[(string)$a->item_id] = (string)$a->location_id;
+        // ---- Walk containers up to the top "place" (station/structure/system) ----
+        // Map: item_id(string) -> parent location_id(string)
+        $itemParent = [];
+        if ($has_item_id) {
+            foreach ($assets as $a) {
+                if (!is_null($a->item_id)) {
+                    $itemParent[(string)$a->item_id] = (string)$a->location_id;
+                }
             }
         }
-    }
-
-    // set of item_ids that are referenced by some asset's location_id => this asset is a container
-    $referencedItemIds = [];
-    if ($has_item_id) {
-        $locIdsAsStr = $assets->pluck('location_id')->map(fn($v)=>(string)$v)->unique()->flip();
-        foreach ($assets as $a) {
-            if (!is_null($a->item_id) && isset($locIdsAsStr[(string)$a->item_id])) {
-                $referencedItemIds[(string)$a->item_id] = true;
+        $topLocationId = function (string $loc) use ($itemParent): string {
+            $guard = 0;
+            while (isset($itemParent[$loc]) && $guard++ < 25) {
+                $loc = $itemParent[$loc];
             }
-        }
-    }
+            return $loc;
+        };
 
-    // helper: follow location_id up through containers until we hit a real place id
-    $topLocationId = function (string $loc) use ($itemParent): string {
-        $guard = 0;
-        while (isset($itemParent[$loc]) && $guard++ < 20) {
-            $loc = $itemParent[$loc]; // climb: container -> its parent location_id
-        }
-        return $loc; // station_id / structure_id / solarSystemID / leftover
-    };
+        // ---- Aggregate ISK by: topLoc → bucket ----
+        $byLocBucket = [];     // [locId(string) => [bucket => isk]]
+        $topLocIds   = [];     // set of top location ids we saw
 
-    // ---- Roll up ISK by (top_location_id, bucket) ----
-    $byLocBucket = [];
-    $topLocIds = [];
+        foreach ($assets as $a) {
+            $qty = (int) $a->quantity;
+            if ($qty <= 0) continue;
 
-    foreach ($assets as $a) {
-        $qty = (int) $a->quantity;
-        if ($qty <= 0) continue;
+            $px = (float) ($priceMap[(int)$a->type_id] ?? 0.0);
+            if ($px <= 0) continue;
 
-        $px  = (float) ($priceMap[(int) $a->type_id] ?? 0.0);
-        if ($px <= 0) continue;
+            $isk    = $px * $qty;
+            $bucket = $bucketOf((int)$a->type_id);
+            $locTop = $topLocationId((string)$a->location_id);
 
-        // Skip container assets themselves (but keep their contents)
-        if ($has_item_id && isset($referencedItemIds[(string)($a->item_id ?? '')])) {
-            continue;
+            $byLocBucket[$locTop][$bucket] = ($byLocBucket[$locTop][$bucket] ?? 0.0) + $isk;
+            $topLocIds[$locTop] = true;
         }
 
-        // Attribute ALL assets (even nested) to the top-level place (station/structure/system).
-        $locTop = $topLocationId((string)$a->location_id);
-        $bucket = $bucketOf((int) $a->type_id);
-        $isk    = $px * $qty;
+        if (empty($byLocBucket)) {
+            return ['nodes' => [], 'updated' => $now];
+        }
 
-        $byLocBucket[$locTop][$bucket] = ($byLocBucket[$locTop][$bucket] ?? 0.0) + $isk;
-        $topLocIds[$locTop] = true;
-    }
+        // ---- Resolve location meta (type/name/system/region) using SDE + SeAT caches only ----
+        $locMeta = $this->resolveLocationMeta(array_keys($topLocIds), $eveConn, $sdeConn);
 
-    if (empty($byLocBucket)) {
-        return ['leaves' => [], 'updated' => $now];
-    }
+        // ---- Build hierarchy sums and nodes ----
+        $rootId   = 'root';
+        $nodes    = [];
+        $sumRegion = [];             // [regionId => total]
+        $sumSystem = [];             // [regionId][systemId] => total
+        $sumType   = [];             // [regionId][systemId][locType] => total
+        $sumLoc    = [];             // [locId] => total
 
-    // ---- Resolve location names for the *top-level* ids ----
-    $locIds   = array_keys($topLocIds);
-    $locNames = $this->resolveLocationNames($locIds); // structures → stations → systems → universe_names → ESI
-
-    // ---- Build leaves: [label, parent (location name), isk] ----
-    $leaves = [];
-    foreach ($byLocBucket as $locId => $buckets) {
-        $locName = $locNames[$locId] ?? ('Location ' . $locId);
-        foreach ($buckets as $bucket => $isk) {
-            $leaves[] = [
-                'label' => sprintf('%s (%s)', $bucket, $locName),
-                'loc'   => $locName,
-                'isk'   => (float) $isk,
+        // Precompute totals
+        foreach ($byLocBucket as $locId => $buckets) {
+            $meta = $locMeta[$locId] ?? [
+                'loc_type'     => 'Unknown',
+                'loc_name'     => "Unknown Location (ID: $locId)",
+                'system_id'    => 'unknown',
+                'system_name'  => 'Unknown System',
+                'region_id'    => 'unknown',
+                'region_name'  => 'Unknown Region',
             ];
+            $locTotal = array_sum($buckets);
+
+            $sumLoc[$locId] = $locTotal;
+            $r = (string)$meta['region_id'];
+            $s = (string)$meta['system_id'];
+            $t = (string)$meta['loc_type'];
+
+            $sumRegion[$r]                     = ($sumRegion[$r] ?? 0) + $locTotal;
+            $sumSystem[$r][$s]                 = ($sumSystem[$r][$s] ?? 0) + $locTotal;
+            $sumType[$r][$s][$t]               = ($sumType[$r][$s][$t] ?? 0) + $locTotal;
         }
-    }
 
-    // Sort largest first (optional)
-    usort($leaves, fn($a,$b)=> $b['isk'] <=> $a['isk']);
+        // Root
+        $nodes[] = ['id' => $rootId, 'parent' => null, 'label' => 'Assets', 'value' => 0.0, 'tooltip' => $this->abbrISK(array_sum($sumRegion))];
 
-    return [
-        'leaves'  => $leaves,
-        'updated' => $now,
-    ];
-}
+        // Regions → Systems → LocationType → Location → ItemBucket
+        foreach ($sumRegion as $regionId => $rTotal) {
+            $rName = ($regionId !== 'unknown')
+                ? ($locMeta['__regions__'][$regionId] ?? "Region $regionId")
+                : 'Unknown Region';
 
-/**
- * Resolve raw location IDs to human names.
- * Order: universe_structures → universe_stations → SDE mapSolarSystems → universe_names → live ESI (structures).
- *
- * @param array<int|string> $ids
- * @return array<string,string> [location_id(string) => name]
- */
-private function resolveLocationNames(array $ids): array
-{
-    if (empty($ids)) return [];
+            $rid = "region:$regionId";
+            $nodes[] = ['id' => $rid, 'parent' => $rootId, 'label' => $rName, 'value' => 0.0, 'tooltip' => $this->abbrISK($rTotal)];
 
-    // Stable string keys (bigint-safe) + ints for queries
-    $idsStr = array_values(array_unique(array_map('strval', $ids)));
-    $idsInt = array_map('intval', $idsStr);
+            foreach ($sumSystem[$regionId] as $systemId => $sTotal) {
+                $sName = ($systemId !== 'unknown')
+                    ? ($locMeta['__systems__'][$systemId] ?? "System $systemId")
+                    : 'Unknown System';
 
-    $eveConn = (new CA)->getConnectionName();
-    $names   = [];
+                $sid = "system:$systemId";
+                $nodes[] = ['id' => $sid, 'parent' => $rid, 'label' => $sName, 'value' => 0.0, 'tooltip' => $this->abbrISK($sTotal)];
 
-    // ---------- 1) Player structures (local cache) ----------
-    if (Schema::connection($eveConn)->hasTable('universe_structures')) {
-        try {
-            $rows = DB::connection($eveConn)->table('universe_structures')
-                ->whereIn('structure_id', $idsInt)
-                ->pluck('name', 'structure_id');
-            foreach ($rows as $k => $v) $names[(string)$k] = $v;
-        } catch (\Throwable $e) {}
-    }
+                foreach ($sumType[$regionId][$systemId] as $locType => $tTotal) {
+                    $tid = "ltype:$locType@sys:$systemId";
+                    $nodes[] = ['id' => $tid, 'parent' => $sid, 'label' => $locType, 'value' => 0.0, 'tooltip' => $this->abbrISK($tTotal)];
 
-    // ---------- 2) NPC stations (prefer SeAT’s universe_stations) ----------
-    if (Schema::connection($eveConn)->hasTable('universe_stations')) {
-        try {
-            $rows = DB::connection($eveConn)->table('universe_stations')
-                ->whereIn('station_id', $idsInt)
-                ->pluck('name', 'station_id');
-            foreach ($rows as $k => $v) $names[(string)$k] = $v;
-        } catch (\Throwable $e) {}
-    }
+                    // Locations in this (region, system, type)
+                    foreach ($byLocBucket as $locId => $buckets) {
+                        $meta = $locMeta[$locId] ?? null;
+                        if (!$meta) continue;
+                        if ((string)$meta['region_id'] !== (string)$regionId) continue;
+                        if ((string)$meta['system_id'] !== (string)$systemId) continue;
+                        if ((string)$meta['loc_type']  !== (string)$locType) continue;
 
-    // Fallback to SDE station table if present
-    if (class_exists(\App\Models\Sde\StaStation::class)) {
-        try {
-            $missingForStations = array_map('intval', array_values(array_diff($idsStr, array_keys($names))));
-            if (!empty($missingForStations)) {
-                $rows = \App\Models\Sde\StaStation::whereIn('stationID', $missingForStations)
-                    ->pluck('stationName', 'stationID');
-                foreach ($rows as $k => $v) $names[(string)$k] = $v;
-            }
-        } catch (\Throwable $e) {}
-    }
+                        $lid   = "loc:$locId";
+                        $lname = $meta['loc_name'];
+                        $ltot  = $sumLoc[$locId] ?? 0;
 
-    // ---------- 3) Solar systems (SDE) ----------
-    if (class_exists(\App\Models\Sde\MapSolarSystem::class)) {
-        try {
-            $missingForSystems = array_map('intval', array_values(array_diff($idsStr, array_keys($names))));
-            if (!empty($missingForSystems)) {
-                $rows = \App\Models\Sde\MapSolarSystem::whereIn('solarSystemID', $missingForSystems)
-                    ->pluck('solarSystemName', 'solarSystemID');
-                foreach ($rows as $k => $v) $names[(string)$k] = $v;
-            }
-        } catch (\Throwable $e) {}
-    }
+                        $nodes[] = ['id' => $lid, 'parent' => $tid, 'label' => $lname, 'value' => 0.0, 'tooltip' => $this->abbrISK($ltot)];
 
-    // ---------- 4) universe_names (generic fallback cache) ----------
-    if (Schema::connection($eveConn)->hasTable('universe_names')) {
-        try {
-            $missingGeneric = array_map('intval', array_values(array_diff($idsStr, array_keys($names))));
-            if (!empty($missingGeneric)) {
-                $rows = DB::connection($eveConn)->table('universe_names')
-                    ->whereIn('entity_id', $missingGeneric)
-                    ->pluck('name', 'entity_id');
-                foreach ($rows as $k => $v) $names[(string)$k] = $v;
-            }
-        } catch (\Throwable $e) {}
-    }
-
-    // ---------- 5) Live ESI for any still-missing structures (best-effort) ----------
-    $stillMissing = array_values(array_diff($idsStr, array_keys($names)));
-    if (!empty($stillMissing)) {
-        // Only try ESI for likely structures (>= 1e9). We avoid ranges for stations.
-        $maybeStructures = array_filter($stillMissing, fn($x) => (int)$x >= 1000000000);
-        if (!empty($maybeStructures)) {
-            try {
-                // Bind your OSMM ESI wrapper to the current Seat user
-                /** @var \CapsuleCmdr\SeatOsmm\Support\Esi\EsiCall $esi */
-                $esi = app(\CapsuleCmdr\SeatOsmm\Support\Esi\EsiCall::class)->withSeatUser(Auth::user());
-
-                foreach ($maybeStructures as $sid) {
-                    try {
-                        $path = "/universe/structures/{$sid}/";
-                        $resp = method_exists($esi, 'get')
-                            ? $esi->get($path)
-                            : (method_exists($esi, 'invoke') ? $esi->invoke('get', $path) : null);
-
-                        if (is_array($resp) && !empty($resp['name'])) {
-                            $names[$sid] = $resp['name'];
-                        } elseif (is_object($resp) && !empty($resp->name)) {
-                            $names[$sid] = $resp->name;
-                        } elseif (is_string($resp)) {
-                            // Some wrappers may return JSON string
-                            $obj = json_decode($resp, false);
-                            if ($obj && !empty($obj->name)) $names[$sid] = $obj->name;
+                        foreach ($buckets as $bucket => $isk) {
+                            $bid = "bucket:$bucket@loc:$locId";
+                            $nodes[] = ['id' => $bid, 'parent' => $lid, 'label' => $bucket, 'value' => (float)$isk, 'tooltip' => $this->abbrISK($isk)];
                         }
-                    } catch (\Throwable $e) {
-                        // 403/404/5xx — ignore; fallback label below
                     }
                 }
-            } catch (\Throwable $e) {
-                // ESI wrapper not available — ignore
             }
         }
+
+        return ['nodes' => $nodes, 'updated' => $now];
     }
 
-    // ---------- Final human fallbacks ----------
-    foreach ($idsStr as $id) {
-        if (!isset($names[$id])) {
-            $names[$id] = ((int)$id >= 1000000000)
-                ? "Unknown Structure (ID: {$id})"
-                : "Location {$id}";
+    /**
+     * Resolve location metadata (NO ESI):
+     * - NPC stations:   universe_stations (SeAT) → system_id
+     * - Upwell structs: universe_structures (SeAT) → system_id
+     * - Solar systems:  SDE mapSolarSystems
+     * Then map system → region via SDE.
+     *
+     * @param array $locIds string|int location_id values (top-level)
+     * @param string $eveConn
+     * @param string $sdeConn
+     * @return array  [locId => [loc_type,loc_name,system_id,system_name,region_id,region_name], '__systems__'=>[sysId=>name], '__regions__'=>[regId=>name]]
+     */
+    private function resolveLocationMeta(array $locIds, string $eveConn, string $sdeConn): array
+    {
+        $locIdsStr = array_values(array_unique(array_map('strval', $locIds)));
+        $locIdsInt = array_map('intval', $locIdsStr);
+
+        $meta = [];
+        $systemIds = [];
+
+        // ---- 1) NPC stations (preferred: universe_stations) ----
+        if (Schema::connection($eveConn)->hasTable('universe_stations')) {
+            $rows = DB::connection($eveConn)->table('universe_stations')
+                ->select(['station_id as id','name','system_id'])
+                ->whereIn('station_id', $locIdsInt)
+                ->get();
+
+            foreach ($rows as $r) {
+                $id = (string)$r->id;
+                $meta[$id] = [
+                    'loc_type'    => 'NPC Station',
+                    'loc_name'    => $r->name ?: "Station $id",
+                    'system_id'   => (string)$r->system_id,
+                    'system_name' => null,    // fill later
+                    'region_id'   => null,    // fill later
+                    'region_name' => null,
+                ];
+                $systemIds[(string)$r->system_id] = true;
+            }
         }
+
+        // ---- 1b) NPC stations fallback: SDE staStations ----
+        if (class_exists(\App\Models\Sde\StaStation::class)) {
+            $missing = array_values(array_diff($locIdsStr, array_keys($meta)));
+            if (!empty($missing)) {
+                $rows = \App\Models\Sde\StaStation::whereIn('stationID', array_map('intval', $missing))
+                    ->get(['stationID as id','stationName as name','solarSystemID']);
+                foreach ($rows as $r) {
+                    $id = (string)$r->id;
+                    $meta[$id] = [
+                        'loc_type'    => 'NPC Station',
+                        'loc_name'    => $r->name ?: "Station $id",
+                        'system_id'   => (string)$r->solarSystemID,
+                        'system_name' => null,
+                        'region_id'   => null,
+                        'region_name' => null,
+                    ];
+                    $systemIds[(string)$r->solarSystemID] = true;
+                }
+            }
+        }
+
+        // ---- 2) Upwell structures: universe_structures (SeAT cache) ----
+        if (Schema::connection($eveConn)->hasTable('universe_structures')) {
+            $missing = array_values(array_diff($locIdsStr, array_keys($meta)));
+            if (!empty($missing)) {
+                $rows = DB::connection($eveConn)->table('universe_structures')
+                    ->select(['structure_id as id','name','system_id'])
+                    ->whereIn('structure_id', array_map('intval', $missing))
+                    ->get();
+
+                foreach ($rows as $r) {
+                    $id = (string)$r->id;
+                    $meta[$id] = [
+                        'loc_type'    => 'Upwell',
+                        'loc_name'    => ($r->name ?: "Structure $id"),
+                        'system_id'   => (string)$r->system_id,
+                        'system_name' => null,
+                        'region_id'   => null,
+                        'region_name' => null,
+                    ];
+                    if (!is_null($r->system_id)) {
+                        $systemIds[(string)$r->system_id] = true;
+                    }
+                }
+            }
+        }
+
+        // ---- 3) Solar system level locations (in space / safety) ----
+        if (Schema::connection($sdeConn)->getPdo()) {
+            $missing = array_values(array_diff($locIdsStr, array_keys($meta)));
+            if (!empty($missing)) {
+                $rows = DB::connection($sdeConn)->table('mapSolarSystems')
+                    ->select(['solarSystemID as id'])
+                    ->whereIn('solarSystemID', array_map('intval', $missing))
+                    ->get();
+
+                foreach ($rows as $r) {
+                    $id = (string)$r->id;
+                    $meta[$id] = [
+                        'loc_type'    => 'Solar System',
+                        'loc_name'    => 'System Space',
+                        'system_id'   => $id,
+                        'system_name' => null,
+                        'region_id'   => null,
+                        'region_name' => null,
+                    ];
+                    $systemIds[$id] = true;
+                }
+            }
+        }
+
+        // ---- 4) Anything left: "Other" (unknown) ----
+        $still = array_values(array_diff($locIdsStr, array_keys($meta)));
+        foreach ($still as $id) {
+            $meta[$id] = [
+                'loc_type'    => 'Other',
+                'loc_name'    => "Location $id",
+                'system_id'   => 'unknown',
+                'system_name' => null,
+                'region_id'   => 'unknown',
+                'region_name' => null,
+            ];
+        }
+
+        // ---- Map systems → names + regions, and regions → names (SDE) ----
+        $systemIds = array_keys($systemIds);
+        $systems   = [];
+        $regions   = [];
+
+        if (!empty($systemIds) && Schema::connection($sdeConn)->getPdo()) {
+            $sysRows = DB::connection($sdeConn)->table('mapSolarSystems')
+                ->select(['solarSystemID as id','solarSystemName as name','regionID'])
+                ->whereIn('solarSystemID', array_map('intval', $systemIds))
+                ->get();
+
+            $regionIds = [];
+            foreach ($sysRows as $r) {
+                $systems[(string)$r->id] = ['name' => $r->name, 'region_id' => (string)$r->regionID];
+                $regionIds[(string)$r->regionID] = true;
+            }
+
+            if (!empty($regionIds)) {
+                $regRows = DB::connection($sdeConn)->table('mapRegions')
+                    ->select(['regionID as id','regionName as name'])
+                    ->whereIn('regionID', array_map('intval', array_keys($regionIds)))
+                    ->get();
+                foreach ($regRows as $r) {
+                    $regions[(string)$r->id] = $r->name;
+                }
+            }
+        }
+
+        // Fill in system/region names on meta
+        foreach ($meta as $id => &$m) {
+            $sid = (string)$m['system_id'];
+            if ($sid !== 'unknown' && isset($systems[$sid])) {
+                $m['system_name'] = $systems[$sid]['name'];
+                $rid = $systems[$sid]['region_id'];
+                $m['region_id']   = $rid;
+                $m['region_name'] = $regions[$rid] ?? ("Region $rid");
+            } else {
+                $m['system_name'] = $m['system_name'] ?? 'Unknown System';
+                $m['region_id']   = $m['region_id']   ?? 'unknown';
+                $m['region_name'] = $m['region_name'] ?? 'Unknown Region';
+            }
+        }
+        unset($m);
+
+        // Stash system/region name maps for fast lookups when building nodes
+        $meta['__systems__'] = collect($systems)->map(fn($v)=>$v['name'])->all();
+        $meta['__regions__'] = $regions;
+
+        return $meta;
     }
 
-    return $names;
-}
+    /** Abbreviate ISK values: 1_234 → 1.23k ISK, 2_500_000_000 → 2.5b ISK */
+    private function abbrISK(float $v): string
+    {
+        $abs = abs($v);
+        if ($abs >= 1_000_000_000_000) return round($v/1_000_000_000_000, 2) . 't ISK';
+        if ($abs >= 1_000_000_000)     return round($v/1_000_000_000, 2)     . 'b ISK';
+        if ($abs >= 1_000_000)         return round($v/1_000_000, 2)         . 'm ISK';
+        if ($abs >= 1_000)             return round($v/1_000, 2)             . 'k ISK';
+        return number_format($v, 0) . ' ISK';
+    }
+
 
 
     
