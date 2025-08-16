@@ -42,7 +42,7 @@
   </button>
   <div class="collapse navbar-collapse" id="navbarText">
     <ul class="navbar-nav mr-auto">
-      @can('my.permission.key')
+      @can('osmm.admin')
           <li class="nav-item active">
             <a class="nav-link" href="#">Admin</a>
           </li> 
