@@ -42,21 +42,17 @@
   </button>
   <div class="collapse navbar-collapse" id="navbarText">
     <ul class="navbar-nav mr-auto">
-      <li class="nav-item active">
-        <a class="nav-link" href="#">Home <span class="sr-only">(current)</span></a>
-      </li>
-      <li class="nav-item">
-        <a class="nav-link" href="#">Features</a>
-      </li>
-      <li class="nav-item">
-        <a class="nav-link" href="#">Pricing</a>
-      </li>
-      <li class="nav-item">
-        <a class="nav-link" href="#">Pricing</a>
-      </li>
+      @can('my.permission.key')
+          <li class="nav-item active">
+            <a class="nav-link" href="#">Admin</a>
+          </li> 
+      @endcan
     </ul>
     <span id="cc-time">
-      Navbar text with an inline element
+      Eve Time
+    </span>
+    <span id="dt-time">
+      Down Time
     </span>
   </div>
 </nav>
@@ -116,7 +112,7 @@
             const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
             const seconds = Math.floor((diff % (1000 * 60)) / 1000);
             document.getElementById('dt-time').textContent =
-              `T minus ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+              `Downtime in T minus ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
             }
             updateCountdown();
             setInterval(updateCountdown, 1000);
