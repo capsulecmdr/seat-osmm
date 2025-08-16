@@ -8,8 +8,33 @@
     console.log(@json($publicInfo));
     console.log(@json($blueprints));
 </script>
+<style>
+.card-ribbon {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card-ribbon::before {
+            content: "UNDER CONSTRUCTION";
+            position: absolute;
+            top: 40px;
+            left: -45px;
+            width: 200px;
+            background: #ffc107;
+            color: #000;
+            text-align: center;
+            font-weight: bold;
+            font-size: 0.75rem;
+            padding: 4px 0;
+            transform: rotate(-45deg);
+            box-shadow: 0 0 3px rgba(0, 0, 0, 0.3);
+            z-index: 1;
+            pointer-events: none;
+        }
+  </style>
   <div class="container-fluid">
     <div class="row">
+      
     {{-- MAIN --}}
     <div class="col-xl-8">
       {{-- CURRENT TIME / DOWNTIME --}}
@@ -213,7 +238,7 @@
         </div>
       </div>
       <div class="col-lg-6 mb-3">
-        <div class="card">
+        <div class="card card-ribbon">
         <div class="card-header d-flex justify-content-between align-items-center">
           <span class="font-weight-bold">Allocation Map</span>
           <small class="text-muted">Updated
