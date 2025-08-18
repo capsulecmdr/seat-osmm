@@ -37,6 +37,44 @@
       <!-- Image and text -->
 <nav class="navbar navbar-expand-lg navbar-light bg-light w-100">
   <a class="navbar-brand" href="/home"><i class="fa fa-home" aria-hidden="true"></i> Home</a>
+  {{-- Put this where you want the indicator to appear --}}
+      <style>
+        <style>
+    /* Muted grayscale for inactive state */
+    .war-inactive img {
+        filter: grayscale(1) opacity(.6);
+    }
+
+    /* Red glow for active state */
+    .war-active img {
+        filter: none;
+        box-shadow: 0 0 5px rgba(255, 0, 0, 0.8);
+        border-radius: 4px;
+    }
+
+    /* Optional pulsing effect when active */
+    .war-active img {
+        animation: pulseGlow 1.5s ease-in-out infinite;
+    }
+    @keyframes pulseGlow {
+        0%, 100% {
+            box-shadow: 0 0 5px rgba(255, 0, 0, 0.8);
+        }
+        50% {
+            box-shadow: 0 0 10px rgba(255, 0, 0, 1);
+        }
+    }
+</style>
+
+      {{-- War Status Badge --}}
+<span class="badge {{ $inWar ? 'bg-danger war-active' : 'bg-secondary war-inactive' }}"
+      title="{{ $inWar ? 'Active War' : 'No Active War' }}">
+    <img src="https://wiki.eveuniversity.org/images/thumb/3/3d/Wars.png/32px-Wars.png"
+         alt="War status"
+         width="16" height="16"
+         class="align-text-top">
+    {{ $inWar ? 'At War' : 'Peace' }}
+</span>
   <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarText" aria-controls="navbarText" aria-expanded="false" aria-label="Toggle navigation">
     <span class="navbar-toggler-icon"></span>
   </button>
@@ -125,45 +163,7 @@
       </div>
       </div>
 
-      {{-- Put this where you want the indicator to appear --}}
-      <style>
-        <style>
-    /* Muted grayscale for inactive state */
-    .war-inactive img {
-        filter: grayscale(1) opacity(.6);
-    }
-
-    /* Red glow for active state */
-    .war-active img {
-        filter: none;
-        box-shadow: 0 0 5px rgba(255, 0, 0, 0.8);
-        border-radius: 4px;
-    }
-
-    /* Optional pulsing effect when active */
-    .war-active img {
-        animation: pulseGlow 1.5s ease-in-out infinite;
-    }
-    @keyframes pulseGlow {
-        0%, 100% {
-            box-shadow: 0 0 5px rgba(255, 0, 0, 0.8);
-        }
-        50% {
-            box-shadow: 0 0 10px rgba(255, 0, 0, 1);
-        }
-    }
-</style>
-      </style>
-
-      {{-- War Status Badge --}}
-<span class="badge {{ $inWar ? 'bg-danger war-active' : 'bg-secondary war-inactive' }}"
-      title="{{ $inWar ? 'Active War' : 'No Active War' }}">
-    <img src="https://wiki.eveuniversity.org/images/thumb/3/3d/Wars.png/32px-Wars.png"
-         alt="War status"
-         width="16" height="16"
-         class="align-text-top">
-    {{ $inWar ? 'At War' : 'Peace' }}
-</span>
+      
 
 
       <hr class="my-4">
