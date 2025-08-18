@@ -75,6 +75,19 @@ class OsmmServiceProvider extends AbstractSeatPlugin
             // SeAT will map this via its permission system if you also expose it in config.
             return $user->has('osmm.admin');
         });
+
+        Gate::define('osmm.admin', function ($user) {
+            // 1. Direct user permission
+            if ($user->hasPermission('osmm.admin')) {
+                return true;
+            }
+
+            // 2. Squad-based permission
+            return $user->squads()
+                ->whereHas('permissions', fn($q) => $q->where('name', 'osmm.admin'))
+                ->exists();
+        });
+
     }
     private function addPublications(): void
     {
