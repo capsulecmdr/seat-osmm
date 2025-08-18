@@ -35,7 +35,7 @@
   <div class="container-fluid">
     <div class="row">
       <!-- Image and text -->
-<nav class="navbar navbar-expand-lg navbar-light bg-light">
+<nav class="navbar navbar-expand-lg navbar-light bg-light w-100">
   <a class="navbar-brand" href="/home"><i class="fa fa-home" aria-hidden="true"></i> Home</a>
   <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarText" aria-controls="navbarText" aria-expanded="false" aria-label="Toggle navigation">
     <span class="navbar-toggler-icon"></span>
@@ -43,12 +43,17 @@
   <div class="collapse navbar-collapse" id="navbarText">
     <ul class="navbar-nav mr-auto">
       @can('osmm.admin')
-          <li class="nav-item active">
-            <a class="nav-link" href="#">Admin</a>
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+              OSMM Config
+            </a>
+            <div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
+              <a class="dropdown-item" href="{{ route('osmm.config.branding') }}">Branding</a>
+            </div>
           </li> 
       @endcan
     </ul>
-    <span class="navbar-text"><span id="cc-time" class="mr-sm"></span>  <sub><span id="dt-time"></span></sub></span>
+    <span class="navbar-text"><span id="cc-time" class="mr-sm"></span> | <sub><span id="dt-time"></span></sub></span>
     
     
   </div>
@@ -109,7 +114,7 @@
             const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
             const seconds = Math.floor((diff % (1000 * 60)) / 1000);
             document.getElementById('dt-time').textContent =
-              `Downtime in T minus ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+              `DT in T- ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
             }
             updateCountdown();
             setInterval(updateCountdown, 1000);
