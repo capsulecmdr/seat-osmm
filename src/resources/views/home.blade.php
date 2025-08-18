@@ -48,12 +48,9 @@
           </li> 
       @endcan
     </ul>
-    <span id="cc-time">
-      Eve Time
-    </span>
-    <span id="dt-time">
-      Down Time
-    </span>
+    <span class="navbar-text"><span id="cc-time" class="mr-sm"></span>  <sub><span id="dt-time"></span></sub></span>
+    
+    
   </div>
 </nav>
     </div>
