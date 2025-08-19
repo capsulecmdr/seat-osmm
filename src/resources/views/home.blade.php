@@ -611,28 +611,33 @@
     chart.draw(dt, baseOptions);
 
     // --- Compute min/max and most recent timestamp robustly ---
-    let min = Infinity, max = -Infinity;
-    let latestTs = null;
+let min = Infinity, max = -Infinity;
+let latestTs = null;
 
-    for (let i = 0, n = dt.getNumberOfRows(); i < n; i++) {
-      const y = dt.getValue(i, 1);
-      if (Number.isFinite(y)) {
-        if (y < min) min = y;
-        if (y > max) max = y;
-      }
-      const x = dt.getValue(i, 0);
-      if (x instanceof Date) {
-        if (!latestTs || x > latestTs) latestTs = x;
-      }
-    }
+for (let i = 0, n = dt.getNumberOfRows(); i < n; i++) {
+  const y = dt.getValue(i, 1);
+  if (Number.isFinite(y)) {
+    if (y < min) min = y;
+    if (y > max) max = y;
+  }
+  const x = dt.getValue(i, 0);
+  if (x instanceof Date) {
+    if (!latestTs || x > latestTs) latestTs = x;
+  }
+}
 
-    if (min === Infinity) { min = '—'; max = '—'; }
-    if (!latestTs) latestTs = new Date(); // fallback if no Date column
+if (min === Infinity) { min = '—'; max = '—'; }
+if (!latestTs) latestTs = new Date(); // fallback
 
-    const el = document.getElementById('onlinePlayers_lastUpdated');
-    if (el) {
-      el.textContent = `Min: ${min} · Max: ${max} · As of ${toUTCShort(latestTs)}`;
-    }
+// Format short UTC time *without* re-interpreting
+const toUTCShort = d =>
+  String(d.getUTCHours()).padStart(2, '0') + ':' +
+  String(d.getUTCMinutes()).padStart(2, '0') + ' UTC';
+
+const el = document.getElementById('onlinePlayers_lastUpdated');
+if (el) {
+  el.textContent = `Min: ${min} · Max: ${max} · As of ${toUTCShort(latestTs)}`;
+}
   });
 }
 
