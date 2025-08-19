@@ -4,11 +4,11 @@
 @section('page_title', 'Home')
 
 @section('content')
-    <script>
+  <script>
     console.log(@json($publicInfo));
     console.log(@json($blueprints));
-    </script>
-    <style>
+  </script>
+  <style>
     .card-ribbon {
     position: relative;
     overflow: hidden;
@@ -31,9 +31,14 @@
     z-index: 1;
     pointer-events: none;
     }
-    </style>
-    <div class="container-fluid">
+  </style>
+  <div class="container-fluid">
     <div class="row">
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item active" aria-current="page">Home</li>
+      </ol>
+    </nav>
     <!-- Image and text -->
     <nav class="navbar navbar-expand-lg navbar-light bg-light w-100">
       <a class="navbar-brand" href="/home"><i class="fa fa-home" aria-hidden="true"></i> Home</a>
@@ -43,31 +48,31 @@
 
       /* Muted grayscale for inactive state */
       .war-inactive img {
-      filter: grayscale(1) opacity(.6);
+        filter: grayscale(1) opacity(.6);
       }
 
       /* Red glow for active state */
       .war-active img {
-      filter: none;
-      box-shadow: 0 0 5px rgba(255, 0, 0, 0.8);
-      border-radius: 4px;
+        filter: none;
+        box-shadow: 0 0 5px rgba(255, 0, 0, 0.8);
+        border-radius: 4px;
       }
 
       /* Optional pulsing effect when active */
       .war-active img {
-      animation: pulseGlow 1.5s ease-in-out infinite;
+        animation: pulseGlow 1.5s ease-in-out infinite;
       }
 
       @keyframes pulseGlow {
 
-      0%,
-      100% {
-      box-shadow: 0 0 5px rgba(255, 0, 0, 0.8);
-      }
+        0%,
+        100% {
+        box-shadow: 0 0 5px rgba(255, 0, 0, 0.8);
+        }
 
-      50% {
-      box-shadow: 0 0 10px rgba(255, 0, 0, 1);
-      }
+        50% {
+        box-shadow: 0 0 10px rgba(255, 0, 0, 1);
+        }
       }
       </style>
 
@@ -78,27 +83,27 @@
       </button>
       <div class="collapse navbar-collapse" id="navbarText">
       <ul class="navbar-nav mr-auto">
-      @can('osmm.admin')
+        @can('osmm.admin')
       <li class="nav-item dropdown">
       <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink" data-toggle="dropdown"
-      aria-haspopup="true" aria-expanded="false">
-      OSMM Config
+        aria-haspopup="true" aria-expanded="false">
+        OSMM Config
       </a>
       <div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
-      <a class="dropdown-item" href="{{ route('osmm.config.branding') }}">Branding</a>
+        <a class="dropdown-item" href="{{ route('osmm.config.branding') }}">Branding</a>
       </div>
       </li>
       @endcan
       </ul>
       {{-- War Status Badge --}}
       <span class="badge {{ $inWar ? 'bg-danger war-active' : 'bg-secondary war-inactive' }} mr-sm"
-      title="{{ $inWar ? 'Active War' : 'No Active War' }}">
-      <img src="https://wiki.eveuniversity.org/images/thumb/3/3d/Wars.png/32px-Wars.png" alt="War status" width="16"
-      height="16" class="align-text-top">
-      {{ $inWar ? 'At War' : 'Peace' }}
+        title="{{ $inWar ? 'Active War' : 'No Active War' }}">
+        <img src="https://wiki.eveuniversity.org/images/thumb/3/3d/Wars.png/32px-Wars.png" alt="War status" width="16"
+        height="16" class="align-text-top">
+        {{ $inWar ? 'At War' : 'Peace' }}
       </span>
       <span class="navbar-text"><span id="cc-time" class="mr-sm"></span> | <sub><span
-        id="dt-time"></span></sub></span>
+          id="dt-time"></span></sub></span>
 
 
       </div>
@@ -111,109 +116,109 @@
       {{-- ONLINE / ESI --}}
       <div class="row">
       <div class="col-lg-6 mb-3">
-      <div class="card">
-      <div class="card-header d-flex justify-content-between align-items-center">
-        <span class="font-weight-bold">Online Players</span>
-        <small class="text-muted" id="onlinePlayers_lastUpdated">—</small>
-      </div>
-      <div class="card-body p-0">
+        <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span class="font-weight-bold">Online Players</span>
+          <small class="text-muted" id="onlinePlayers_lastUpdated">—</small>
+        </div>
+        <div class="card-body p-0">
 
-        <div id="chart_online_players_div" style="width:100%; height:150px;"></div>
-      </div>
-      </div>
+          <div id="chart_online_players_div" style="width:100%; height:150px;"></div>
+        </div>
+        </div>
       </div>
       <div class="col-lg-6 mb-3">
-      <div class="card">
-      <div class="card-header d-flex justify-content-between align-items-center">
-        <span class="font-weight-bold">ESI Response Times</span>
-        <small class="text-muted" id="esi-last-updated">—</small>
-      </div>
-      <div class="card-body p-0">
-        <div id="chart_esi_response_div" style="width:100%; height:150px;"></div>
-      </div>
-      </div>
+        <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span class="font-weight-bold">ESI Response Times</span>
+          <small class="text-muted" id="esi-last-updated">—</small>
+        </div>
+        <div class="card-body p-0">
+          <div id="chart_esi_response_div" style="width:100%; height:150px;"></div>
+        </div>
+        </div>
       </div>
       </div>
 
       {{-- MONTHLY KILLMAILS / MINING --}}
       <div class="row">
       <div class="col-lg-6 mb-3">
-      <div class="card">
-      <div class="card-header d-flex justify-content-between align-items-center">
-        <span class="font-weight-bold">KillMails</span>
-        <small class="text-muted">month to date</small>
-      </div>
-      <div class="card-body p-0">
-        <div id="waterfall_div" style="width:100%; height:150px;"></div>
-      </div>
-      </div>
+        <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span class="font-weight-bold">KillMails</span>
+          <small class="text-muted">month to date</small>
+        </div>
+        <div class="card-body p-0">
+          <div id="waterfall_div" style="width:100%; height:150px;"></div>
+        </div>
+        </div>
 
       </div>
       <div class="col-lg-6 mb-3">
-      <div class="card">
-      <div class="card-header d-flex justify-content-between align-items-center">
-        <span class="font-weight-bold">Monthly Mining</span>
-        <small class="text-muted">Avg/day: ISK
-        {{ number_format((int) round($mining['avg_isk_per_day'] ?? 0)) }}</small>
-        <small class="text-muted">MTD: ISK {{ number_format((int) round($mining['mtd_isk'] ?? 0)) }}</small>
-      </div>
-      <div class="card-body p-0">
-        <div id="chart_mining_div" style="width:100%; height:150px;"></div>
-      </div>
-      </div>
+        <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span class="font-weight-bold">Monthly Mining</span>
+          <small class="text-muted">Avg/day: ISK
+          {{ number_format((int) round($mining['avg_isk_per_day'] ?? 0)) }}</small>
+          <small class="text-muted">MTD: ISK {{ number_format((int) round($mining['mtd_isk'] ?? 0)) }}</small>
+        </div>
+        <div class="card-body p-0">
+          <div id="chart_mining_div" style="width:100%; height:150px;"></div>
+        </div>
+        </div>
       </div>
       </div>
 
       {{-- TOTAL MONTHLY WALLET / WALLET BALANCES --}}
       <div class="row">
       <div class="col-lg-6 mb-3">
-      <div class="card">
-      <div class="card-header d-flex justify-content-between align-items-center">
-        <span class="font-weight-bold">Total Wallet (Last 30 Days)</span>
-        <small class="text-muted">
-        Today: ISK {{ number_format((int) round($walletBalance30['today'] ?? 0)) }}
-        </small>
-      </div>
-      <div class="card-body p-0">
-        <div id="chart_wallet_balance_30d" style="width:100%; height:150px;"></div>
-      </div>
-      </div>
+        <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span class="font-weight-bold">Total Wallet (Last 30 Days)</span>
+          <small class="text-muted">
+          Today: ISK {{ number_format((int) round($walletBalance30['today'] ?? 0)) }}
+          </small>
+        </div>
+        <div class="card-body p-0">
+          <div id="chart_wallet_balance_30d" style="width:100%; height:150px;"></div>
+        </div>
+        </div>
       </div>
       <div class="col-lg-6 mb-3">
-      <div class="card">
-      <div class="card-header d-flex justify-content-between align-items-center">
-        <span class="font-weight-bold">Wallet Balances</span>
-        <small class="text-muted">Updated
-        {{ \Carbon\Carbon::parse($walletByChar['updated'])->toDayDateTimeString() }} UTC</small>
-      </div>
-      <div class="card-body p-0">
-        <div id="chart_wallet_by_char_div" style="width:100%; height:150px;"></div>
-      </div>
-      </div>
+        <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span class="font-weight-bold">Wallet Balances</span>
+          <small class="text-muted">Updated
+          {{ \Carbon\Carbon::parse($walletByChar['updated'])->toDayDateTimeString() }} UTC</small>
+        </div>
+        <div class="card-body p-0">
+          <div id="chart_wallet_by_char_div" style="width:100%; height:150px;"></div>
+        </div>
+        </div>
       </div>
       </div>
 
       {{-- BOTTOM BIG PANELS: SKILLS / ALLOCATION MAP --}}
       <div class="row">
       <div class="col-lg-6 mb-3">
-      <div class="card">
-      <div class="card-header font-weight-bold">Skills Coverage</div>
-      <div class="card-body p-0">
-        <canvas id="skills-coverage" style="width:100%; height:420px;"></canvas>
-      </div>
-      </div>
+        <div class="card">
+        <div class="card-header font-weight-bold">Skills Coverage</div>
+        <div class="card-body p-0">
+          <canvas id="skills-coverage" style="width:100%; height:420px;"></canvas>
+        </div>
+        </div>
       </div>
       <div class="col-lg-6 mb-3">
-      <div class="card card-ribbon">
-      <div class="card-header d-flex justify-content-between align-items-center">
-        <span class="font-weight-bold">Allocation Map</span>
-        <small class="text-muted">Updated
-        {{ \Carbon\Carbon::parse($allocation['updated'])->toDayDateTimeString() }} UTC</small>
-      </div>
-      <div class="card-body">
-        <div id="chart_allocation_div" style="width:100%; height:420px;"></div>
-      </div>
-      </div>
+        <div class="card card-ribbon">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span class="font-weight-bold">Allocation Map</span>
+          <small class="text-muted">Updated
+          {{ \Carbon\Carbon::parse($allocation['updated'])->toDayDateTimeString() }} UTC</small>
+        </div>
+        <div class="card-body">
+          <div id="chart_allocation_div" style="width:100%; height:420px;"></div>
+        </div>
+        </div>
       </div>
       </div>
     </div>
@@ -251,9 +256,9 @@
       /* On <1200px, the rail becomes full width — disable sticky */
       @media (max-width: 1199.98px) {
       .right-rail {
-      position: static;
-      max-height: none;
-      overflow: visible;
+        position: static;
+        max-height: none;
+        overflow: visible;
       }
       }
     </style>
@@ -262,197 +267,197 @@
       <div class="right-rail">
       {{-- Upcoming Events
       <div class="card mb-3">
-      <div class="card-header font-weight-bold">Upcoming Events</div>
-      <div class="card-body p-0">
-      <table class="table table-sm mb-0" id="upcoming-events">
-        <thead class="thead-light">
-        <tr>
-        <th style="width:40%">Date (UTC)</th>
-        <th>Event</th>
-        </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-      </div>
+        <div class="card-header font-weight-bold">Upcoming Events</div>
+        <div class="card-body p-0">
+        <table class="table table-sm mb-0" id="upcoming-events">
+          <thead class="thead-light">
+          <tr>
+            <th style="width:40%">Date (UTC)</th>
+            <th>Event</th>
+          </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        </div>
       </div> --}}
 
       {{-- ToDo List --}}
       <div class="card mb-3">
-      <div class="card-header font-weight-bold">ToDo List</div>
-      <div class="card-body">
-      <div class="input-group input-group-sm mb-2">
-        <input id="todo-input" class="form-control" placeholder="New task to do">
-        <div class="input-group-append">
-        <button id="todo-create" class="btn btn-primary" type="button">Create</button>
+        <div class="card-header font-weight-bold">ToDo List</div>
+        <div class="card-body">
+        <div class="input-group input-group-sm mb-2">
+          <input id="todo-input" class="form-control" placeholder="New task to do">
+          <div class="input-group-append">
+          <button id="todo-create" class="btn btn-primary" type="button">Create</button>
+          </div>
+        </div>
+
+        <div id="todo-list" class="mb-0">
+          <div class="text-muted small">Loading…</div>
+        </div>
         </div>
       </div>
 
-      <div id="todo-list" class="mb-0">
-        <div class="text-muted small">Loading…</div>
-      </div>
-      </div>
-      </div>
-
       <script>
-      (function () {
-      const listEl = document.getElementById('todo-list');
-      const input = document.getElementById('todo-input');
-      const btn = document.getElementById('todo-create');
+        (function () {
+        const listEl = document.getElementById('todo-list');
+        const input = document.getElementById('todo-input');
+        const btn = document.getElementById('todo-create');
 
-      // helpers
-      const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-      const HEADERS_JSON = { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': csrf };
-      const ENDPOINTS = {
-        index: '{{ route('osmm.todos.index') }}',
-        store: '{{ route('osmm.todos.store') }}',
-        destroy: id => '{{ url('osmm/todos') }}/' + id,
-      };
+        // helpers
+        const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        const HEADERS_JSON = { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': csrf };
+        const ENDPOINTS = {
+          index: '{{ route('osmm.todos.index') }}',
+          store: '{{ route('osmm.todos.store') }}',
+          destroy: id => '{{ url('osmm/todos') }}/' + id,
+        };
 
-      function rowTemplate(item) {
-        const id = 'todo-' + item.id;
-        const txt = (item.text || '').replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
-        return `
+        function rowTemplate(item) {
+          const id = 'todo-' + item.id;
+          const txt = (item.text || '').replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
+          return `
       <div class="custom-control custom-checkbox mb-1" data-id="${item.id}">
-        <input type="checkbox" class="custom-control-input" id="${id}">
-        <label class="custom-control-label" for="${id}">${txt}</label>
+      <input type="checkbox" class="custom-control-input" id="${id}">
+      <label class="custom-control-label" for="${id}">${txt}</label>
       </div>`;
-      }
-
-      async function loadTodos() {
-        listEl.innerHTML = `<div class="text-muted small">Loading…</div>`;
-        try {
-        const res = await fetch(ENDPOINTS.index, { credentials: 'same-origin' });
-        const items = await res.json();
-        listEl.innerHTML = items.length
-        ? items.map(rowTemplate).join('')
-        : `<div class="text-muted small">No tasks yet.</div>`;
-        } catch (e) {
-        listEl.innerHTML = `<div class="text-danger small">Failed to load tasks.</div>`;
-        console.warn(e);
         }
-      }
 
-      async function createTodo() {
-        const text = (input.value || '').trim();
-        if (!text) return;
-        btn.disabled = true;
-        try {
-        const res = await fetch(ENDPOINTS.store, {
-        method: 'POST',
-        headers: HEADERS_JSON,
-        credentials: 'same-origin',
-        body: JSON.stringify({ text })
+        async function loadTodos() {
+          listEl.innerHTML = `<div class="text-muted small">Loading…</div>`;
+          try {
+          const res = await fetch(ENDPOINTS.index, { credentials: 'same-origin' });
+          const items = await res.json();
+          listEl.innerHTML = items.length
+            ? items.map(rowTemplate).join('')
+            : `<div class="text-muted small">No tasks yet.</div>`;
+          } catch (e) {
+          listEl.innerHTML = `<div class="text-danger small">Failed to load tasks.</div>`;
+          console.warn(e);
+          }
+        }
+
+        async function createTodo() {
+          const text = (input.value || '').trim();
+          if (!text) return;
+          btn.disabled = true;
+          try {
+          const res = await fetch(ENDPOINTS.store, {
+            method: 'POST',
+            headers: HEADERS_JSON,
+            credentials: 'same-origin',
+            body: JSON.stringify({ text })
+          });
+          if (res.ok) {
+            input.value = '';
+            await loadTodos();
+          }
+          } catch (e) { console.warn(e); }
+          finally { btn.disabled = false; }
+        }
+
+        // Event: create on click / Enter key
+        btn?.addEventListener('click', createTodo);
+        input?.addEventListener('keydown', e => { if (e.key === 'Enter') createTodo(); });
+
+        // Event: delete on checkbox click (event delegation)
+        listEl.addEventListener('change', async (e) => {
+          const cb = e.target.closest('input[type="checkbox"].custom-control-input');
+          if (!cb) return;
+          const wrap = cb.closest('[data-id]');
+          const id = wrap?.getAttribute('data-id');
+          if (!id) return;
+
+          // optional: quick UI feedback
+          wrap.style.opacity = '0.6';
+
+          try {
+          const res = await fetch(ENDPOINTS.destroy(id), {
+            method: 'DELETE',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': csrf },
+            credentials: 'same-origin'
+          });
+          if (res.status === 204) {
+            wrap.remove();
+            if (!listEl.children.length) {
+            listEl.innerHTML = `<div class="text-muted small">No tasks yet.</div>`;
+            }
+          } else {
+            cb.checked = false; // revert
+            wrap.style.opacity = '1';
+          }
+          } catch (err) {
+          cb.checked = false;
+          wrap.style.opacity = '1';
+          console.warn(err);
+          }
         });
-        if (res.ok) {
-        input.value = '';
-        await loadTodos();
-        }
-        } catch (e) { console.warn(e); }
-        finally { btn.disabled = false; }
-      }
 
-      // Event: create on click / Enter key
-      btn?.addEventListener('click', createTodo);
-      input?.addEventListener('keydown', e => { if (e.key === 'Enter') createTodo(); });
-
-      // Event: delete on checkbox click (event delegation)
-      listEl.addEventListener('change', async (e) => {
-        const cb = e.target.closest('input[type="checkbox"].custom-control-input');
-        if (!cb) return;
-        const wrap = cb.closest('[data-id]');
-        const id = wrap?.getAttribute('data-id');
-        if (!id) return;
-
-        // optional: quick UI feedback
-        wrap.style.opacity = '0.6';
-
-        try {
-        const res = await fetch(ENDPOINTS.destroy(id), {
-        method: 'DELETE',
-        headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': csrf },
-        credentials: 'same-origin'
-        });
-        if (res.status === 204) {
-        wrap.remove();
-        if (!listEl.children.length) {
-        listEl.innerHTML = `<div class="text-muted small">No tasks yet.</div>`;
-        }
-        } else {
-        cb.checked = false; // revert
-        wrap.style.opacity = '1';
-        }
-        } catch (err) {
-        cb.checked = false;
-        wrap.style.opacity = '1';
-        console.warn(err);
-        }
-      });
-
-      // init
-      loadTodos();
-      })();
+        // init
+        loadTodos();
+        })();
       </script>
 
 
       {{-- Unread Mail
       <div class="card">
-      <div class="card-header font-weight-bold">Unread Mail</div>
-      <div class="card-body p-0">
-      <table class="table table-sm mb-0">
-        <thead class="thead-light">
-        <tr>
-        <th style="width:40%">Received</th>
-        <th>Subject</th>
-        </tr>
-        </thead>
-        <tbody>
-        <tr>
-        <td>8/8/25 06:23</td>
-        <td>Re: That thing we talked about</td>
-        </tr>
-        <tr>
-        <td>8/8/25 06:23</td>
-        <td>Re: That thing we talked about</td>
-        </tr>
-        <tr>
-        <td>8/8/25 06:23</td>
-        <td>Re: That thing we talked about</td>
-        </tr>
-        <tr>
-        <td>8/8/25 06:23</td>
-        <td>Re: That thing we talked about</td>
-        </tr>
-        </tbody>
-      </table>
-      </div>
+        <div class="card-header font-weight-bold">Unread Mail</div>
+        <div class="card-body p-0">
+        <table class="table table-sm mb-0">
+          <thead class="thead-light">
+          <tr>
+            <th style="width:40%">Received</th>
+            <th>Subject</th>
+          </tr>
+          </thead>
+          <tbody>
+          <tr>
+            <td>8/8/25 06:23</td>
+            <td>Re: That thing we talked about</td>
+          </tr>
+          <tr>
+            <td>8/8/25 06:23</td>
+            <td>Re: That thing we talked about</td>
+          </tr>
+          <tr>
+            <td>8/8/25 06:23</td>
+            <td>Re: That thing we talked about</td>
+          </tr>
+          <tr>
+            <td>8/8/25 06:23</td>
+            <td>Re: That thing we talked about</td>
+          </tr>
+          </tbody>
+        </table>
+        </div>
       </div> --}}
       </div>
     </aside>
 
     </div>
-    </div>
+  </div>
 
 
 
-    <!-- ONE loader include only -->
-    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
-    <script>
+  <!-- ONE loader include only -->
+  <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+  <script>
 
 
     (function () {
-      function updateUtcTime() {
-        const now = new Date();
-        const options = {
-        month: 'short', day: 'numeric', year: 'numeric',
-        hour: '2-digit', minute: '2-digit', second: '2-digit',
-        hour12: false, timeZone: 'UTC'
-        };
-        const formatted = now.toLocaleString('en-US', options).replace(',', '');
-        document.getElementById('cc-time').textContent = formatted;
-      }
-      updateUtcTime();
-      setInterval(updateUtcTime, 1000);
-      })();
+    function updateUtcTime() {
+      const now = new Date();
+      const options = {
+      month: 'short', day: 'numeric', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hour12: false, timeZone: 'UTC'
+      };
+      const formatted = now.toLocaleString('en-US', options).replace(',', '');
+      document.getElementById('cc-time').textContent = formatted;
+    }
+    updateUtcTime();
+    setInterval(updateUtcTime, 1000);
+    })();
 
     (function () {
     function updateCountdown() {
@@ -578,9 +583,9 @@
       rows = xs.map((x, i) => [useTime ? toUtcDate(x) : i, toNum(ys[i])]);
       } else if (looksLikePoints) {
       rows = payload.map(p => {
-      const xVal = p.t ?? p.x;
-      const useTime = isTimestamp(xVal);
-      return [useTime ? toUtcDate(xVal) : toNum(xVal), toNum(p.y)];
+        const xVal = p.t ?? p.x;
+        const useTime = isTimestamp(xVal);
+        return [useTime ? toUtcDate(xVal) : toNum(xVal), toNum(p.y)];
       });
       }
       dt.addRows(rows);
@@ -621,9 +626,9 @@
       rows = xs.map((x, i) => [useTime ? toUtcDate(x) : i, toNum(ys[i])]);
       } else if (looksLikePoints) {
       rows = payload.map(p => {
-      const xVal = p.t ?? p.x;
-      const useTime = isTimestamp(xVal);
-      return [useTime ? toUtcDate(xVal) : toNum(xVal), toNum(p.y)];
+        const xVal = p.t ?? p.x;
+        const useTime = isTimestamp(xVal);
+        return [useTime ? toUtcDate(xVal) : toNum(xVal), toNum(p.y)];
       });
       }
       dt.addRows(rows);
@@ -833,23 +838,23 @@
 
       return $.getJSON(url).then(payload => {
       if (!labels) {
-      labels = payload.labels;
+        labels = payload.labels;
       }
 
       const d0 = payload.datasets[0] || { data: [] };
       const col = PALETTE[i % PALETTE.length];
 
       datasets.push({
-      label: c.name,
-      data: d0.data,
-      fill: true,
-      backgroundColor: col.bg,
-      borderColor: col.border,
-      borderWidth: 2,
-      pointBackgroundColor: col.border,
-      pointBorderColor: '#fff',
-      pointRadius: 2,
-      pointHoverRadius: 3
+        label: c.name,
+        data: d0.data,
+        fill: true,
+        backgroundColor: col.bg,
+        borderColor: col.border,
+        borderWidth: 2,
+        pointBackgroundColor: col.border,
+        pointBorderColor: '#fff',
+        pointRadius: 2,
+        pointHoverRadius: 3
       });
       });
     });
@@ -857,7 +862,7 @@
     Promise.all(requests).then(() => {
       if (!labels) {
       ctx.canvas.insertAdjacentHTML('beforebegin',
-      '<div class="p-3 text-muted">No skills data yet. Open a character’s Skills page to sync, then refresh.</div>');
+        '<div class="p-3 text-muted">No skills data yet. Open a character’s Skills page to sync, then refresh.</div>');
       return;
       }
 
@@ -865,32 +870,32 @@
       type: 'radar',
       data: { labels, datasets },
       options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-      legend: { position: 'top', labels: { boxWidth: 12 } },
-      tooltip: {
-        callbacks: {
-        label: (ctx) => `${ctx.dataset.label}: ${ctx.formattedValue}%`
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+        legend: { position: 'top', labels: { boxWidth: 12 } },
+        tooltip: {
+          callbacks: {
+          label: (ctx) => `${ctx.dataset.label}: ${ctx.formattedValue}%`
+          }
         }
-      }
-      },
-      scales: {
-      r: {
-        beginAtZero: true,
-        suggestedMax: 100,
-        grid: { color: '#00000022', lineWidth: 1 },
-        angleLines: { color: '#00000022', lineWidth: 1 },
-        pointLabels: { color: '#000', font: { size: 10 } },
-        ticks: {
-        stepSize: 20,
-        color: '#000',
-        backdropColor: 'transparent',
-        showLabelBackdrop: false,
-        callback: v => v + '%'
+        },
+        scales: {
+        r: {
+          beginAtZero: true,
+          suggestedMax: 100,
+          grid: { color: '#00000022', lineWidth: 1 },
+          angleLines: { color: '#00000022', lineWidth: 1 },
+          pointLabels: { color: '#000', font: { size: 10 } },
+          ticks: {
+          stepSize: 20,
+          color: '#000',
+          backdropColor: 'transparent',
+          showLabelBackdrop: false,
+          callback: v => v + '%'
+          }
         }
-      }
-      }
+        }
       }
       });
     }).catch(err => {
@@ -950,8 +955,8 @@
     document.addEventListener('DOMContentLoaded', () => {
     loadUpcomingEvents();
     });
-    </script>
-    <script>
+  </script>
+  <script>
     google.charts.load('current', { packages: ['treemap'] });
     google.charts.setOnLoadCallback(drawAlloc);
 
@@ -1054,6 +1059,6 @@
       t = setTimeout(drawAlloc, 150);
     });
     })();
-    </script>
+  </script>
 
 @endsection
