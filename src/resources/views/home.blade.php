@@ -34,7 +34,7 @@
   </style>
   <div class="container-fluid">
     <div class="row">
-      <nav aria-label="breadcrumb">
+      <nav aria-label="breadcrumb" class="w-100">
         <ol class="breadcrumb">
           <li class="breadcrumb-item active" aria-current="page">Home</li>
         </ol>
@@ -597,10 +597,26 @@
       google.visualization.events.addListener(chart, 'ready', () => chart.setSelection([]));
       chart.draw(dt, baseOptions);
 
-      // Update last updated (UTC hh:mm:ss)
-      const now = new Date();
-      document.getElementById('onlinePlayers_lastUpdated').textContent =
-      'Updated ' + now.toUTCString();
+      // --- New: compute min/max and short "as of" time ---
+      let min = Infinity, max = -Infinity;
+      for (let i = 0, n = dt.getNumberOfRows(); i < n; i++) {
+        const val = dt.getValue(i, 1);
+        if (Number.isFinite(val)) {
+          if (val < min) min = val;
+          if (val > max) max = val;
+        }
+      }
+      if (min === Infinity) { min = '—'; max = '—'; }
+
+      // Prefer the timestamp of the last data point if it's a Date; else use "now"
+      const lastRow = rows[rows.length - 1];
+      const lastWhen = (lastRow && lastRow[0] instanceof Date) ? lastRow[0] : new Date();
+
+      const el = document.getElementById('onlinePlayers_lastUpdated');
+      if (el) {
+        el.textContent = `Min: ${min} · Max: ${max} · As of ${toUTCShort(lastWhen)}`;
+      }
+
     });
     }
 
