@@ -566,12 +566,12 @@
   $.getJSON("{{ route('seatcore::home.chart.serverstatus') }}", function (payload) {
     const dt = new google.visualization.DataTable();
 
-    // --- local helpers (self-contained) ---
+    // --- helpers ---
     const isTimestamp = v => v != null && !isNaN(Date.parse(v));
     const isTimestampSeries = arr => Array.isArray(arr) && arr.length && arr.every(isTimestamp);
-    const toUtcDate = v => new Date(v); // ISO "Z" strings stay UTC in Date
+    const toDate = v => new Date(v); // trust payload; it's already UTC
     const toNum = v => (v == null || v === '' ? null : Number(v));
-    const formatUTC_HHMM = d =>
+    const fmtUTC_HHMM = d =>
       String(d.getUTCHours()).padStart(2, '0') + ':' +
       String(d.getUTCMinutes()).padStart(2, '0') + ' UTC';
 
@@ -595,12 +595,12 @@
       const xs = payload.labels;
       const ys = payload.datasets[0].data;
       const useTime = isTimestampSeries(xs);
-      rows = xs.map((x, i) => [useTime ? toUtcDate(x) : i, toNum(ys[i])]);
+      rows = xs.map((x, i) => [useTime ? toDate(x) : i, toNum(ys[i])]);
     } else if (looksLikePoints) {
       rows = payload.map(p => {
         const xVal = p.t ?? p.x;
         const useTime = isTimestamp(xVal);
-        return [useTime ? toUtcDate(xVal) : toNum(xVal), toNum(p.y)];
+        return [useTime ? toDate(xVal) : toNum(xVal), toNum(p.y)];
       });
     }
     dt.addRows(rows);
@@ -610,7 +610,7 @@
     google.visualization.events.addListener(chart, 'ready', () => chart.setSelection([]));
     chart.draw(dt, baseOptions);
 
-    // --- Compute min, max, and MOST RECENT timestamp (UTC) ---
+    // --- Stats + most recent timestamp ---
     let min = Infinity, max = -Infinity;
     let latestTs = null;
 
@@ -621,21 +621,22 @@
         if (y > max) max = y;
       }
       const x = dt.getValue(i, 0);
-      if (x instanceof Date) {
-        if (!latestTs || x > latestTs) latestTs = x; // pick the max Date
+      if (x instanceof Date && (!latestTs || x > latestTs)) {
+        latestTs = x; // keep the actual UTC timestamp from the X axis
       }
     }
 
     if (min === Infinity) { min = '—'; max = '—'; }
-    if (!latestTs) latestTs = new Date(); // fallback if no Date X axis
+    if (!latestTs) latestTs = new Date();
 
-    // Write footer label (guaranteed UTC, no double conversion)
+    // Footer
     const el = document.getElementById('onlinePlayers_lastUpdated');
     if (el) {
-      el.textContent = `Min: ${min} · Max: ${max} · As of ${formatUTC_HHMM(latestTs)}`;
+      el.textContent = `Min: ${min} · Max: ${max} · As of ${fmtUTC_HHMM(latestTs)}`;
     }
   });
 }
+
 
 
 
