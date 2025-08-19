@@ -566,14 +566,14 @@
   $.getJSON("{{ route('seatcore::home.chart.serverstatus') }}", function (payload) {
     const dt = new google.visualization.DataTable();
 
-    // --- helpers (local so this is fully drop-in) ---
-    const isTimestamp = v => !isNaN(Date.parse(v));
+    // --- local helpers (self-contained) ---
+    const isTimestamp = v => v != null && !isNaN(Date.parse(v));
     const isTimestampSeries = arr => Array.isArray(arr) && arr.length && arr.every(isTimestamp);
-    const toUtcDate = v => new Date(v);
+    const toUtcDate = v => new Date(v); // ISO "Z" strings stay UTC in Date
     const toNum = v => (v == null || v === '' ? null : Number(v));
-    const toUTCShort = d =>
-      new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' })
-        .format(d) + ' UTC';
+    const formatUTC_HHMM = d =>
+      String(d.getUTCHours()).padStart(2, '0') + ':' +
+      String(d.getUTCMinutes()).padStart(2, '0') + ' UTC';
 
     // Detect payload shape
     const looksLikeLabels = Array.isArray(payload?.labels) && payload?.datasets?.[0]?.data;
@@ -610,36 +610,33 @@
     google.visualization.events.addListener(chart, 'ready', () => chart.setSelection([]));
     chart.draw(dt, baseOptions);
 
-    // --- Compute min/max and most recent timestamp robustly ---
-let min = Infinity, max = -Infinity;
-let latestTs = null;
+    // --- Compute min, max, and MOST RECENT timestamp (UTC) ---
+    let min = Infinity, max = -Infinity;
+    let latestTs = null;
 
-for (let i = 0, n = dt.getNumberOfRows(); i < n; i++) {
-  const y = dt.getValue(i, 1);
-  if (Number.isFinite(y)) {
-    if (y < min) min = y;
-    if (y > max) max = y;
-  }
-  const x = dt.getValue(i, 0);
-  if (x instanceof Date) {
-    if (!latestTs || x > latestTs) latestTs = x;
-  }
-}
+    for (let i = 0, n = dt.getNumberOfRows(); i < n; i++) {
+      const y = dt.getValue(i, 1);
+      if (Number.isFinite(y)) {
+        if (y < min) min = y;
+        if (y > max) max = y;
+      }
+      const x = dt.getValue(i, 0);
+      if (x instanceof Date) {
+        if (!latestTs || x > latestTs) latestTs = x; // pick the max Date
+      }
+    }
 
-if (min === Infinity) { min = '—'; max = '—'; }
-if (!latestTs) latestTs = new Date(); // fallback
+    if (min === Infinity) { min = '—'; max = '—'; }
+    if (!latestTs) latestTs = new Date(); // fallback if no Date X axis
 
-// Format short UTC time *without* re-interpreting
-const toUTCShort = d =>
-  String(d.getUTCHours()).padStart(2, '0') + ':' +
-  String(d.getUTCMinutes()).padStart(2, '0') + ' UTC';
-
-const el = document.getElementById('onlinePlayers_lastUpdated');
-if (el) {
-  el.textContent = `Min: ${min} · Max: ${max} · As of ${toUTCShort(latestTs)}`;
-}
+    // Write footer label (guaranteed UTC, no double conversion)
+    const el = document.getElementById('onlinePlayers_lastUpdated');
+    if (el) {
+      el.textContent = `Min: ${min} · Max: ${max} · As of ${formatUTC_HHMM(latestTs)}`;
+    }
   });
 }
+
 
 
     // ---- ESI Response Times ----
