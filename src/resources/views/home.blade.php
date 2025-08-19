@@ -566,19 +566,20 @@
   $.getJSON("{{ route('seatcore::home.chart.serverstatus') }}", function (payload) {
     const dt = new google.visualization.DataTable();
 
-    const looksLikeLabels = Array.isArray(payload?.labels) && payload?.datasets?.[0]?.data;
-    const looksLikePoints = Array.isArray(payload) && payload.length && (payload[0].t !== undefined || payload[0].x !== undefined);
-
+    // --- helpers (local so this is fully drop-in) ---
     const isTimestamp = v => !isNaN(Date.parse(v));
     const isTimestampSeries = arr => Array.isArray(arr) && arr.length && arr.every(isTimestamp);
     const toUtcDate = v => new Date(v);
-    const toNum = v => (v == null ? null : Number(v));
+    const toNum = v => (v == null || v === '' ? null : Number(v));
+    const toUTCShort = d =>
+      new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' })
+        .format(d) + ' UTC';
 
-    // Short UTC time like "14:25 UTC"
-    const toUTCShort = d => new Intl.DateTimeFormat('en-GB', {
-      hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC'
-    }).format(d) + ' UTC';
+    // Detect payload shape
+    const looksLikeLabels = Array.isArray(payload?.labels) && payload?.datasets?.[0]?.data;
+    const looksLikePoints = Array.isArray(payload) && payload.length && (payload[0].t !== undefined || payload[0].x !== undefined);
 
+    // Columns
     if (looksLikeLabels && isTimestampSeries(payload.labels)) {
       dt.addColumn('datetime', 'Time (UTC)');
     } else if (looksLikePoints && isTimestampSeries(payload.map(p => p.t ?? p.x))) {
@@ -588,6 +589,7 @@
     }
     dt.addColumn('number', 'Concurrent Players');
 
+    // Rows
     let rows = [];
     if (looksLikeLabels) {
       const xs = payload.labels;
@@ -603,31 +605,37 @@
     }
     dt.addRows(rows);
 
+    // Draw chart
     const chart = new google.visualization.LineChart(onlineEl);
     google.visualization.events.addListener(chart, 'ready', () => chart.setSelection([]));
     chart.draw(dt, baseOptions);
 
-    // --- New: compute min/max and short "as of" time ---
+    // --- Compute min/max and most recent timestamp robustly ---
     let min = Infinity, max = -Infinity;
+    let latestTs = null;
+
     for (let i = 0, n = dt.getNumberOfRows(); i < n; i++) {
-      const val = dt.getValue(i, 1);
-      if (Number.isFinite(val)) {
-        if (val < min) min = val;
-        if (val > max) max = val;
+      const y = dt.getValue(i, 1);
+      if (Number.isFinite(y)) {
+        if (y < min) min = y;
+        if (y > max) max = y;
+      }
+      const x = dt.getValue(i, 0);
+      if (x instanceof Date) {
+        if (!latestTs || x > latestTs) latestTs = x;
       }
     }
-    if (min === Infinity) { min = '—'; max = '—'; }
 
-    // Prefer the timestamp of the last data point if it's a Date; else use "now"
-    const lastRow = rows[rows.length - 1];
-    const lastWhen = (lastRow && lastRow[0] instanceof Date) ? lastRow[0] : new Date();
+    if (min === Infinity) { min = '—'; max = '—'; }
+    if (!latestTs) latestTs = new Date(); // fallback if no Date column
 
     const el = document.getElementById('onlinePlayers_lastUpdated');
     if (el) {
-      el.textContent = `Min: ${min} · Max: ${max} · As of ${toUTCShort(lastWhen)}`;
+      el.textContent = `Min: ${min} · Max: ${max} · As of ${toUTCShort(latestTs)}`;
     }
   });
 }
+
 
     // ---- ESI Response Times ----
     function drawEsiResponse() {
