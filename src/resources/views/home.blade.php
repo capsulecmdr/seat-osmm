@@ -161,7 +161,6 @@
         <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
           <span class="font-weight-bold">Monthly Mining</span>
-          <small class="text-muted">Avg/day: ISK
           <small class="text-muted" id="mining-last-updated">—</small>
         </div>
         <div class="card-body p-0">
