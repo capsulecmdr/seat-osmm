@@ -943,32 +943,59 @@
     google.charts.setOnLoadCallback(drawWallets);
 
     function drawWallets() {
-    const rows = @json($walletByChar['rows']); // [ [name, balance], ... ]
+  const rows = @json($walletByChar['rows'] ?? []); // [ [name, balance], ... ]
 
-    const data = new google.visualization.DataTable();
-    data.addColumn('string', 'Character');
-    data.addColumn('number', 'Wallet (ISK)');
-    data.addRows(rows);
+  const data = new google.visualization.DataTable();
+  data.addColumn('string', 'Character');
+  data.addColumn('number', 'Wallet (ISK)');
+  // NEW: annotation columns for on-bar label + its hover text
+  data.addColumn({ type: 'string', role: 'annotation' });
+  data.addColumn({ type: 'string', role: 'annotationText' });
 
-    // Format ISK with commas, no decimals
-    new google.visualization.NumberFormat({
-      prefix: 'ISK ',
-      groupingSymbol: ',',
-      fractionDigits: 0
-    }).format(data, 1);
+  const short = s => {
+    const str = String(s ?? '');
+    return str.length > 12 ? str.slice(0, 11) + '…' : str;
+  };
+  const fmtISK = n =>
+    new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 })
+      .format(Math.round(Number(n) || 0));
 
-    const options = {
-      legend: { position: 'none' },
-      bar: { groupWidth: '70%' },
-      chartArea: { left: 0, right: 0, top: 10, bottom: 0, width: '100%', height: '100%' },
-      hAxis: { textStyle: { fontSize: 10 } },   // show names
-      vAxis: { minValue: 0, textPosition: 'none', gridlines: { count: 0 }, baselineColor: 'transparent' }
-    };
+  data.addRows(
+    rows.map(([name, bal]) => {
+      const nm = String(name ?? '');
+      const b  = Number(bal) || 0;
+      return [
+        nm,                   // category (x-axis)
+        b,                    // value
+        short(nm),            // annotation shown on the bar
+        `${nm}\nISK ${fmtISK(b)}` // tooltip when hovering the annotation
+      ];
+    })
+  );
 
-    const chart = new google.visualization.ColumnChart(document.getElementById('chart_wallet_by_char_div'));
-    google.visualization.events.addListener(chart, 'ready', () => chart.setSelection([]));
-    chart.draw(data, options);
+  // Format ISK for the bar series
+  new google.visualization.NumberFormat({
+    prefix: 'ISK ', groupingSymbol: ',', fractionDigits: 0
+  }).format(data, 1);
+
+  const options = {
+    legend: { position: 'none' },
+    bar: { groupWidth: '70%' },
+    chartArea: { left: 0, right: 0, top: 10, bottom: 0, width: '100%', height: '100%' },
+    hAxis: { textStyle: { fontSize: 10 } },   // keep names on x-axis
+    vAxis: { minValue: 0, textPosition: 'none', gridlines: { count: 0 }, baselineColor: 'transparent' },
+    annotations: {
+      textStyle: { fontSize: 10, color: '#666' },
+      // Set to true if you prefer labels above bars rather than inside:
+      // alwaysOutside: true
     }
+  };
+
+  const chart = new google.visualization.ColumnChart(document.getElementById('chart_wallet_by_char_div'));
+  google.visualization.events.addListener(chart, 'ready', () => chart.setSelection([]));
+  chart.draw(data, options);
+}
+
 
 
 
