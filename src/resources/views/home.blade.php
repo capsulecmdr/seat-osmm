@@ -709,40 +709,29 @@
     google.charts.setOnLoadCallback(drawWaterfall);
 
     function drawWaterfall() {
-  const days     = @json($km['days']);        // [1..EOM]
-  const cumWins  = @json($km['cum_wins']);    // cumulative wins by day index
-  const cumTotal = @json($km['cum_total']);   // cumulative (wins + losses)
+  // all data comes from the injected $km
+  const KM       = @json($km ?? {});
+  const days     = KM.days      || [];
+  const cumWins  = KM.cum_wins  || [];
+  const cumTotal = KM.cum_total || [];
+  const dailyIskRaw = KM.daily_isk ?? null;  // preferred
+  const cumIskRaw   = KM.cum_isk   ?? null;  // fallback
 
-  // --- ISK inputs (pick one) ---
-  // Prefer daily ISK if provided; otherwise derive from cumulative ISK.
-  const dailyIskRaw = @json($km['daily_isk'] ?? null);  // [d0, d1, ...] per-day ISK
-  const cumIskRaw   = @json($km['cum_isk']   ?? null);  // [c0, c1, ...] cumulative ISK
-
-  // Helpers
-  const toNum = v => (v == null || v === '' ? null : Number(v));
-  const fmtISK = n => (n == null || n === '—')
+  // helpers
+  const toNum = v => (v == null || v === '' ? 0 : Number(v));
+  const fmtISK = n => (n == null || isNaN(n))
     ? '—'
     : new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Math.round(n));
 
-  // Derive per-day wins, totals, losses, and net delta (wins - losses) for the waterfall
-  const perWins = [];
-  const perTotal = [];
-  const perLoss = [];
-  const delta = [];
-
-  for (let i = 0; i < days.length; i++) {
-    const w = (toNum(cumWins[i])  ?? 0) - (i > 0 ? (toNum(cumWins[i - 1])  ?? 0) : 0);
-    const t = (toNum(cumTotal[i]) ?? 0) - (i > 0 ? (toNum(cumTotal[i - 1]) ?? 0) : 0);
+  // ------- per-day deltas for the waterfall (wins - losses) -------
+  const delta = days.map((_, i) => {
+    const w = toNum(cumWins[i])  - (i > 0 ? toNum(cumWins[i - 1])  : 0);
+    const t = toNum(cumTotal[i]) - (i > 0 ? toNum(cumTotal[i - 1]) : 0);
     const l = Math.max(0, t - w);
-    const d = w - l;
+    return w - l;
+  });
 
-    perWins.push(w);
-    perTotal.push(t);
-    perLoss.push(l);
-    delta.push(d);
-  }
-
-  // Build the waterfall candlestick: [label, low, open, close, high]
+  // ------- Waterfall candlestick: [label, low, open, close, high] -------
   const data = new google.visualization.DataTable();
   data.addColumn('string', 'Day');
   data.addColumn('number', 'Low');
@@ -754,13 +743,10 @@
   for (let i = 0; i < days.length; i++) {
     const open = running;
     const close = running + delta[i];
-    const low = Math.min(open, close);
-    const high = Math.max(open, close);
-    data.addRow([String(days[i]), low, open, close, high]);
+    data.addRow([String(days[i]), Math.min(open, close), open, close, Math.max(open, close)]);
     running = close;
   }
-
-  // Optional: final "Total" bar
+  // Optional "Total" bar at the end
   data.addRow(['Total', Math.min(0, running), 0, running, Math.max(0, running)]);
 
   const options = {
@@ -783,43 +769,37 @@
   // ============================
   // Avg ISK / Day and MTD ISK
   // ============================
-
-  // Normalize a per-day ISK vector (prefer daily_isk; else derive from cum_isk)
-  let perDayIsk = [];
+  let perDayIsk = null;
   if (Array.isArray(dailyIskRaw) && dailyIskRaw.length === days.length) {
-    perDayIsk = dailyIskRaw.map(v => toNum(v) ?? 0);
+    perDayIsk = dailyIskRaw.map(toNum);
   } else if (Array.isArray(cumIskRaw) && cumIskRaw.length === days.length) {
-    perDayIsk = cumIskRaw.map((v, i) => (toNum(v) ?? 0) - (i > 0 ? (toNum(cumIskRaw[i - 1]) ?? 0) : 0));
-  } else {
-    // If neither is provided, we can’t compute ISK stats—fail gracefully.
-    const el = document.getElementById('killmails-last-updated');
-    if (el) el.textContent = `Avg/Day: — ISK · MTD: — ISK`;
+    perDayIsk = cumIskRaw.map((v, i, a) => toNum(v) - (i > 0 ? toNum(a[i - 1]) : 0));
+  }
+
+  const footerEl = document.getElementById('killmails-last-updated');
+  if (!perDayIsk) {
+    if (footerEl) footerEl.textContent = `Avg/Day: — ISK · MTD: — ISK`;
     return;
   }
 
-  // Compute stats
-  let total = 0;
+  // Cutoff = last day with any activity (either ISK or non-zero delta)
   let lastIdx = -1;
-  for (let i = 0; i < perDayIsk.length; i++) {
-    const v = Number(perDayIsk[i]) || 0;
-    total += v;
-    if (Number.isFinite(v)) lastIdx = i;
+  for (let i = perDayIsk.length - 1; i >= 0; i--) {
+    if (perDayIsk[i] !== 0 || delta[i] !== 0) { lastIdx = i; break; }
   }
 
-  // Average over days with data (finite numbers)
-  const dayCount = perDayIsk.filter(n => Number.isFinite(n)).length;
-  const avgPerDay = dayCount ? (total / dayCount) : null;
-
-  // MTD = sum up to latest day with data
+  const daysElapsed = lastIdx >= 0 ? (lastIdx + 1) : 0;
   const mtd = lastIdx >= 0
-    ? perDayIsk.slice(0, lastIdx + 1).reduce((a, b) => a + (Number(b) || 0), 0)
-    : null;
+    ? perDayIsk.slice(0, lastIdx + 1).reduce((a, b) => a + toNum(b), 0)
+    : 0;
+  const avgPerDay = daysElapsed ? (mtd / daysElapsed) : null;
 
-  // Footer
-  const footerEl = document.getElementById('killmails-last-updated');
   if (footerEl) {
     footerEl.textContent = `Avg/Day: ${fmtISK(avgPerDay)} ISK · MTD: ${fmtISK(mtd)} ISK`;
   }
+
+  // Optional: quick debug in console
+  // console.log('KM', KM);
 }
 
 
