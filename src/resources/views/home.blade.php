@@ -176,9 +176,7 @@
         <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
           <span class="font-weight-bold">Total Wallet (Last 30 Days)</span>
-          <small class="text-muted">
-          Today: ISK {{ number_format((int) round($walletBalance30['today'] ?? 0)) }}
-          </small>
+          <small class="text-muted" id="wallet-30d-label"></small>
         </div>
         <div class="card-body p-0">
           <div id="chart_wallet_balance_30d" style="width:100%; height:150px;"></div>
@@ -879,27 +877,68 @@
     google.charts.setOnLoadCallback(drawWalletBalance30);
 
     function drawWalletBalance30() {
-    const balances = @json($walletBalance30['balances']); // absolute totals
-    const dt = new google.visualization.DataTable();
-    dt.addColumn('number', 'X');              // simple index for minimal padding
-    dt.addColumn('number', 'Total Balance');
-    dt.addRows(balances.map((y, i) => [i, y]));
+  const balances = @json($walletBalance30['balances'] ?? []);
+  const dt = new google.visualization.DataTable();
+  dt.addColumn('number', 'X');              // simple index for minimal padding
+  dt.addColumn('number', 'Total Balance');
+  dt.addRows(balances.map((y, i) => [i, y]));
 
-    const opts = {
-      legend: 'none',
-      chartArea: { left: 0, top: 0, right: 0, bottom: 0, width: '100%', height: '100%' },
-      hAxis: { textPosition: 'none', gridlines: { count: 0 }, baselineColor: 'transparent', ticks: [] },
-      vAxis: { textPosition: 'none', gridlines: { count: 0 }, baselineColor: 'transparent', ticks: [] },
-      lineWidth: 1,
-      pointSize: 0,
-      trendlines: { 0: {} }
-    };
+  const opts = {
+    legend: 'none',
+    chartArea: { left: 0, top: 0, right: 0, bottom: 0, width: '100%', height: '100%' },
+    hAxis: { textPosition: 'none', gridlines: { count: 0 }, baselineColor: 'transparent', ticks: [] },
+    vAxis: { textPosition: 'none', gridlines: { count: 0 }, baselineColor: 'transparent', ticks: [] },
+    lineWidth: 1,
+    pointSize: 0,
+    trendlines: { 0: {} }
+  };
 
-    const el = document.getElementById('chart_wallet_balance_30d');
-    const chart = new google.visualization.LineChart(el);
-    google.visualization.events.addListener(chart, 'ready', () => chart.setSelection([]));
-    chart.draw(dt, opts);
-    }
+  const el = document.getElementById('chart_wallet_balance_30d');
+  const chart = new google.visualization.LineChart(el);
+  google.visualization.events.addListener(chart, 'ready', () => chart.setSelection([]));
+  chart.draw(dt, opts);
+
+  // ---- Label: Today + 30d projection (linear trend) ----
+  const fmtISK = n => (n == null || isNaN(n))
+    ? '—'
+    : new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Math.round(n));
+
+  const n = balances.length;
+  if (!n) {
+    const lbl = document.getElementById('wallet-30d-label');
+    if (lbl) lbl.textContent = 'Today: — ISK · 30d proj: — ISK';
+    return;
+  }
+
+  const today = Number(balances[n - 1]) || 0;
+
+  // Simple least-squares over the last 30 days (index vs. balance)
+  // x: 0..n-1, y: balances[i]
+  let sumX = 0, sumY = 0, sumXX = 0, sumXY = 0;
+  for (let i = 0; i < n; i++) {
+    const x = i;
+    const y = Number(balances[i]) || 0;
+    sumX  += x;
+    sumY  += y;
+    sumXX += x * x;
+    sumXY += x * y;
+  }
+  const denom = (n * sumXX - sumX * sumX);
+  const slope = denom !== 0 ? (n * sumXY - sumX * sumY) / denom : 0;   // ISK/day
+  const intercept = (sumY - slope * sumX) / n;
+
+  // Project 30 days beyond the last point (today is index n-1)
+  const xProj = (n - 1) + 30;
+  let projected = intercept + slope * xProj;
+  if (!Number.isFinite(projected)) projected = today;
+  if (projected < 0) projected = 0; // guard
+
+  const lbl = document.getElementById('wallet-30d-label');
+  if (lbl) {
+    lbl.textContent = `Today: ${fmtISK(today)} ISK · 30d proj: ${fmtISK(projected)} ISK`;
+  }
+}
+
 
     google.charts.setOnLoadCallback(drawWallets);
 
