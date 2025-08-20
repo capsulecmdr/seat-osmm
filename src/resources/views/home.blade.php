@@ -34,13 +34,6 @@
   </style>
   <div class="container-fluid">
     <div class="row">
-      <nav aria-label="breadcrumb" class="w-100">
-        <ol class="breadcrumb">
-          <li class="breadcrumb-item active" aria-current="page">Home</li>
-        </ol>
-      </nav>
-    </div>
-    <div class="row">
     
     <!-- Image and text -->
     <nav class="navbar navbar-expand-lg navbar-light bg-light w-100">
@@ -112,6 +105,14 @@
       </div>
     </nav>
     </div>
+    <div class="row">
+      <nav aria-label="breadcrumb" class="w-100">
+        <ol class="breadcrumb">
+          <li class="breadcrumb-item active" aria-current="page">Home</li>
+        </ol>
+      </nav>
+    </div>
+    
     <div class="row">
 
     {{-- MAIN --}}
