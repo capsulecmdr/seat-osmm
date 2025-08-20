@@ -155,7 +155,7 @@ class HomeOverrideController extends Controller
         return false;
     }
 
-    private function buildMonthlyKillmailCumulative(): array
+    function buildMonthlyKillmailCumulative(): array
 {
     $user = auth()->user();
 
