@@ -273,7 +273,7 @@ class HomeOverrideController extends Controller
             ->values();
 
         // Uses your existing helper — returns type_id => price (float)
-        $priceMap = $this->priceMapForTypeIds($type_ids);
+        $priceMap = $this->priceMapForTypeIds($type_ids,["adjusted_price"]);
 
         // Per-KM total value: victim ship + all items
         $kmValue = [];
@@ -449,49 +449,45 @@ class HomeOverrideController extends Controller
      * Uses the same DB connection as CharacterMining; prefers universe_prices, else market_prices.
      * Picks: average_price -> adjusted_price -> average -> sell_price -> buy_price.
      */
-    private function priceMapForTypeIds($type_ids, array $preference = ['average_price','adjusted_price','sell_price','average','buy_price'], ?string $conn = null)
-{
-    $ids = collect($type_ids)->unique()->values();
-    if ($ids->isEmpty()) return collect();
+    private function priceMapForTypeIds($type_ids, array $preference = [
+    'average_price', 'adjusted_price', 'average', 'sell_price', 'buy_price'
+])
+    {
+        $ids = collect($type_ids)
+            ->filter(fn($v) => $v !== null)
+            ->map(fn($v) => (int) $v)
+            ->unique()
+            ->values();
 
-    // Prefer the killmail connection; then mining’s; then default
-    $kmConn = (new \Seat\Eveapi\Models\Killmails\KillmailDetail)->getConnectionName();
-    $cmConn = (new \Seat\Eveapi\Models\Industry\CharacterMining)->getConnectionName();
+        if ($ids->isEmpty()) {
+            return collect(); // => empty mapping
+        }
 
-    $candidates = array_values(array_unique(array_filter([$conn, $kmConn, $cmConn, null], fn($c) => $c !== '')));
-    $useConn = null;
-    $table = null;
+        // Only fetch the columns we might use
+        $cols = array_values(array_unique(array_merge(['type_id'], $preference)));
 
-    foreach ($candidates as $c) {
-        if (\Schema::connection($c)->hasTable('universe_prices')) { $useConn = $c; $table = 'universe_prices'; break; }
-        if (\Schema::connection($c)->hasTable('market_prices'))   { $useConn = $c; $table = 'market_prices';   break; }
-    }
+        // Default connection on purpose
+        $rows = \DB::table('market_prices')
+            ->whereIn('type_id', $ids)
+            ->get($cols)
+            ->keyBy('type_id');
 
-    if (!$table) {
-        // no price table anywhere we tried
-        return $ids->mapWithKeys(fn($id) => [(int)$id => 0.0]);
-    }
+        return $ids->mapWithKeys(function ($id) use ($rows, $preference) {
+            $r = $rows->get($id);
+            $price = 0.0;
 
-    $cols = array_unique(array_merge(['type_id'], $preference));
-    $rows = \DB::connection($useConn)->table($table)
-        ->whereIn('type_id', $ids)
-        ->get($cols)
-        ->keyBy('type_id');
-
-    return $ids->mapWithKeys(function ($id) use ($rows, $preference) {
-        $r = $rows->get($id);
-        $price = 0.0;
-        if ($r) {
-            foreach ($preference as $col) {
-                if (isset($r->{$col}) && $r->{$col} !== null) {
-                    $candidate = (float) $r->{$col};
-                    if ($candidate > 0) { $price = $candidate; break; }
+            if ($r) {
+                foreach ($preference as $col) {
+                    if (isset($r->{$col}) && $r->{$col} !== null) {
+                        $cand = (float) $r->{$col};
+                        if ($cand > 0) { $price = $cand; break; }
+                    }
                 }
             }
-        }
-        return [(int) $id => $price];
-    });
-}
+
+            return [(int) $id => $price];
+        });
+    }
 
     private function buildWalletBalanceLast30d(): array
     {
