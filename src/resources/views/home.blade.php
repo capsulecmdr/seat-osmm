@@ -642,47 +642,69 @@
 
     // ---- ESI Response Times ----
     function drawEsiResponse() {
-    $.getJSON("{{ route('seatcore::home.chart.serverresponse') }}", function (payload) {
-      const dt = new google.visualization.DataTable();
+  $.getJSON("{{ route('seatcore::home.chart.serverresponse') }}", function (payload) {
+    const dt = new google.visualization.DataTable();
 
-      const looksLikeLabels = Array.isArray(payload?.labels) && payload?.datasets?.[0]?.data;
-      const looksLikePoints = Array.isArray(payload) && payload.length && (payload[0].t !== undefined || payload[0].x !== undefined);
+    const looksLikeLabels = Array.isArray(payload?.labels) && payload?.datasets?.[0]?.data;
+    const looksLikePoints = Array.isArray(payload) && payload.length && (payload[0].t !== undefined || payload[0].x !== undefined);
 
-      if (looksLikeLabels && isTimestampSeries(payload.labels)) {
+    if (looksLikeLabels && isTimestampSeries(payload.labels)) {
       dt.addColumn('datetime', 'Time (UTC)');
-      } else if (looksLikePoints && isTimestampSeries(payload.map(p => p.t ?? p.x))) {
+    } else if (looksLikePoints && isTimestampSeries(payload.map(p => p.t ?? p.x))) {
       dt.addColumn('datetime', 'Time (UTC)');
-      } else {
+    } else {
       dt.addColumn('number', 'X');
-      }
-      dt.addColumn('number', 'Response Time (ms)');
+    }
+    dt.addColumn('number', 'Response Time (ms)');
 
-      let rows = [];
-      if (looksLikeLabels) {
+    // Build rows
+    let rows = [];
+    if (looksLikeLabels) {
       const xs = payload.labels;
       const ys = payload.datasets[0].data;
       const useTime = isTimestampSeries(xs);
       rows = xs.map((x, i) => [useTime ? toUtcDate(x) : i, toNum(ys[i])]);
-      } else if (looksLikePoints) {
+    } else if (looksLikePoints) {
       rows = payload.map(p => {
         const xVal = p.t ?? p.x;
         const useTime = isTimestamp(xVal);
         return [useTime ? toUtcDate(xVal) : toNum(xVal), toNum(p.y)];
       });
-      }
-      dt.addRows(rows);
-
-      const chart = new google.visualization.LineChart(esiEl);
-      google.visualization.events.addListener(chart, 'ready', () => chart.setSelection([]));
-      chart.draw(dt, baseOptions);
-
-      const now = new Date();
-      document.getElementById('esi-last-updated').textContent =
-      'Updated ' + now.toUTCString();
-    });
-
-
     }
+    dt.addRows(rows);
+
+    // Draw chart
+    const chart = new google.visualization.LineChart(esiEl);
+    google.visualization.events.addListener(chart, 'ready', () => chart.setSelection([]));
+    chart.draw(dt, baseOptions);
+
+    // --- Stats: min / max / avg (ms) ---
+    let min = Infinity, max = -Infinity, sum = 0, count = 0;
+
+    for (let i = 0, n = dt.getNumberOfRows(); i < n; i++) {
+      const y = dt.getValue(i, 1);
+      if (Number.isFinite(y)) {
+        if (y < min) min = y;
+        if (y > max) max = y;
+        sum += y;
+        count++;
+      }
+    }
+
+    if (count === 0) {
+      min = '—'; max = '—';
+    }
+    const avg = count > 0 ? (sum / count) : null;
+
+    // Footer
+    const el = document.getElementById('esi-last-updated');
+    if (el) {
+      const avgStr = avg == null ? '—' : avg.toFixed(1);
+      el.textContent = `Min: ${min} ms · Max: ${max} ms · Avg: ${avgStr} ms`;
+    }
+  });
+}
+
 
     google.charts.setOnLoadCallback(drawWaterfall);
 
