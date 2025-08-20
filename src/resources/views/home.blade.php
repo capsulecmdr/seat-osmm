@@ -163,7 +163,7 @@
           <span class="font-weight-bold">Monthly Mining</span>
           <small class="text-muted">Avg/day: ISK
           {{ number_format((int) round($mining['avg_isk_per_day'] ?? 0)) }}</small>
-          <small class="text-muted">MTD: ISK {{ number_format((int) round($mining['mtd_isk'] ?? 0)) }}</small>
+          <small class="text-muted" id="mining-last-updated">—</small>
         </div>
         <div class="card-body p-0">
           <div id="chart_mining_div" style="width:100%; height:150px;"></div>
@@ -799,53 +799,84 @@
   }
 
   // Optional: quick debug in console
-   console.log('KM', KM);
+  //  console.log('KM', KM);
 }
 
 
     google.charts.setOnLoadCallback(drawMining);
 
     function drawMining() {
-    const days = @json($mining['days']);
-    const asteroid = @json($mining['asteroid']);
-    const ice = @json($mining['ice']);
-    const moon = @json($mining['moon']);
-    const cumISK = @json($mining['cum_isk']);
+  const days     = @json($mining['days']);
+  const asteroid = @json($mining['asteroid']);
+  const ice      = @json($mining['ice']);
+  const moon     = @json($mining['moon']);
+  const cumISK   = @json($mining['cum_isk']);
 
-    const data = new google.visualization.DataTable();
-    data.addColumn('number', 'Day');
-    data.addColumn('number', 'Asteroid');
-    data.addColumn('number', 'Ice');
-    data.addColumn('number', 'Moon');
-    data.addColumn('number', 'Cumulative ISK');
+  const data = new google.visualization.DataTable();
+  data.addColumn('number', 'Day');
+  data.addColumn('number', 'Asteroid');
+  data.addColumn('number', 'Ice');
+  data.addColumn('number', 'Moon');
+  data.addColumn('number', 'Cumulative ISK');
 
-    const rows = days.map((d, i) => [d, asteroid[i], ice[i], moon[i], cumISK[i]]);
-    data.addRows(rows);
+  const rows = days.map((d, i) => [d, asteroid[i], ice[i], moon[i], cumISK[i]]);
+  data.addRows(rows);
 
-    // Format ISK (line series)
-    new google.visualization.NumberFormat({
-      prefix: 'ISK ', groupingSymbol: ',', fractionDigits: 0
-    }).format(data, 4);
+  // Format ISK (line series)
+  new google.visualization.NumberFormat({
+    prefix: 'ISK ', groupingSymbol: ',', fractionDigits: 0
+  }).format(data, 4);
 
-    const options = {
-      legend: { position: 'top' },
-      chartArea: { left: 0, top: 0, right: 0, bottom: 0, width: '100%', height: '100%' },
-      isStacked: false,            // grouped bars
-      seriesType: 'bars',
-      bar: { groupWidth: '75%' },
-      hAxis: { textPosition: 'none', gridlines: { count: 0 }, baselineColor: 'transparent', ticks: [] },
-      vAxes: { 0: { textPosition: 'none' }, 1: { textPosition: 'none' } },
-      series: {
-      3: { type: 'line', targetAxisIndex: 1 } // line uses right axis
-      },
-      trendlines: { 3: {} }
-    };
+  const options = {
+    legend: { position: 'top' },
+    chartArea: { left: 0, top: 0, right: 0, bottom: 0, width: '100%', height: '100%' },
+    isStacked: false,                 // grouped bars
+    seriesType: 'bars',
+    bar: { groupWidth: '75%' },
+    hAxis: { textPosition: 'none', gridlines: { count: 0 }, baselineColor: 'transparent', ticks: [] },
+    vAxes: { 0: { textPosition: 'none' }, 1: { textPosition: 'none' } },
+    series: { 3: { type: 'line', targetAxisIndex: 1 } }, // line uses right axis
+    trendlines: { 3: {} }
+  };
 
-    const el = document.getElementById('chart_mining_div');
-    const chart = new google.visualization.ComboChart(el);
-    google.visualization.events.addListener(chart, 'ready', () => chart.setSelection([]));
-    chart.draw(data, options);
-    }
+  const el = document.getElementById('chart_mining_div');
+  const chart = new google.visualization.ComboChart(el);
+  google.visualization.events.addListener(chart, 'ready', () => chart.setSelection([]));
+  chart.draw(data, options);
+
+  // -------- Label: Avg/Day ISK · MTD ISK --------
+  const toNum = v => (v == null || v === '' ? 0 : Number(v));
+  const fmtISK = n => (n == null || isNaN(n))
+    ? '—'
+    : new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Math.round(n));
+
+  // Derive per-day ISK from cumulative line
+  const n = Math.min(days.length, Array.isArray(cumISK) ? cumISK.length : 0);
+  const perDayIsk = Array.from({ length: n }, (_, i) => {
+    const cur  = toNum(cumISK[i]);
+    const prev = i > 0 ? toNum(cumISK[i - 1]) : 0;
+    return cur - prev;
+  });
+
+  // Treat “activity” as either ISK > 0 or mined units > 0
+  let lastIdx = -1;
+  for (let i = n - 1; i >= 0; i--) {
+    const units = toNum(asteroid[i]) + toNum(ice[i]) + toNum(moon[i]);
+    if (perDayIsk[i] !== 0 || units !== 0) { lastIdx = i; break; }
+  }
+
+  const daysElapsed = lastIdx >= 0 ? (lastIdx + 1) : 0;
+  const mtd = lastIdx >= 0
+    ? perDayIsk.slice(0, lastIdx + 1).reduce((a, b) => a + toNum(b), 0)
+    : 0;
+  const avgPerDay = daysElapsed ? (mtd / daysElapsed) : null;
+
+  const footerEl = document.getElementById('mining-last-updated');
+  if (footerEl) {
+    footerEl.textContent = `Avg/Day: ${fmtISK(avgPerDay)} ISK · MTD: ${fmtISK(mtd)} ISK`;
+  }
+}
+
 
     google.charts.setOnLoadCallback(drawWalletBalance30);
 
