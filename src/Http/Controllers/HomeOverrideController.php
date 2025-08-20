@@ -155,7 +155,7 @@ class HomeOverrideController extends Controller
         return false;
     }
 
-    function buildMonthlyKillmailCumulative(): array
+    private function buildMonthlyKillmailCumulative(): array
 {
     $user = auth()->user();
 
@@ -449,7 +449,7 @@ class HomeOverrideController extends Controller
      * Uses the same DB connection as CharacterMining; prefers universe_prices, else market_prices.
      * Picks: average_price -> adjusted_price -> average -> sell_price -> buy_price.
      */
-    private function priceMapForTypeIds($type_ids, array $preference = [
+    function priceMapForTypeIds($type_ids, array $preference = [
     'average_price', 'adjusted_price', 'average', 'sell_price', 'buy_price'
 ])
     {
