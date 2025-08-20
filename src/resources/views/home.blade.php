@@ -149,7 +149,7 @@
         <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
           <span class="font-weight-bold">KillMails</span>
-          <small class="text-muted">month to date</small>
+          <small class="text-muted" id="killmails-last-updated">—</small>
         </div>
         <div class="card-body p-0">
           <div id="waterfall_div" style="width:100%; height:150px;"></div>
