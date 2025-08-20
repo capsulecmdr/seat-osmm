@@ -497,6 +497,10 @@
     window.addEventListener('resize', debounce(() => {
       drawOnlinePlayers();
       drawEsiResponse();
+      drawWaterfall();
+      drawMining();
+      drawWalletBalance30();
+      drawWallets();
     }, 200));
     }
 
