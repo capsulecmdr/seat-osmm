@@ -571,9 +571,6 @@
     const isTimestampSeries = arr => Array.isArray(arr) && arr.length && arr.every(isTimestamp);
     const toDate = v => new Date(v); // trust payload; it's already UTC
     const toNum = v => (v == null || v === '' ? null : Number(v));
-    const fmtUTC_HHMM = d =>
-      String(d.getUTCHours()).padStart(2, '0') + ':' +
-      String(d.getUTCMinutes()).padStart(2, '0') + ' UTC';
 
     // Detect payload shape
     const looksLikeLabels = Array.isArray(payload?.labels) && payload?.datasets?.[0]?.data;
@@ -610,9 +607,10 @@
     google.visualization.events.addListener(chart, 'ready', () => chart.setSelection([]));
     chart.draw(dt, baseOptions);
 
-    // --- Stats + most recent timestamp ---
+    // --- Stats (min, max, current) ---
     let min = Infinity, max = -Infinity;
     let latestTs = null;
+    let current = null;
 
     for (let i = 0, n = dt.getNumberOfRows(); i < n; i++) {
       const y = dt.getValue(i, 1);
@@ -622,20 +620,22 @@
       }
       const x = dt.getValue(i, 0);
       if (x instanceof Date && (!latestTs || x > latestTs)) {
-        latestTs = x; // keep the actual UTC timestamp from the X axis
+        latestTs = x;
+        current = y; // y-value of most recent timestamp
       }
     }
 
     if (min === Infinity) { min = '—'; max = '—'; }
-    if (!latestTs) latestTs = new Date();
+    if (current === null) current = '—';
 
     // Footer
     const el = document.getElementById('onlinePlayers_lastUpdated');
     if (el) {
-      el.textContent = `Min: ${min} · Max: ${max} · As of ${fmtUTC_HHMM(latestTs)}`;
+      el.textContent = `Min: ${min} · Max: ${max} · Current: ${current}`;
     }
   });
 }
+
 
 
 
