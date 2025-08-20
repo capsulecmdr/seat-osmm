@@ -591,84 +591,143 @@ class HomeOverrideController extends Controller
     }
 
     protected function buildAssetTableRows($user): Collection
-    {
-        // Get user character ids
-        $charIds = $user->characters()
-            ->select('character_infos.character_id')
-            ->distinct()
-            ->pluck('character_infos.character_id');
+{
+    // 1) All character IDs
+    $charIds = $user->characters()
+        ->select('character_infos.character_id')
+        ->distinct()
+        ->pluck('character_infos.character_id');
 
-        if ($charIds->isEmpty()) {
-            return collect();
+    if ($charIds->isEmpty()) {
+        return collect();
+    }
+
+    // 2) Load all assets for these chars (minimal cols for chain walk)
+    //    Map: item_id -> location_id  (containers & ships included)
+    $allAssets = DB::table('character_assets')
+        ->whereIn('character_id', $charIds)
+        ->select('item_id', 'location_id')
+        ->get();
+
+    $parentMap = [];
+    foreach ($allAssets as $a) {
+        // location_id can be NULL or a station/structure id or a parent item_id
+        $parentMap[(string)$a->item_id] = $a->location_id === null ? null : (string)$a->location_id;
+    }
+
+    // 3) Helper: climb container/ship chain to topmost parent
+    //    Returns the ultimate non-item location_id (e.g., a station/structure id)
+    $resolveRootLocationId = function ($leafItemId) use (&$parentMap) {
+        // We walk via: current = parentMap[current] while parent is another item_id
+        // Stop if parent is null or not an item_id (i.e., not a key in parentMap)
+        $seen = 0;
+        $maxHops = 50; // safety
+        $cur = (string)$leafItemId;
+
+        // First hop: assets store the parent in *their* location_id, so look that up
+        $parent = $parentMap[$cur] ?? null;
+
+        while ($parent !== null && isset($parentMap[(string)$parent]) && $seen < $maxHops) {
+            $cur = (string)$parent;
+            $parent = $parentMap[$cur] ?? null;
+            $seen++;
         }
 
-        // Notes:
-        // - We detect STATION vs STRUCTURE by whichever join matches the location_id
-        // - system_id is derived from structure.solar_system_id OR station.system_id
-        // - region_id from solar_systems.region_id
-        // - price from market_prices.average_price (fallback 0)
-        //
-        // IMPORTANT: All table names below assume they live in your *default* connection.
-        // If your actual names differ, just swap them.
-        $q = DB::table('character_assets as a')
-            ->whereIn('a.character_id', $charIds)
-            // Type name
-            ->leftJoin('invTypes as t', 't.typeID', '=', 'a.type_id')
-            // Avg price (nullable)
-            ->leftJoin('market_prices as mp', 'mp.type_id', '=', 'a.type_id')
-            // Try structure first
-            ->leftJoin('universe_structures as us', 'us.structure_id', '=', 'a.location_id')
-            // Also try station (one of these will match; occasionally neither if asset safety or odd edge)
-            ->leftJoin('universe_stations as st', 'st.station_id', '=', 'a.location_id')
-            // System is from structure.solar_system_id OR station.system_id
-            ->leftJoin('solar_systems as sys', function ($join) {
-                $join->on('sys.system_id', '=', DB::raw('COALESCE(us.solar_system_id, st.system_id)'));
-            })
-            // Region from system.region_id
-            ->leftJoin('regions as r', 'r.region_id', '=', 'sys.region_id')
-            ->select([
-                'a.item_id',
-                'a.type_id',
-                DB::raw('COALESCE(t.typeName, CONCAT("type:", a.type_id)) as type_name'),
-                // Price * qty; fall back to 0 if no price
-                DB::raw('COALESCE(mp.average_price, 0) * a.quantity as type_value'),
-                // Station
-                'st.station_id',
-                DB::raw('COALESCE(st.name, NULL) as station_name'),
-                // Structure
-                'us.structure_id',
-                DB::raw('COALESCE(us.name, NULL) as structure_name'),
-                // System + region
-                DB::raw('COALESCE(sys.name, NULL) as solar_system_name'),
-                DB::raw('COALESCE(r.name, NULL) as region_name'),
-                // Helpful extras (not in your table but sometimes useful)
-                'a.quantity',
-                'a.location_flag',
-                'a.location_id',
-            ]);
+        // parent is either null (we’ll treat as unknown), or a non-item id (station/structure/system/etc.)
+        // For TreeMap we only care about station/structure → system → region, so we return this "root location id"
+        return $parent; // may be string/int or null
+    };
 
-        // You had a .limit(5) in your prototype; remove or keep as you like:
-        // $q->limit(5);
+    // 4) Load lookup dictionaries once (id → name/system/region)
+    //    Structures (citadels/engineering/etc.)
+    $structures = DB::table('universe_structures')
+        ->select('structure_id', 'name', 'solar_system_id')
+        ->get()
+        ->keyBy(fn($r) => (string)$r->structure_id);
 
-        $rows = collect($q->get())->map(function ($r) {
-            // Ensure *either* station or structure column is null when not applicable (cosmetic)
-            // (Left joins already handle this; keep as-is unless you want explicit casting.)
-            return (object) [
-                'item_id'           => $r->item_id,
-                'type_id'           => $r->type_id,
-                'type_name'         => $r->type_name,
-                'type_value'        => (float) $r->type_value,
-                'station_id'        => $r->station_id,
-                'station_name'      => $r->station_name,
-                'structure_id'      => $r->structure_id,
-                'structure_name'    => $r->structure_name,
-                'solar_system_name' => $r->solar_system_name,
-                'region_name'       => $r->region_name,
-            ];
-        });
+    // Stations (NPC outposts)
+    $stations = DB::table('universe_stations')
+        ->select('station_id', 'name', 'system_id')
+        ->get()
+        ->keyBy(fn($r) => (string)$r->station_id);
 
-        return $rows;
+    // Systems
+    $systems = DB::table('solar_systems')
+        ->select('system_id', 'name', 'region_id')
+        ->get()
+        ->keyBy(fn($r) => (string)$r->system_id);
+
+    // Regions
+    $regions = DB::table('regions')
+        ->select('region_id', 'name')
+        ->get()
+        ->keyBy(fn($r) => (string)$r->region_id);
+
+    // 5) Pull the asset rows with type + price (one pass), then assign the resolved root location
+    $raw = DB::table('character_assets as a')
+        ->whereIn('a.character_id', $charIds)
+        ->leftJoin('invTypes as t', 't.typeID', '=', 'a.type_id')
+        ->leftJoin('market_prices as mp', 'mp.type_id', '=', 'a.type_id')
+        ->select([
+            'a.item_id',
+            'a.type_id',
+            DB::raw('COALESCE(t.typeName, CONCAT("type:", a.type_id)) as type_name'),
+            DB::raw('COALESCE(mp.average_price, 0) * a.quantity as type_value'),
+            'a.location_id',
+        ])
+        ->get();
+
+    // 6) Enrich each row with *resolved* Station/Structure → System → Region
+    $rows = collect();
+    foreach ($raw as $r) {
+        $rootLoc = $resolveRootLocationId($r->item_id); // may be null | station_id | structure_id | other
+
+        $stationName   = null;
+        $structureName = null;
+        $systemName    = null;
+        $regionName    = null;
+
+        // Try structure first
+        if ($rootLoc !== null && isset($structures[(string)$rootLoc])) {
+            $s = $structures[(string)$rootLoc];
+            $structureName = $s->name ?? null;
+
+            $sys = $systems[(string)$s->solar_system_id] ?? null;
+            if ($sys) {
+                $systemName = $sys->name ?? null;
+                $reg = $regions[(string)$sys->region_id] ?? null;
+                $regionName = $reg->name ?? null;
+            }
+        }
+        // Then try station
+        elseif ($rootLoc !== null && isset($stations[(string)$rootLoc])) {
+            $st = $stations[(string)$rootLoc];
+            $stationName = $st->name ?? null;
+
+            $sys = $systems[(string)$st->system_id] ?? null;
+            if ($sys) {
+                $systemName = $sys->name ?? null;
+                $reg = $regions[(string)$sys->region_id] ?? null;
+                $regionName = $reg->name ?? null;
+            }
+        }
+        // If still unknown, we’ll roll these into Unknown buckets (rare: asset safety or odd edge)
+
+        $rows->push((object)[
+            'item_id'           => $r->item_id,
+            'type_id'           => $r->type_id,
+            'type_name'         => $r->type_name,
+            'type_value'        => (float) $r->type_value,
+            'station_name'      => $stationName,
+            'structure_name'    => $structureName,
+            'solar_system_name' => $systemName,
+            'region_name'       => $regionName,
+        ]);
     }
+
+    return $rows;
+}
+
 
     /**
      * Build hierarchical nodes for your Google TreeMap:
