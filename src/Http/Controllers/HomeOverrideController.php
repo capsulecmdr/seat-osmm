@@ -194,21 +194,21 @@ class HomeOverrideController extends Controller
     }
 
     // Losses (victim is ours) -> killmail_ids in month
-    $loss_mail_ids = \Seat\Eveapi\Models\Killmails\KillmailVictim::whereIn('character_id', $char_ids)
+    $loss_mail_ids = KV::whereIn('character_id', $char_ids)
         ->distinct()->pluck('killmail_id');
 
     $loss_details = $loss_mail_ids->isNotEmpty()
-        ? \Seat\Eveapi\Models\Killmails\KillmailDetail::whereIn('killmail_id', $loss_mail_ids)
+        ? KD::whereIn('killmail_id', $loss_mail_ids)
             ->whereBetween('killmail_time', [$start, $end])
             ->get(['killmail_id', 'killmail_time'])
         : collect();
 
     // Wins (any of ours is an attacker) -> killmail_ids in month
-    $win_mail_ids = \Seat\Eveapi\Models\Killmails\KillmailAttacker::whereIn('character_id', $char_ids)
+    $win_mail_ids = KA::whereIn('character_id', $char_ids)
         ->distinct()->pluck('killmail_id');
 
     $win_details = $win_mail_ids->isNotEmpty()
-        ? \Seat\Eveapi\Models\Killmails\KillmailDetail::whereIn('killmail_id', $win_mail_ids)
+        ? KD::whereIn('killmail_id', $win_mail_ids)
             ->whereBetween('killmail_time', [$start, $end])
             ->get(['killmail_id', 'killmail_time'])
         : collect();
