@@ -31,48 +31,42 @@
     z-index: 1;
     pointer-events: none;
     }
+
+    /* Muted grayscale for inactive state */
+    .war-inactive img {
+    filter: grayscale(1) opacity(.6);
+    }
+
+    /* Red glow for active state */
+    .war-active img {
+    filter: none;
+    box-shadow: 0 0 5px rgba(255, 0, 0, 0.8);
+    border-radius: 4px;
+    }
+
+    /* Optional pulsing effect when active */
+    .war-active img {
+    animation: pulseGlow 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulseGlow {
+
+    0%,
+    100% {
+      box-shadow: 0 0 5px rgba(255, 0, 0, 0.8);
+    }
+
+    50% {
+      box-shadow: 0 0 10px rgba(255, 0, 0, 1);
+    }
+    }
   </style>
   <div class="container-fluid">
     <div class="row">
-    
+
     <!-- Image and text -->
     <nav class="navbar navbar-expand-lg navbar-light bg-light w-100">
       <a class="navbar-brand" href="/home"><i class="fa fa-home" aria-hidden="true"></i> Home</a>
-      {{-- Put this where you want the indicator to appear --}}
-      <style>
-      <style>
-
-      /* Muted grayscale for inactive state */
-      .war-inactive img {
-        filter: grayscale(1) opacity(.6);
-      }
-
-      /* Red glow for active state */
-      .war-active img {
-        filter: none;
-        box-shadow: 0 0 5px rgba(255, 0, 0, 0.8);
-        border-radius: 4px;
-      }
-
-      /* Optional pulsing effect when active */
-      .war-active img {
-        animation: pulseGlow 1.5s ease-in-out infinite;
-      }
-
-      @keyframes pulseGlow {
-
-        0%,
-        100% {
-        box-shadow: 0 0 5px rgba(255, 0, 0, 0.8);
-        }
-
-        50% {
-        box-shadow: 0 0 10px rgba(255, 0, 0, 1);
-        }
-      }
-      </style>
-
-
       <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarText"
       aria-controls="navbarText" aria-expanded="false" aria-label="Toggle navigation">
       <span class="navbar-toggler-icon"></span>
@@ -106,13 +100,13 @@
     </nav>
     </div>
     <div class="row">
-      <nav aria-label="breadcrumb" class="w-100">
-        <ol class="breadcrumb">
-          <li class="breadcrumb-item active" aria-current="page">Home</li>
-        </ol>
-      </nav>
+    <nav aria-label="breadcrumb" class="w-100">
+      <ol class="breadcrumb">
+      <li class="breadcrumb-item active" aria-current="page">Home</li>
+      </ol>
+    </nav>
     </div>
-    
+
     <div class="row">
 
     {{-- MAIN --}}
@@ -564,56 +558,56 @@
 
     // ---- Online Players ----
     function drawOnlinePlayers() {
-  $.getJSON("{{ route('seatcore::home.chart.serverstatus') }}", function (payload) {
-    const dt = new google.visualization.DataTable();
+    $.getJSON("{{ route('seatcore::home.chart.serverstatus') }}", function (payload) {
+      const dt = new google.visualization.DataTable();
 
-    // --- helpers ---
-    const isTimestamp = v => v != null && !isNaN(Date.parse(v));
-    const isTimestampSeries = arr => Array.isArray(arr) && arr.length && arr.every(isTimestamp);
-    const toDate = v => new Date(v); // trust payload; it's already UTC
-    const toNum = v => (v == null || v === '' ? null : Number(v));
+      // --- helpers ---
+      const isTimestamp = v => v != null && !isNaN(Date.parse(v));
+      const isTimestampSeries = arr => Array.isArray(arr) && arr.length && arr.every(isTimestamp);
+      const toDate = v => new Date(v); // trust payload; it's already UTC
+      const toNum = v => (v == null || v === '' ? null : Number(v));
 
-    // Detect payload shape
-    const looksLikeLabels = Array.isArray(payload?.labels) && payload?.datasets?.[0]?.data;
-    const looksLikePoints = Array.isArray(payload) && payload.length && (payload[0].t !== undefined || payload[0].x !== undefined);
+      // Detect payload shape
+      const looksLikeLabels = Array.isArray(payload?.labels) && payload?.datasets?.[0]?.data;
+      const looksLikePoints = Array.isArray(payload) && payload.length && (payload[0].t !== undefined || payload[0].x !== undefined);
 
-    // Columns
-    if (looksLikeLabels && isTimestampSeries(payload.labels)) {
+      // Columns
+      if (looksLikeLabels && isTimestampSeries(payload.labels)) {
       dt.addColumn('datetime', 'Time (UTC)');
-    } else if (looksLikePoints && isTimestampSeries(payload.map(p => p.t ?? p.x))) {
+      } else if (looksLikePoints && isTimestampSeries(payload.map(p => p.t ?? p.x))) {
       dt.addColumn('datetime', 'Time (UTC)');
-    } else {
+      } else {
       dt.addColumn('number', 'X');
-    }
-    dt.addColumn('number', 'Concurrent Players');
+      }
+      dt.addColumn('number', 'Concurrent Players');
 
-    // Rows
-    let rows = [];
-    if (looksLikeLabels) {
+      // Rows
+      let rows = [];
+      if (looksLikeLabels) {
       const xs = payload.labels;
       const ys = payload.datasets[0].data;
       const useTime = isTimestampSeries(xs);
       rows = xs.map((x, i) => [useTime ? toDate(x) : i, toNum(ys[i])]);
-    } else if (looksLikePoints) {
+      } else if (looksLikePoints) {
       rows = payload.map(p => {
         const xVal = p.t ?? p.x;
         const useTime = isTimestamp(xVal);
         return [useTime ? toDate(xVal) : toNum(xVal), toNum(p.y)];
       });
-    }
-    dt.addRows(rows);
+      }
+      dt.addRows(rows);
 
-    // Draw chart
-    const chart = new google.visualization.LineChart(onlineEl);
-    google.visualization.events.addListener(chart, 'ready', () => chart.setSelection([]));
-    chart.draw(dt, baseOptions);
+      // Draw chart
+      const chart = new google.visualization.LineChart(onlineEl);
+      google.visualization.events.addListener(chart, 'ready', () => chart.setSelection([]));
+      chart.draw(dt, baseOptions);
 
-    // --- Stats (min, max, current) ---
-    let min = Infinity, max = -Infinity;
-    let latestTs = null;
-    let current = null;
+      // --- Stats (min, max, current) ---
+      let min = Infinity, max = -Infinity;
+      let latestTs = null;
+      let current = null;
 
-    for (let i = 0, n = dt.getNumberOfRows(); i < n; i++) {
+      for (let i = 0, n = dt.getNumberOfRows(); i < n; i++) {
       const y = dt.getValue(i, 1);
       if (Number.isFinite(y)) {
         if (y < min) min = y;
@@ -624,18 +618,18 @@
         latestTs = x;
         current = y; // y-value of most recent timestamp
       }
-    }
+      }
 
-    if (min === Infinity) { min = '—'; max = '—'; }
-    if (current === null) current = '—';
+      if (min === Infinity) { min = '—'; max = '—'; }
+      if (current === null) current = '—';
 
-    // Footer
-    const el = document.getElementById('onlinePlayers_lastUpdated');
-    if (el) {
+      // Footer
+      const el = document.getElementById('onlinePlayers_lastUpdated');
+      if (el) {
       el.textContent = `Min: ${min} · Max: ${max} · Current: ${current}`;
+      }
+    });
     }
-  });
-}
 
 
 
@@ -643,46 +637,46 @@
 
     // ---- ESI Response Times ----
     function drawEsiResponse() {
-  $.getJSON("{{ route('seatcore::home.chart.serverresponse') }}", function (payload) {
-    const dt = new google.visualization.DataTable();
+    $.getJSON("{{ route('seatcore::home.chart.serverresponse') }}", function (payload) {
+      const dt = new google.visualization.DataTable();
 
-    const looksLikeLabels = Array.isArray(payload?.labels) && payload?.datasets?.[0]?.data;
-    const looksLikePoints = Array.isArray(payload) && payload.length && (payload[0].t !== undefined || payload[0].x !== undefined);
+      const looksLikeLabels = Array.isArray(payload?.labels) && payload?.datasets?.[0]?.data;
+      const looksLikePoints = Array.isArray(payload) && payload.length && (payload[0].t !== undefined || payload[0].x !== undefined);
 
-    if (looksLikeLabels && isTimestampSeries(payload.labels)) {
+      if (looksLikeLabels && isTimestampSeries(payload.labels)) {
       dt.addColumn('datetime', 'Time (UTC)');
-    } else if (looksLikePoints && isTimestampSeries(payload.map(p => p.t ?? p.x))) {
+      } else if (looksLikePoints && isTimestampSeries(payload.map(p => p.t ?? p.x))) {
       dt.addColumn('datetime', 'Time (UTC)');
-    } else {
+      } else {
       dt.addColumn('number', 'X');
-    }
-    dt.addColumn('number', 'Response Time (ms)');
+      }
+      dt.addColumn('number', 'Response Time (ms)');
 
-    // Build rows
-    let rows = [];
-    if (looksLikeLabels) {
+      // Build rows
+      let rows = [];
+      if (looksLikeLabels) {
       const xs = payload.labels;
       const ys = payload.datasets[0].data;
       const useTime = isTimestampSeries(xs);
       rows = xs.map((x, i) => [useTime ? toUtcDate(x) : i, toNum(ys[i])]);
-    } else if (looksLikePoints) {
+      } else if (looksLikePoints) {
       rows = payload.map(p => {
         const xVal = p.t ?? p.x;
         const useTime = isTimestamp(xVal);
         return [useTime ? toUtcDate(xVal) : toNum(xVal), toNum(p.y)];
       });
-    }
-    dt.addRows(rows);
+      }
+      dt.addRows(rows);
 
-    // Draw chart
-    const chart = new google.visualization.LineChart(esiEl);
-    google.visualization.events.addListener(chart, 'ready', () => chart.setSelection([]));
-    chart.draw(dt, baseOptions);
+      // Draw chart
+      const chart = new google.visualization.LineChart(esiEl);
+      google.visualization.events.addListener(chart, 'ready', () => chart.setSelection([]));
+      chart.draw(dt, baseOptions);
 
-    // --- Stats: min / max / avg (ms) ---
-    let min = Infinity, max = -Infinity, sum = 0, count = 0;
+      // --- Stats: min / max / avg (ms) ---
+      let min = Infinity, max = -Infinity, sum = 0, count = 0;
 
-    for (let i = 0, n = dt.getNumberOfRows(); i < n; i++) {
+      for (let i = 0, n = dt.getNumberOfRows(); i < n; i++) {
       const y = dt.getValue(i, 1);
       if (Number.isFinite(y)) {
         if (y < min) min = y;
@@ -690,322 +684,322 @@
         sum += y;
         count++;
       }
-    }
+      }
 
-    if (count === 0) {
+      if (count === 0) {
       min = '—'; max = '—';
-    }
-    const avg = count > 0 ? (sum / count) : null;
+      }
+      const avg = count > 0 ? (sum / count) : null;
 
-    // Footer
-    const el = document.getElementById('esi-last-updated');
-    if (el) {
+      // Footer
+      const el = document.getElementById('esi-last-updated');
+      if (el) {
       const avgStr = avg == null ? '—' : avg.toFixed(1);
       el.textContent = `Min: ${min} ms · Max: ${max} ms · Avg: ${avgStr} ms`;
+      }
+    });
     }
-  });
-}
 
 
     google.charts.setOnLoadCallback(drawWaterfall);
 
     function drawWaterfall() {
-  // all data comes from the injected $km
-  const KM = @json($km ?? (object)[]);
-  const days     = KM.days      || [];
-  const cumWins  = KM.cum_wins  || [];
-  const cumTotal = KM.cum_total || [];
-  const dailyIskRaw = KM.daily_isk ?? null;  // preferred
-  const cumIskRaw   = KM.cum_isk   ?? null;  // fallback
+    // all data comes from the injected $km
+    const KM = @json($km ?? (object) []);
+    const days = KM.days || [];
+    const cumWins = KM.cum_wins || [];
+    const cumTotal = KM.cum_total || [];
+    const dailyIskRaw = KM.daily_isk ?? null;  // preferred
+    const cumIskRaw = KM.cum_isk ?? null;  // fallback
 
-  // helpers
-  const toNum = v => (v == null || v === '' ? 0 : Number(v));
-  const fmtISK = n => (n == null || isNaN(n))
-    ? '—'
-    : new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Math.round(n));
+    // helpers
+    const toNum = v => (v == null || v === '' ? 0 : Number(v));
+    const fmtISK = n => (n == null || isNaN(n))
+      ? '—'
+      : new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Math.round(n));
 
-  // ------- per-day deltas for the waterfall (wins - losses) -------
-  const delta = days.map((_, i) => {
-    const w = toNum(cumWins[i])  - (i > 0 ? toNum(cumWins[i - 1])  : 0);
-    const t = toNum(cumTotal[i]) - (i > 0 ? toNum(cumTotal[i - 1]) : 0);
-    const l = Math.max(0, t - w);
-    return w - l;
-  });
+    // ------- per-day deltas for the waterfall (wins - losses) -------
+    const delta = days.map((_, i) => {
+      const w = toNum(cumWins[i]) - (i > 0 ? toNum(cumWins[i - 1]) : 0);
+      const t = toNum(cumTotal[i]) - (i > 0 ? toNum(cumTotal[i - 1]) : 0);
+      const l = Math.max(0, t - w);
+      return w - l;
+    });
 
-  // ------- Waterfall candlestick: [label, low, open, close, high] -------
-  const data = new google.visualization.DataTable();
-  data.addColumn('string', 'Day');
-  data.addColumn('number', 'Low');
-  data.addColumn('number', 'Open');
-  data.addColumn('number', 'Close');
-  data.addColumn('number', 'High');
+    // ------- Waterfall candlestick: [label, low, open, close, high] -------
+    const data = new google.visualization.DataTable();
+    data.addColumn('string', 'Day');
+    data.addColumn('number', 'Low');
+    data.addColumn('number', 'Open');
+    data.addColumn('number', 'Close');
+    data.addColumn('number', 'High');
 
-  let running = 0;
-  for (let i = 0; i < days.length; i++) {
-    const open = running;
-    const close = running + delta[i];
-    data.addRow([String(days[i]), Math.min(open, close), open, close, Math.max(open, close)]);
-    running = close;
-  }
-  // Optional "Total" bar at the end
-  data.addRow(['Total', Math.min(0, running), 0, running, Math.max(0, running)]);
+    let running = 0;
+    for (let i = 0; i < days.length; i++) {
+      const open = running;
+      const close = running + delta[i];
+      data.addRow([String(days[i]), Math.min(open, close), open, close, Math.max(open, close)]);
+      running = close;
+    }
+    // Optional "Total" bar at the end
+    data.addRow(['Total', Math.min(0, running), 0, running, Math.max(0, running)]);
 
-  const options = {
-    legend: 'none',
-    chartArea: { left: 0, top: 0, right: 0, bottom: 0, width: '100%', height: '100%' },
-    bar: { groupWidth: '85%' },
-    hAxis: { textPosition: 'none', gridlines: { count: 0 }, baselineColor: 'transparent', ticks: [] },
-    vAxis: { textPosition: 'none', gridlines: { count: 0 }, baselineColor: 'transparent', ticks: [] },
-    candlestick: {
+    const options = {
+      legend: 'none',
+      chartArea: { left: 0, top: 0, right: 0, bottom: 0, width: '100%', height: '100%' },
+      bar: { groupWidth: '85%' },
+      hAxis: { textPosition: 'none', gridlines: { count: 0 }, baselineColor: 'transparent', ticks: [] },
+      vAxis: { textPosition: 'none', gridlines: { count: 0 }, baselineColor: 'transparent', ticks: [] },
+      candlestick: {
       hollowIsRising: false,
       fallingColor: { strokeWidth: 0, fill: '#ef4444' },
-      risingColor:  { strokeWidth: 0, fill: '#22c55e' }
+      risingColor: { strokeWidth: 0, fill: '#22c55e' }
+      }
+    };
+
+    const chart = new google.visualization.CandlestickChart(document.getElementById('waterfall_div'));
+    google.visualization.events.addListener(chart, 'ready', () => chart.setSelection([]));
+    chart.draw(data, options);
+
+    // ============================
+    // Avg ISK / Day and MTD ISK
+    // ============================
+    let perDayIsk = null;
+    if (Array.isArray(dailyIskRaw) && dailyIskRaw.length === days.length) {
+      perDayIsk = dailyIskRaw.map(toNum);
+    } else if (Array.isArray(cumIskRaw) && cumIskRaw.length === days.length) {
+      perDayIsk = cumIskRaw.map((v, i, a) => toNum(v) - (i > 0 ? toNum(a[i - 1]) : 0));
     }
-  };
 
-  const chart = new google.visualization.CandlestickChart(document.getElementById('waterfall_div'));
-  google.visualization.events.addListener(chart, 'ready', () => chart.setSelection([]));
-  chart.draw(data, options);
+    const footerEl = document.getElementById('killmails-last-updated');
+    if (!perDayIsk) {
+      if (footerEl) footerEl.textContent = `Avg/Day: — ISK · MTD: — ISK`;
+      return;
+    }
 
-  // ============================
-  // Avg ISK / Day and MTD ISK
-  // ============================
-  let perDayIsk = null;
-  if (Array.isArray(dailyIskRaw) && dailyIskRaw.length === days.length) {
-    perDayIsk = dailyIskRaw.map(toNum);
-  } else if (Array.isArray(cumIskRaw) && cumIskRaw.length === days.length) {
-    perDayIsk = cumIskRaw.map((v, i, a) => toNum(v) - (i > 0 ? toNum(a[i - 1]) : 0));
-  }
+    // Cutoff = last day with any activity (either ISK or non-zero delta)
+    let lastIdx = -1;
+    for (let i = perDayIsk.length - 1; i >= 0; i--) {
+      if (perDayIsk[i] !== 0 || delta[i] !== 0) { lastIdx = i; break; }
+    }
 
-  const footerEl = document.getElementById('killmails-last-updated');
-  if (!perDayIsk) {
-    if (footerEl) footerEl.textContent = `Avg/Day: — ISK · MTD: — ISK`;
-    return;
-  }
+    const daysElapsed = lastIdx >= 0 ? (lastIdx + 1) : 0;
+    const mtd = lastIdx >= 0
+      ? perDayIsk.slice(0, lastIdx + 1).reduce((a, b) => a + toNum(b), 0)
+      : 0;
+    const avgPerDay = daysElapsed ? (mtd / daysElapsed) : null;
 
-  // Cutoff = last day with any activity (either ISK or non-zero delta)
-  let lastIdx = -1;
-  for (let i = perDayIsk.length - 1; i >= 0; i--) {
-    if (perDayIsk[i] !== 0 || delta[i] !== 0) { lastIdx = i; break; }
-  }
+    if (footerEl) {
+      footerEl.textContent = `Avg/Day: ${fmtISK(avgPerDay)} ISK · MTD: ${fmtISK(mtd)} ISK`;
+    }
 
-  const daysElapsed = lastIdx >= 0 ? (lastIdx + 1) : 0;
-  const mtd = lastIdx >= 0
-    ? perDayIsk.slice(0, lastIdx + 1).reduce((a, b) => a + toNum(b), 0)
-    : 0;
-  const avgPerDay = daysElapsed ? (mtd / daysElapsed) : null;
-
-  if (footerEl) {
-    footerEl.textContent = `Avg/Day: ${fmtISK(avgPerDay)} ISK · MTD: ${fmtISK(mtd)} ISK`;
-  }
-
-  // Optional: quick debug in console
-  //  console.log('KM', KM);
-}
+    // Optional: quick debug in console
+    //  console.log('KM', KM);
+    }
 
 
     google.charts.setOnLoadCallback(drawMining);
 
     function drawMining() {
-  const days     = @json($mining['days']);
-  const asteroid = @json($mining['asteroid']);
-  const ice      = @json($mining['ice']);
-  const moon     = @json($mining['moon']);
-  const cumISK   = @json($mining['cum_isk']);
+    const days = @json($mining['days']);
+    const asteroid = @json($mining['asteroid']);
+    const ice = @json($mining['ice']);
+    const moon = @json($mining['moon']);
+    const cumISK = @json($mining['cum_isk']);
 
-  const data = new google.visualization.DataTable();
-  data.addColumn('number', 'Day');
-  data.addColumn('number', 'Asteroid');
-  data.addColumn('number', 'Ice');
-  data.addColumn('number', 'Moon');
-  data.addColumn('number', 'Cumulative ISK');
+    const data = new google.visualization.DataTable();
+    data.addColumn('number', 'Day');
+    data.addColumn('number', 'Asteroid');
+    data.addColumn('number', 'Ice');
+    data.addColumn('number', 'Moon');
+    data.addColumn('number', 'Cumulative ISK');
 
-  const rows = days.map((d, i) => [d, asteroid[i], ice[i], moon[i], cumISK[i]]);
-  data.addRows(rows);
+    const rows = days.map((d, i) => [d, asteroid[i], ice[i], moon[i], cumISK[i]]);
+    data.addRows(rows);
 
-  // Format ISK (line series)
-  new google.visualization.NumberFormat({
-    prefix: 'ISK ', groupingSymbol: ',', fractionDigits: 0
-  }).format(data, 4);
+    // Format ISK (line series)
+    new google.visualization.NumberFormat({
+      prefix: 'ISK ', groupingSymbol: ',', fractionDigits: 0
+    }).format(data, 4);
 
-  const options = {
-    legend: { position: 'top' },
-    chartArea: { left: 0, top: 0, right: 0, bottom: 0, width: '100%', height: '100%' },
-    isStacked: false,                 // grouped bars
-    seriesType: 'bars',
-    bar: { groupWidth: '75%' },
-    hAxis: { textPosition: 'none', gridlines: { count: 0 }, baselineColor: 'transparent', ticks: [] },
-    vAxes: { 0: { textPosition: 'none' }, 1: { textPosition: 'none' } },
-    series: { 3: { type: 'line', targetAxisIndex: 1 } }, // line uses right axis
-    trendlines: { 3: {} }
-  };
+    const options = {
+      legend: { position: 'top' },
+      chartArea: { left: 0, top: 0, right: 0, bottom: 0, width: '100%', height: '100%' },
+      isStacked: false,                 // grouped bars
+      seriesType: 'bars',
+      bar: { groupWidth: '75%' },
+      hAxis: { textPosition: 'none', gridlines: { count: 0 }, baselineColor: 'transparent', ticks: [] },
+      vAxes: { 0: { textPosition: 'none' }, 1: { textPosition: 'none' } },
+      series: { 3: { type: 'line', targetAxisIndex: 1 } }, // line uses right axis
+      trendlines: { 3: {} }
+    };
 
-  const el = document.getElementById('chart_mining_div');
-  const chart = new google.visualization.ComboChart(el);
-  google.visualization.events.addListener(chart, 'ready', () => chart.setSelection([]));
-  chart.draw(data, options);
+    const el = document.getElementById('chart_mining_div');
+    const chart = new google.visualization.ComboChart(el);
+    google.visualization.events.addListener(chart, 'ready', () => chart.setSelection([]));
+    chart.draw(data, options);
 
-  // -------- Label: Avg/Day ISK · MTD ISK --------
-  const toNum = v => (v == null || v === '' ? 0 : Number(v));
-  const fmtISK = n => (n == null || isNaN(n))
-    ? '—'
-    : new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Math.round(n));
+    // -------- Label: Avg/Day ISK · MTD ISK --------
+    const toNum = v => (v == null || v === '' ? 0 : Number(v));
+    const fmtISK = n => (n == null || isNaN(n))
+      ? '—'
+      : new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Math.round(n));
 
-  // Derive per-day ISK from cumulative line
-  const n = Math.min(days.length, Array.isArray(cumISK) ? cumISK.length : 0);
-  const perDayIsk = Array.from({ length: n }, (_, i) => {
-    const cur  = toNum(cumISK[i]);
-    const prev = i > 0 ? toNum(cumISK[i - 1]) : 0;
-    return cur - prev;
-  });
+    // Derive per-day ISK from cumulative line
+    const n = Math.min(days.length, Array.isArray(cumISK) ? cumISK.length : 0);
+    const perDayIsk = Array.from({ length: n }, (_, i) => {
+      const cur = toNum(cumISK[i]);
+      const prev = i > 0 ? toNum(cumISK[i - 1]) : 0;
+      return cur - prev;
+    });
 
-  // Treat “activity” as either ISK > 0 or mined units > 0
-  let lastIdx = -1;
-  for (let i = n - 1; i >= 0; i--) {
-    const units = toNum(asteroid[i]) + toNum(ice[i]) + toNum(moon[i]);
-    if (perDayIsk[i] !== 0 || units !== 0) { lastIdx = i; break; }
-  }
+    // Treat “activity” as either ISK > 0 or mined units > 0
+    let lastIdx = -1;
+    for (let i = n - 1; i >= 0; i--) {
+      const units = toNum(asteroid[i]) + toNum(ice[i]) + toNum(moon[i]);
+      if (perDayIsk[i] !== 0 || units !== 0) { lastIdx = i; break; }
+    }
 
-  const daysElapsed = lastIdx >= 0 ? (lastIdx + 1) : 0;
-  const mtd = lastIdx >= 0
-    ? perDayIsk.slice(0, lastIdx + 1).reduce((a, b) => a + toNum(b), 0)
-    : 0;
-  const avgPerDay = daysElapsed ? (mtd / daysElapsed) : null;
+    const daysElapsed = lastIdx >= 0 ? (lastIdx + 1) : 0;
+    const mtd = lastIdx >= 0
+      ? perDayIsk.slice(0, lastIdx + 1).reduce((a, b) => a + toNum(b), 0)
+      : 0;
+    const avgPerDay = daysElapsed ? (mtd / daysElapsed) : null;
 
-  const footerEl = document.getElementById('mining-last-updated');
-  if (footerEl) {
-    footerEl.textContent = `Avg/Day: ${fmtISK(avgPerDay)} ISK · MTD: ${fmtISK(mtd)} ISK`;
-  }
-}
+    const footerEl = document.getElementById('mining-last-updated');
+    if (footerEl) {
+      footerEl.textContent = `Avg/Day: ${fmtISK(avgPerDay)} ISK · MTD: ${fmtISK(mtd)} ISK`;
+    }
+    }
 
 
     google.charts.setOnLoadCallback(drawWalletBalance30);
 
     function drawWalletBalance30() {
-  const balances = @json($walletBalance30['balances'] ?? []);
-  const dt = new google.visualization.DataTable();
-  dt.addColumn('number', 'X');              // simple index for minimal padding
-  dt.addColumn('number', 'Total Balance');
-  dt.addRows(balances.map((y, i) => [i, y]));
+    const balances = @json($walletBalance30['balances'] ?? []);
+    const dt = new google.visualization.DataTable();
+    dt.addColumn('number', 'X');              // simple index for minimal padding
+    dt.addColumn('number', 'Total Balance');
+    dt.addRows(balances.map((y, i) => [i, y]));
 
-  const opts = {
-    legend: 'none',
-    chartArea: { left: 0, top: 0, right: 0, bottom: 0, width: '100%', height: '100%' },
-    hAxis: { textPosition: 'none', gridlines: { count: 0 }, baselineColor: 'transparent', ticks: [] },
-    vAxis: { textPosition: 'none', gridlines: { count: 0 }, baselineColor: 'transparent', ticks: [] },
-    lineWidth: 1,
-    pointSize: 0,
-    trendlines: { 0: {} }
-  };
+    const opts = {
+      legend: 'none',
+      chartArea: { left: 0, top: 0, right: 0, bottom: 0, width: '100%', height: '100%' },
+      hAxis: { textPosition: 'none', gridlines: { count: 0 }, baselineColor: 'transparent', ticks: [] },
+      vAxis: { textPosition: 'none', gridlines: { count: 0 }, baselineColor: 'transparent', ticks: [] },
+      lineWidth: 1,
+      pointSize: 0,
+      trendlines: { 0: {} }
+    };
 
-  const el = document.getElementById('chart_wallet_balance_30d');
-  const chart = new google.visualization.LineChart(el);
-  google.visualization.events.addListener(chart, 'ready', () => chart.setSelection([]));
-  chart.draw(dt, opts);
+    const el = document.getElementById('chart_wallet_balance_30d');
+    const chart = new google.visualization.LineChart(el);
+    google.visualization.events.addListener(chart, 'ready', () => chart.setSelection([]));
+    chart.draw(dt, opts);
 
-  // ---- Label: Today + 30d projection (linear trend) ----
-  const fmtISK = n => (n == null || isNaN(n))
-    ? '—'
-    : new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Math.round(n));
+    // ---- Label: Today + 30d projection (linear trend) ----
+    const fmtISK = n => (n == null || isNaN(n))
+      ? '—'
+      : new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Math.round(n));
 
-  const n = balances.length;
-  if (!n) {
+    const n = balances.length;
+    if (!n) {
+      const lbl = document.getElementById('wallet-30d-label');
+      if (lbl) lbl.textContent = 'Today: — ISK · 30d proj: — ISK';
+      return;
+    }
+
+    const today = Number(balances[n - 1]) || 0;
+
+    // Simple least-squares over the last 30 days (index vs. balance)
+    // x: 0..n-1, y: balances[i]
+    let sumX = 0, sumY = 0, sumXX = 0, sumXY = 0;
+    for (let i = 0; i < n; i++) {
+      const x = i;
+      const y = Number(balances[i]) || 0;
+      sumX += x;
+      sumY += y;
+      sumXX += x * x;
+      sumXY += x * y;
+    }
+    const denom = (n * sumXX - sumX * sumX);
+    const slope = denom !== 0 ? (n * sumXY - sumX * sumY) / denom : 0;   // ISK/day
+    const intercept = (sumY - slope * sumX) / n;
+
+    // Project 30 days beyond the last point (today is index n-1)
+    const xProj = (n - 1) + 30;
+    let projected = intercept + slope * xProj;
+    if (!Number.isFinite(projected)) projected = today;
+    if (projected < 0) projected = 0; // guard
+
     const lbl = document.getElementById('wallet-30d-label');
-    if (lbl) lbl.textContent = 'Today: — ISK · 30d proj: — ISK';
-    return;
-  }
-
-  const today = Number(balances[n - 1]) || 0;
-
-  // Simple least-squares over the last 30 days (index vs. balance)
-  // x: 0..n-1, y: balances[i]
-  let sumX = 0, sumY = 0, sumXX = 0, sumXY = 0;
-  for (let i = 0; i < n; i++) {
-    const x = i;
-    const y = Number(balances[i]) || 0;
-    sumX  += x;
-    sumY  += y;
-    sumXX += x * x;
-    sumXY += x * y;
-  }
-  const denom = (n * sumXX - sumX * sumX);
-  const slope = denom !== 0 ? (n * sumXY - sumX * sumY) / denom : 0;   // ISK/day
-  const intercept = (sumY - slope * sumX) / n;
-
-  // Project 30 days beyond the last point (today is index n-1)
-  const xProj = (n - 1) + 30;
-  let projected = intercept + slope * xProj;
-  if (!Number.isFinite(projected)) projected = today;
-  if (projected < 0) projected = 0; // guard
-
-  const lbl = document.getElementById('wallet-30d-label');
-  if (lbl) {
-    lbl.textContent = `Today: ${fmtISK(today)} ISK · 30d proj: ${fmtISK(projected)} ISK`;
-  }
-}
+    if (lbl) {
+      lbl.textContent = `Today: ${fmtISK(today)} ISK · 30d proj: ${fmtISK(projected)} ISK`;
+    }
+    }
 
 
     google.charts.setOnLoadCallback(drawWallets);
 
     function drawWallets() {
-  const rows = @json($walletByChar['rows'] ?? []); // [ [name, balance], ... ]
+    const rows = @json($walletByChar['rows'] ?? []); // [ [name, balance], ... ]
 
-  const data = new google.visualization.DataTable();
-  data.addColumn('string', 'Character');                  // domain (we'll hide axis labels)
-  data.addColumn('number', 'Wallet (ISK)');               // value
-  data.addColumn({ type: 'string', role: 'annotation' }); // on-bar label
-  data.addColumn({ type: 'string', role: 'annotationText' }); // tooltip for annotation
+    const data = new google.visualization.DataTable();
+    data.addColumn('string', 'Character');                  // domain (we'll hide axis labels)
+    data.addColumn('number', 'Wallet (ISK)');               // value
+    data.addColumn({ type: 'string', role: 'annotation' }); // on-bar label
+    data.addColumn({ type: 'string', role: 'annotationText' }); // tooltip for annotation
 
-  const short = s => {
-    const str = String(s ?? '');
-    return str.length > 12 ? str.slice(0, 11) + '…' : str;
-  };
-  const fmtISK = n =>
-    new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 })
+    const short = s => {
+      const str = String(s ?? '');
+      return str.length > 12 ? str.slice(0, 11) + '…' : str;
+    };
+    const fmtISK = n =>
+      new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 })
       .format(Math.round(Number(n) || 0));
-  const abbrISK = n => {
-    const x = Math.abs(Number(n) || 0);
-    if (x >= 1e12) return (n / 1e12).toFixed(2).replace(/\.00$/, '') + 't';
-    if (x >= 1e9)  return (n / 1e9 ).toFixed(2).replace(/\.00$/, '') + 'b';
-    if (x >= 1e6)  return (n / 1e6 ).toFixed(2).replace(/\.00$/, '') + 'm';
-    if (x >= 1e3)  return (n / 1e3 ).toFixed(2).replace(/\.00$/, '') + 'k';
-    return Math.round(n).toString();
-  };
+    const abbrISK = n => {
+      const x = Math.abs(Number(n) || 0);
+      if (x >= 1e12) return (n / 1e12).toFixed(2).replace(/\.00$/, '') + 't';
+      if (x >= 1e9) return (n / 1e9).toFixed(2).replace(/\.00$/, '') + 'b';
+      if (x >= 1e6) return (n / 1e6).toFixed(2).replace(/\.00$/, '') + 'm';
+      if (x >= 1e3) return (n / 1e3).toFixed(2).replace(/\.00$/, '') + 'k';
+      return Math.round(n).toString();
+    };
 
-  data.addRows(
-    rows.map(([name, bal]) => {
+    data.addRows(
+      rows.map(([name, bal]) => {
       const nm = String(name ?? '');
-      const b  = Number(bal) || 0;
+      const b = Number(bal) || 0;
       // single on-bar label: "Name · 1.2b"
       const ann = `${short(nm)} · ${abbrISK(b)}`;
       const tip = `${nm}\nISK ${fmtISK(b)}`;
       return [nm, b, ann, tip];
-    })
-  );
+      })
+    );
 
-  // Format ISK for bar series
-  new google.visualization.NumberFormat({
-    prefix: 'ISK ', groupingSymbol: ',', fractionDigits: 0
-  }).format(data, 1);
+    // Format ISK for bar series
+    new google.visualization.NumberFormat({
+      prefix: 'ISK ', groupingSymbol: ',', fractionDigits: 0
+    }).format(data, 1);
 
-  const options = {
-    legend: { position: 'none' },
-    bar: { groupWidth: '70%' },
-    // no x-axis labels below bars
-    chartArea: { left: 0, right: 0, top: 10, bottom: 0, width: '100%', height: '100%' },
-    hAxis: { textPosition: 'none' },
-    vAxis: { minValue: 0, textPosition: 'none', gridlines: { count: 0 }, baselineColor: 'transparent' },
-    annotations: {
+    const options = {
+      legend: { position: 'none' },
+      bar: { groupWidth: '70%' },
+      // no x-axis labels below bars
+      chartArea: { left: 0, right: 0, top: 10, bottom: 0, width: '100%', height: '100%' },
+      hAxis: { textPosition: 'none' },
+      vAxis: { minValue: 0, textPosition: 'none', gridlines: { count: 0 }, baselineColor: 'transparent' },
+      annotations: {
       textStyle: { fontSize: 10, color: '#666' },
       // uncomment if labels get clipped inside short bars:
       // alwaysOutside: true
-    }
-  };
+      }
+    };
 
-  const chart = new google.visualization.ColumnChart(document.getElementById('chart_wallet_by_char_div'));
-  google.visualization.events.addListener(chart, 'ready', () => chart.setSelection([]));
-  chart.draw(data, options);
-}
+    const chart = new google.visualization.ColumnChart(document.getElementById('chart_wallet_by_char_div'));
+    google.visualization.events.addListener(chart, 'ready', () => chart.setSelection([]));
+    chart.draw(data, options);
+    }
 
 
 

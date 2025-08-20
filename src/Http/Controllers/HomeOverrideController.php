@@ -679,76 +679,107 @@ class HomeOverrideController extends Controller
      * Value: sum of type_value for all assets under that node
      */
     protected function buildTreemapNodes(Collection $rows): array
-    {
-        $rootId = 'assets_root';
-        $nodes = [];
+{
+    $rootId = 'assets_root';
+    $nodes = [];
 
-        // Root
+    // Root
+    $nodes[] = [
+        'id'     => $rootId,
+        'parent' => null,
+        'label'  => 'Assets',
+        'value'  => 0,  // non-leaf
+    ];
+
+    // Helpers for stable IDs and human labels (even when nulls exist)
+    $norm = fn($s, $fallback) => $s && trim($s) !== '' ? $s : $fallback;
+
+    $regionKey = fn($rName) => 'region:' . $norm($rName, 'Unknown Region');
+    $systemKey = fn($rName, $sName) =>
+        $regionKey($rName) . '|system:' . $norm($sName, 'Unknown System');
+
+    // Treat both structure+station as a “Station” level node in the tree
+    $stationLabel = function ($stName, $usName) {
+        return $usName ?: ($stName ?: 'Unknown Station');
+    };
+    $stationKey = function ($rName, $sName, $stName, $usName) use ($systemKey, $stationLabel) {
+        $label = $stationLabel($stName, $usName);
+        return $systemKey($rName, $sName) . '|station:' . $label;
+    };
+
+    $typeKey = function ($rName, $sName, $stName, $usName, $typeId, $typeName) use ($stationKey) {
+        $label = $typeName ?: ('type:' . (string) $typeId);
+        return $stationKey($rName, $sName, $stName, $usName) . '|type:' . $label . '#id:' . (string) $typeId;
+        // include id to prevent accidental merges of two different type IDs with same name
+    };
+
+    // Group: Region → System → Station → Type
+    $byRegion = $rows->groupBy(fn($r) => $regionKey($r->region_name));
+
+    foreach ($byRegion as $rk => $regionRows) {
+        $regionName = $norm($regionRows->first()->region_name ?? null, 'Unknown Region');
         $nodes[] = [
-            'id'     => $rootId,
-            'parent' => null,
-            'label'  => 'Assets',
-            'value'  => 0,   // non-leaf
+            'id'     => $rk,
+            'parent' => $rootId,
+            'label'  => $regionName,
+            'value'  => 0, // non-leaf
         ];
 
-        // Group by region → system → location
-        // Define helpers that stabilize IDs and labels even when nulls happen
-        $regKey = fn($name) => 'region:' . ($name ?: 'Unknown Region');
-        $sysKey = fn($rName, $sName) => $regKey($rName) . '|system:' . ($sName ?: 'Unknown System');
-        $locKey = function ($rName, $sName, $stName, $usName) use ($sysKey) {
-            $loc = $usName ?: $stName ?: 'Unknown Location';
-            return $sysKey($rName, $sName) . '|loc:' . $loc;
-        };
-
-        // 1) Region nodes
-        $byRegion = $rows->groupBy(fn($r) => $regKey($r->region_name));
-        foreach ($byRegion as $rk => $regionRows) {
-            $regionName = $regionRows->first()->region_name ?? 'Unknown Region';
+        $bySystem = $regionRows->groupBy(fn($r) => $systemKey($r->region_name, $r->solar_system_name));
+        foreach ($bySystem as $sk => $systemRows) {
+            $systemName = $norm($systemRows->first()->solar_system_name ?? null, 'Unknown System');
             $nodes[] = [
-                'id'     => $rk,
-                'parent' => $rootId,
-                'label'  => $regionName ?: 'Unknown Region',
-                'value'  => 0,
+                'id'     => $sk,
+                'parent' => $rk,
+                'label'  => $systemName,
+                'value'  => 0, // non-leaf
             ];
 
-            // 2) System nodes under each region
-            $bySystem = $regionRows->groupBy(fn($r) => $sysKey($r->region_name, $r->solar_system_name));
-            foreach ($bySystem as $sk => $systemRows) {
-                $systemName = $systemRows->first()->solar_system_name ?? 'Unknown System';
+            $byStation = $systemRows->groupBy(fn($r) =>
+                $stationKey($r->region_name, $r->solar_system_name, $r->station_name, $r->structure_name)
+            );
+            foreach ($byStation as $stk => $stationRows) {
+                $stationLbl = $stationLabel(
+                    $stationRows->first()->station_name ?? null,
+                    $stationRows->first()->structure_name ?? null
+                );
+
                 $nodes[] = [
-                    'id'     => $sk,
-                    'parent' => $rk,
-                    'label'  => $systemName ?: 'Unknown System',
-                    'value'  => 0,
+                    'id'     => $stk,
+                    'parent' => $sk,
+                    'label'  => $stationLbl,
+                    'value'  => 0, // non-leaf
                 ];
 
-                // 3) Location nodes (station/structure) under each system
-                $byLocation = $systemRows->groupBy(fn($r) => $locKey(
-                    $r->region_name,
-                    $r->solar_system_name,
-                    $r->station_name,
-                    $r->structure_name
-                ));
-                foreach ($byLocation as $lk => $locRows) {
-                    $label = $locRows->first()->structure_name
-                        ?? $locRows->first()->station_name
-                        ?? 'Unknown Location';
+                // Leaf level: Type
+                $byType = $stationRows->groupBy(fn($r) =>
+                    $typeKey(
+                        $r->region_name,
+                        $r->solar_system_name,
+                        $r->station_name,
+                        $r->structure_name,
+                        $r->type_id,
+                        $r->type_name
+                    )
+                );
 
-                    // Sum the leaf values at the location level
-                    $value = (float) $locRows->sum('type_value');
+                foreach ($byType as $tk => $typeRows) {
+                    $typeName = $norm($typeRows->first()->type_name ?? null, 'Unknown Type');
+                    $value = (float) $typeRows->sum('type_value'); // ISK leaf sum for this type at this station
 
                     $nodes[] = [
-                        'id'     => $lk,
-                        'parent' => $sk,
-                        'label'  => $label,
-                        'value'  => $value, // leaves carry value in your treemap
+                        'id'     => $tk,
+                        'parent' => $stk,
+                        'label'  => $typeName,
+                        'value'  => $value, // LEAF carries area
                     ];
                 }
             }
         }
-
-        return $nodes;
     }
+
+    return $nodes;
+}
 
     private function computeAllocationUpdated($user): ?string
 {
