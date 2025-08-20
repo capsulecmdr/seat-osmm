@@ -449,38 +449,49 @@ class HomeOverrideController extends Controller
      * Uses the same DB connection as CharacterMining; prefers universe_prices, else market_prices.
      * Picks: average_price -> adjusted_price -> average -> sell_price -> buy_price.
      */
-    private function priceMapForTypeIds($type_ids, array $preference = ['sell_price','average_price','adjusted_price','average','buy_price'])
-    {
-        $ids = collect($type_ids)->unique()->values();
-        if ($ids->isEmpty()) return collect();
+    private function priceMapForTypeIds($type_ids, array $preference = ['average_price','adjusted_price','sell_price','average','buy_price'], ?string $conn = null)
+{
+    $ids = collect($type_ids)->unique()->values();
+    if ($ids->isEmpty()) return collect();
 
-        $conn  = (new CM)->getConnectionName();
-        $table = \Schema::connection($conn)->hasTable('universe_prices') ? 'universe_prices'
-            : (\Schema::connection($conn)->hasTable('market_prices')   ? 'market_prices'   : null);
+    // Prefer the killmail connection; then mining’s; then default
+    $kmConn = (new \Seat\Eveapi\Models\Killmails\KillmailDetail)->getConnectionName();
+    $cmConn = (new \Seat\Eveapi\Models\Industry\CharacterMining)->getConnectionName();
 
-        if (!$table) return collect()->mapWithKeys(fn($id)=>[(int)$id=>0.0]);
+    $candidates = array_values(array_unique(array_filter([$conn, $kmConn, $cmConn, null], fn($c) => $c !== '')));
+    $useConn = null;
+    $table = null;
 
-        $cols = array_unique(array_merge(['type_id'], $preference)); // only fetch what we use
-        $rows = \DB::connection($conn)->table($table)
-            ->whereIn('type_id', $ids)
-            ->get($cols)
-            ->keyBy('type_id');
+    foreach ($candidates as $c) {
+        if (\Schema::connection($c)->hasTable('universe_prices')) { $useConn = $c; $table = 'universe_prices'; break; }
+        if (\Schema::connection($c)->hasTable('market_prices'))   { $useConn = $c; $table = 'market_prices';   break; }
+    }
 
-        return $ids->mapWithKeys(function ($id) use ($rows, $preference) {
-            $r = $rows->get($id);
-            $price = 0.0;
-            if ($r) {
-                foreach ($preference as $col) {
-                    if (isset($r->{$col}) && $r->{$col} !== null) {
-                        $candidate = (float) $r->{$col};
-                        // optional: skip zeros/negatives
-                        if ($candidate > 0) { $price = $candidate; break; }
-                    }
+    if (!$table) {
+        // no price table anywhere we tried
+        return $ids->mapWithKeys(fn($id) => [(int)$id => 0.0]);
+    }
+
+    $cols = array_unique(array_merge(['type_id'], $preference));
+    $rows = \DB::connection($useConn)->table($table)
+        ->whereIn('type_id', $ids)
+        ->get($cols)
+        ->keyBy('type_id');
+
+    return $ids->mapWithKeys(function ($id) use ($rows, $preference) {
+        $r = $rows->get($id);
+        $price = 0.0;
+        if ($r) {
+            foreach ($preference as $col) {
+                if (isset($r->{$col}) && $r->{$col} !== null) {
+                    $candidate = (float) $r->{$col};
+                    if ($candidate > 0) { $price = $candidate; break; }
                 }
             }
-            return [(int)$id => $price];
-        });
-    }
+        }
+        return [(int) $id => $price];
+    });
+}
 
     private function buildWalletBalanceLast30d(): array
     {
