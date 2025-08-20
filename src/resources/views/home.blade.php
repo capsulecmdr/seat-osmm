@@ -709,69 +709,119 @@
     google.charts.setOnLoadCallback(drawWaterfall);
 
     function drawWaterfall() {
-    const days = @json($km['days']);       // [1..EOM]
-    const cumWins = @json($km['cum_wins']);   // cumulative wins by day index
-    const cumTotal = @json($km['cum_total']);  // cumulative (wins + losses)
+  const days     = @json($km['days']);        // [1..EOM]
+  const cumWins  = @json($km['cum_wins']);    // cumulative wins by day index
+  const cumTotal = @json($km['cum_total']);   // cumulative (wins + losses)
 
-    // Derive per-day wins, totals, losses, and net delta (wins - losses)
-    const perWins = [];
-    const perTotal = [];
-    const perLoss = [];
-    const delta = [];
+  // --- ISK inputs (pick one) ---
+  // Prefer daily ISK if provided; otherwise derive from cumulative ISK.
+  const dailyIskRaw = @json($km['daily_isk'] ?? null);  // [d0, d1, ...] per-day ISK
+  const cumIskRaw   = @json($km['cum_isk']   ?? null);  // [c0, c1, ...] cumulative ISK
 
-    for (let i = 0; i < days.length; i++) {
-      const w = cumWins[i] - (i > 0 ? cumWins[i - 1] : 0);
-      const t = cumTotal[i] - (i > 0 ? cumTotal[i - 1] : 0);
-      const l = Math.max(0, t - w);         // guard against negatives
-      const d = w - l;                      // net for the day
+  // Helpers
+  const toNum = v => (v == null || v === '' ? null : Number(v));
+  const fmtISK = n => (n == null || n === '—')
+    ? '—'
+    : new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Math.round(n));
 
-      perWins.push(w);
-      perTotal.push(t);
-      perLoss.push(l);
-      delta.push(d);
+  // Derive per-day wins, totals, losses, and net delta (wins - losses) for the waterfall
+  const perWins = [];
+  const perTotal = [];
+  const perLoss = [];
+  const delta = [];
+
+  for (let i = 0; i < days.length; i++) {
+    const w = (toNum(cumWins[i])  ?? 0) - (i > 0 ? (toNum(cumWins[i - 1])  ?? 0) : 0);
+    const t = (toNum(cumTotal[i]) ?? 0) - (i > 0 ? (toNum(cumTotal[i - 1]) ?? 0) : 0);
+    const l = Math.max(0, t - w);
+    const d = w - l;
+
+    perWins.push(w);
+    perTotal.push(t);
+    perLoss.push(l);
+    delta.push(d);
+  }
+
+  // Build the waterfall candlestick: [label, low, open, close, high]
+  const data = new google.visualization.DataTable();
+  data.addColumn('string', 'Day');
+  data.addColumn('number', 'Low');
+  data.addColumn('number', 'Open');
+  data.addColumn('number', 'Close');
+  data.addColumn('number', 'High');
+
+  let running = 0;
+  for (let i = 0; i < days.length; i++) {
+    const open = running;
+    const close = running + delta[i];
+    const low = Math.min(open, close);
+    const high = Math.max(open, close);
+    data.addRow([String(days[i]), low, open, close, high]);
+    running = close;
+  }
+
+  // Optional: final "Total" bar
+  data.addRow(['Total', Math.min(0, running), 0, running, Math.max(0, running)]);
+
+  const options = {
+    legend: 'none',
+    chartArea: { left: 0, top: 0, right: 0, bottom: 0, width: '100%', height: '100%' },
+    bar: { groupWidth: '85%' },
+    hAxis: { textPosition: 'none', gridlines: { count: 0 }, baselineColor: 'transparent', ticks: [] },
+    vAxis: { textPosition: 'none', gridlines: { count: 0 }, baselineColor: 'transparent', ticks: [] },
+    candlestick: {
+      hollowIsRising: false,
+      fallingColor: { strokeWidth: 0, fill: '#ef4444' },
+      risingColor:  { strokeWidth: 0, fill: '#22c55e' }
     }
+  };
 
-    // Waterfall candlestick: [label, low, open, close, high]
-    // where open = running total before the day, close = after applying delta
-    const data = new google.visualization.DataTable();
-    data.addColumn('string', 'Day');
-    data.addColumn('number', 'Low');
-    data.addColumn('number', 'Open');
-    data.addColumn('number', 'Close');
-    data.addColumn('number', 'High');
+  const chart = new google.visualization.CandlestickChart(document.getElementById('waterfall_div'));
+  google.visualization.events.addListener(chart, 'ready', () => chart.setSelection([]));
+  chart.draw(data, options);
 
-    let running = 0;
-    for (let i = 0; i < days.length; i++) {
-      const open = running;
-      const close = running + delta[i];
-      const low = Math.min(open, close);
-      const high = Math.max(open, close);
+  // ============================
+  // Avg ISK / Day and MTD ISK
+  // ============================
 
-      data.addRow([String(days[i]), low, open, close, high]);
+  // Normalize a per-day ISK vector (prefer daily_isk; else derive from cum_isk)
+  let perDayIsk = [];
+  if (Array.isArray(dailyIskRaw) && dailyIskRaw.length === days.length) {
+    perDayIsk = dailyIskRaw.map(v => toNum(v) ?? 0);
+  } else if (Array.isArray(cumIskRaw) && cumIskRaw.length === days.length) {
+    perDayIsk = cumIskRaw.map((v, i) => (toNum(v) ?? 0) - (i > 0 ? (toNum(cumIskRaw[i - 1]) ?? 0) : 0));
+  } else {
+    // If neither is provided, we can’t compute ISK stats—fail gracefully.
+    const el = document.getElementById('killmails-last-updated');
+    if (el) el.textContent = `Avg/Day: — ISK · MTD: — ISK`;
+    return;
+  }
 
-      running = close; // advance
-    }
+  // Compute stats
+  let total = 0;
+  let lastIdx = -1;
+  for (let i = 0; i < perDayIsk.length; i++) {
+    const v = Number(perDayIsk[i]) || 0;
+    total += v;
+    if (Number.isFinite(v)) lastIdx = i;
+  }
 
-    // Optional: add a final "Total" bar
-    data.addRow(['Total', Math.min(0, running), 0, running, Math.max(0, running)]);
+  // Average over days with data (finite numbers)
+  const dayCount = perDayIsk.filter(n => Number.isFinite(n)).length;
+  const avgPerDay = dayCount ? (total / dayCount) : null;
 
-    const options = {
-      legend: 'none',
-      chartArea: { left: 0, top: 0, right: 0, bottom: 0, width: '100%', height: '100%' },
-      bar: { groupWidth: '85%' },
-      hAxis: { textPosition: 'none', gridlines: { count: 0 }, baselineColor: 'transparent', ticks: [] },
-      vAxis: { textPosition: 'none', gridlines: { count: 0 }, baselineColor: 'transparent', ticks: [] },
-      candlestick: {
-      hollowIsRising: false,               // solid up bars
-      fallingColor: { strokeWidth: 0, fill: '#ef4444' }, // red for net losses
-      risingColor: { strokeWidth: 0, fill: '#22c55e' }  // green for net wins
-      }
-    };
+  // MTD = sum up to latest day with data
+  const mtd = lastIdx >= 0
+    ? perDayIsk.slice(0, lastIdx + 1).reduce((a, b) => a + (Number(b) || 0), 0)
+    : null;
 
-    const chart = new google.visualization.CandlestickChart(document.getElementById('waterfall_div'));
-    google.visualization.events.addListener(chart, 'ready', () => chart.setSelection([]));
-    chart.draw(data, options);
-    }
+  // Footer
+  const footerEl = document.getElementById('killmails-last-updated');
+  if (footerEl) {
+    footerEl.textContent = `Avg/Day: ${fmtISK(avgPerDay)} ISK · MTD: ${fmtISK(mtd)} ISK`;
+  }
+}
+
 
     google.charts.setOnLoadCallback(drawMining);
 
