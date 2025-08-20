@@ -799,7 +799,7 @@
   }
 
   // Optional: quick debug in console
-  // console.log('KM', KM);
+   console.log('KM', KM);
 }
 
 
