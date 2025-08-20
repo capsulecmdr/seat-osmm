@@ -162,7 +162,6 @@
         <div class="card-header d-flex justify-content-between align-items-center">
           <span class="font-weight-bold">Monthly Mining</span>
           <small class="text-muted">Avg/day: ISK
-          {{ number_format((int) round($mining['avg_isk_per_day'] ?? 0)) }}</small>
           <small class="text-muted" id="mining-last-updated">—</small>
         </div>
         <div class="card-body p-0">
