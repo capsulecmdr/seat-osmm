@@ -710,7 +710,7 @@
 
     function drawWaterfall() {
   // all data comes from the injected $km
-  const KM       = @json($km ?? {});
+  const KM = @json($km ?? (object)[]);
   const days     = KM.days      || [];
   const cumWins  = KM.cum_wins  || [];
   const cumTotal = KM.cum_total || [];
