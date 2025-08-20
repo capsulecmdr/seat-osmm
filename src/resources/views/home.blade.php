@@ -203,7 +203,7 @@
         </div>
       </div>
       <div class="col-lg-6 mb-3">
-        <div class="card card-ribbon">
+        <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
           <span class="font-weight-bold">Allocation Map</span>
           <small class="text-muted">Updated
