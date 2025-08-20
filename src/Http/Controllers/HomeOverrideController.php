@@ -155,86 +155,159 @@ class HomeOverrideController extends Controller
     }
 
     private function buildMonthlyKillmailCumulative(): array
-    {
-        $user = auth()->user();
+{
+    $user = auth()->user();
 
-        // All linked character IDs (disambiguate the column to avoid ambiguous select)
-        $char_ids = $user->characters()
-            ->select('character_infos.character_id')
-            ->distinct()
-            ->pluck('character_infos.character_id');
+    // Linked character IDs
+    $char_ids = $user->characters()
+        ->select('character_infos.character_id')
+        ->distinct()
+        ->pluck('character_infos.character_id');
 
-        if ($char_ids->isEmpty()) {
-            $days_in_month = Carbon::now('UTC')->endOfMonth()->day;
-            return [
-                'days'            => range(1, $days_in_month),
-                'cum_wins'        => array_fill(0, $days_in_month, 0),
-                'cum_total'       => array_fill(0, $days_in_month, 0),
-                'total_wins'      => 0,
-                'total_losses'    => 0,
-                'total_killmails' => 0,
-                'month'           => Carbon::now('UTC')->format('Y-m'),
-            ];
-        }
+    // Month window (UTC)
+    $now   = Carbon::now('UTC');
+    $start = $now->copy()->startOfMonth();
+    $end   = $now->copy()->endOfMonth();
+    $days_in_month = $end->day;
 
-        // Current month window (UTC)
-        $now   = Carbon::now('UTC');
-        $start = $now->copy()->startOfMonth();
-        $end   = $now->copy()->endOfMonth();
-        $days_in_month = $end->day;
+    // Empty/default payload helper
+    $empty = fn() => [
+        'days'              => range(1, $days_in_month),
+        'cum_wins'          => array_fill(0, $days_in_month, 0),
+        'cum_total'         => array_fill(0, $days_in_month, 0),
+        'total_wins'        => 0,
+        'total_losses'      => 0,
+        'total_killmails'   => 0,
+        // ISK outputs
+        'daily_isk'         => array_fill(0, $days_in_month, 0.0), // alias of destroyed
+        'cum_isk'           => array_fill(0, $days_in_month, 0.0),
+        'daily_isk_destroyed' => array_fill(0, $days_in_month, 0.0),
+        'daily_isk_lost'      => array_fill(0, $days_in_month, 0.0),
+        'cum_isk_destroyed'   => array_fill(0, $days_in_month, 0.0),
+        'cum_isk_lost'        => array_fill(0, $days_in_month, 0.0),
+        'month'             => $start->format('Y-m'),
+    ];
 
-        // Losses: victim is one of our chars  -> get killmail_ids, then their times in window
-        $loss_mail_ids = KV::whereIn('character_id', $char_ids)->pluck('killmail_id');
-        $loss_times = $loss_mail_ids->isNotEmpty()
-            ? KD::whereIn('killmail_id', $loss_mail_ids)
-                ->whereBetween('killmail_time', [$start, $end])
-                ->pluck('killmail_time')
-            : collect();
-
-        // Wins: any of our chars is an attacker (dedupe killmail_id), then times in window
-        $win_mail_ids = KA::whereIn('character_id', $char_ids)->distinct()->pluck('killmail_id');
-        $win_times = $win_mail_ids->isNotEmpty()
-            ? KD::whereIn('killmail_id', $win_mail_ids)
-                ->whereBetween('killmail_time', [$start, $end])
-                ->pluck('killmail_time')
-            : collect();
-
-        // Per-day counts (1..EOM), then cumulative
-        $wins_per_day  = array_fill(1, $days_in_month, 0);
-        $total_per_day = array_fill(1, $days_in_month, 0);
-
-        foreach ($win_times as $ts) {
-            $d = Carbon::parse($ts, 'UTC')->day;
-            $wins_per_day[$d]  += 1;
-            $total_per_day[$d] += 1;
-        }
-        foreach ($loss_times as $ts) {
-            $d = Carbon::parse($ts, 'UTC')->day;
-            $total_per_day[$d] += 1;
-        }
-
-        $cum_wins = $cum_total = [];
-        $acc_w = 0; $acc_t = 0;
-        for ($d = 1; $d <= $days_in_month; $d++) {
-            $acc_w += $wins_per_day[$d];
-            $acc_t += $total_per_day[$d];
-            $cum_wins[]  = $acc_w;
-            $cum_total[] = $acc_t;
-        }
-
-        $total_wins   = $win_times->count();
-        $total_losses = $loss_times->count();
-
-        return [
-            'days'            => range(1, $days_in_month),
-            'cum_wins'        => $cum_wins,              // cumulative wins by day
-            'cum_total'       => $cum_total,             // cumulative wins+losses by day
-            'total_wins'      => $total_wins,
-            'total_losses'    => $total_losses,
-            'total_killmails' => $total_wins + $total_losses,
-            'month'           => $start->format('Y-m'),
-        ];
+    if ($char_ids->isEmpty()) {
+        return $empty();
     }
+
+    // Losses (victim is ours) -> killmail_ids in window
+    $loss_mail_ids = KV::whereIn('character_id', $char_ids)->distinct()->pluck('killmail_id');
+    $loss_details = $loss_mail_ids->isNotEmpty()
+        ? KD::whereIn('killmail_id', $loss_mail_ids)
+            ->whereBetween('killmail_time', [$start, $end])
+            ->get(['killmail_id', 'killmail_time'])
+        : collect();
+
+    // Wins (any of ours is an attacker) -> killmail_ids in window
+    $win_mail_ids = KA::whereIn('character_id', $char_ids)->distinct()->pluck('killmail_id');
+    $win_details = $win_mail_ids->isNotEmpty()
+        ? KD::whereIn('killmail_id', $win_mail_ids)
+            ->whereBetween('killmail_time', [$start, $end])
+            ->get(['killmail_id', 'killmail_time'])
+        : collect();
+
+    // Per-day counts (1..EOM)
+    $wins_per_day  = array_fill(1, $days_in_month, 0);
+    $total_per_day = array_fill(1, $days_in_month, 0);
+
+    foreach ($win_details as $row) {
+        $d = Carbon::parse($row->killmail_time, 'UTC')->day;
+        $wins_per_day[$d]  += 1;
+        $total_per_day[$d] += 1;
+    }
+    foreach ($loss_details as $row) {
+        $d = Carbon::parse($row->killmail_time, 'UTC')->day;
+        $total_per_day[$d] += 1;
+    }
+
+    // Cumulative counts
+    $cum_wins = $cum_total = [];
+    $acc_w = 0; $acc_t = 0;
+    for ($d = 1; $d <= $days_in_month; $d++) {
+        $acc_w += $wins_per_day[$d];
+        $acc_t += $total_per_day[$d];
+        $cum_wins[]  = $acc_w;
+        $cum_total[] = $acc_t;
+    }
+
+    $total_wins   = $win_details->count();
+    $total_losses = $loss_details->count();
+
+    // ==============================
+    // ISK: destroyed (wins) & lost (losses)
+    // ==============================
+
+    // Find a value column we can use on a local 'killmails' table.
+    $value_col = null;
+    if (Schema::hasTable('killmails')) {
+        foreach (['zkb_total_value', 'total_value', 'value'] as $col) {
+            if (Schema::hasColumn('killmails', $col)) { $value_col = $col; break; }
+        }
+    }
+
+    // Build per-day ISK arrays (1..EOM)
+    $isk_destroyed_per_day = array_fill(1, $days_in_month, 0.0);
+    $isk_lost_per_day      = array_fill(1, $days_in_month, 0.0);
+
+    if ($value_col) {
+        // Fetch values for all relevant killmails in one query
+        $all_ids = $win_details->pluck('killmail_id')
+            ->merge($loss_details->pluck('killmail_id'))
+            ->unique()
+            ->values();
+
+        $valuesById = $all_ids->isNotEmpty()
+            ? DB::table('killmails')
+                ->whereIn('killmail_id', $all_ids)
+                ->pluck($value_col, 'killmail_id')
+            : collect();
+
+        foreach ($win_details as $row) {
+            $d = Carbon::parse($row->killmail_time, 'UTC')->day;
+            $val = (float) ($valuesById[$row->killmail_id] ?? 0);
+            $isk_destroyed_per_day[$d] += $val;
+        }
+        foreach ($loss_details as $row) {
+            $d = Carbon::parse($row->killmail_time, 'UTC')->day;
+            $val = (float) ($valuesById[$row->killmail_id] ?? 0);
+            $isk_lost_per_day[$d] += $val;
+        }
+    }
+    // else: leave arrays as zeros; frontend can show — if desired.
+
+    // Cumulative ISK
+    $cum_isk_destroyed = $cum_isk_lost = [];
+    $accD = 0.0; $accL = 0.0;
+    for ($d = 1; $d <= $days_in_month; $d++) {
+        $accD += $isk_destroyed_per_day[$d];
+        $accL += $isk_lost_per_day[$d];
+        $cum_isk_destroyed[] = $accD;
+        $cum_isk_lost[]      = $accL;
+    }
+
+    // Alias "destroyed" as the generic series the frontend expects
+    $daily_isk = array_values($isk_destroyed_per_day); // zero-based index for JS
+    $cum_isk   = $cum_isk_destroyed;
+
+    return [
+        'days'                => range(1, $days_in_month),
+        'cum_wins'            => $cum_wins,
+        'cum_total'           => $cum_total,
+        'total_wins'          => $total_wins,
+        'total_losses'        => $total_losses,
+        'total_killmails'     => $total_wins + $total_losses,
+        'month'               => $start->format('Y-m'),
+        // ISK outputs (destroyed-focused; lost also included)
+        'daily_isk'           => $daily_isk,
+        'cum_isk'             => $cum_isk,
+        'daily_isk_destroyed' => array_values($isk_destroyed_per_day),
+        'daily_isk_lost'      => array_values($isk_lost_per_day),
+        'cum_isk_destroyed'   => $cum_isk_destroyed,
+        'cum_isk_lost'        => $cum_isk_lost,
+    ];
+}
 
     // Example: expose a route JSON for your chart to consume
     public function monthlyKillmailSeries()
