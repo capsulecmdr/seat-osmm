@@ -9,6 +9,7 @@ use Carbon\Carbon;
 use Seat\Eveapi\Models\Killmails\KillmailDetail as KD;
 use Seat\Eveapi\Models\Killmails\KillmailAttacker as KA;
 use Seat\Eveapi\Models\Killmails\KillmailVictim as KV;
+use Seat\Eveapi\Models\Killmails\KillmailItem as KMI;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Seat\Eveapi\Models\Industry\CharacterMining as CM;
@@ -178,7 +179,7 @@ class HomeOverrideController extends Controller
         'total_wins'          => 0,
         'total_losses'        => 0,
         'total_killmails'     => 0,
-        // ISK outputs (destroyed-focused; lost also included)
+        // ISK (computed)
         'daily_isk'           => array_fill(0, $days_in_month, 0.0),
         'cum_isk'             => array_fill(0, $days_in_month, 0.0),
         'daily_isk_destroyed' => array_fill(0, $days_in_month, 0.0),
@@ -192,7 +193,7 @@ class HomeOverrideController extends Controller
         return $empty();
     }
 
-    // Losses (victim is ours) -> killmail_ids in window
+    // Losses (victim is ours) -> killmail_ids in month
     $loss_mail_ids = \Seat\Eveapi\Models\Killmails\KillmailVictim::whereIn('character_id', $char_ids)
         ->distinct()->pluck('killmail_id');
 
@@ -202,7 +203,7 @@ class HomeOverrideController extends Controller
             ->get(['killmail_id', 'killmail_time'])
         : collect();
 
-    // Wins (any of ours is an attacker) -> killmail_ids in window
+    // Wins (any of ours is an attacker) -> killmail_ids in month
     $win_mail_ids = \Seat\Eveapi\Models\Killmails\KillmailAttacker::whereIn('character_id', $char_ids)
         ->distinct()->pluck('killmail_id');
 
@@ -240,52 +241,61 @@ class HomeOverrideController extends Controller
     $total_losses = $loss_details->count();
 
     // ==============================
-    // ISK: destroyed (wins) & lost (losses) — use KD's connection/table
+    // ISK: compute from victim ship + items (destroyed + dropped)
     // ==============================
-    $kd      = new \Seat\Eveapi\Models\Killmails\KillmailDetail();
-    $conn    = $kd->getConnectionName();   // e.g. 'eve'
-    $kmTable = $kd->getTable();            // e.g. 'killmail_details'
 
-    // Pick the best value column that exists on that table
-    $preferredCols = ['zkb_total_value', 'total_value', 'value'];
-    $value_col = null;
-    foreach ($preferredCols as $col) {
-        if (\Schema::connection($conn)->hasColumn($kmTable, $col)) {
-            $value_col = $col; break;
-        }
-    }
+    $isk_destroyed_per_day = array_fill(1, $days_in_month, 0.0); // our wins (enemy lost)
+    $isk_lost_per_day      = array_fill(1, $days_in_month, 0.0); // our losses
 
-    $isk_destroyed_per_day = array_fill(1, $days_in_month, 0.0);
-    $isk_lost_per_day      = array_fill(1, $days_in_month, 0.0);
+    // All killmail_ids in month we care about
+    $all_ids = $win_details->pluck('killmail_id')
+        ->merge($loss_details->pluck('killmail_id'))
+        ->unique()
+        ->values();
 
-    if ($value_col) {
-        $all_ids = $win_details->pluck('killmail_id')
-            ->merge($loss_details->pluck('killmail_id'))
+    if ($all_ids->isNotEmpty()) {
+        // Victim ship types for these KM ids
+        $victims = \Seat\Eveapi\Models\Killmails\KillmailVictim::whereIn('killmail_id', $all_ids)
+            ->get(['killmail_id', 'ship_type_id']);
+
+        // All items on these KMs
+        $items = KMI::whereIn('killmail_id', $all_ids)
+            ->get(['killmail_id', 'type_id', 'quantity_destroyed', 'quantity_dropped']);
+
+        // Price map for all involved type_ids
+        $type_ids = collect()
+            ->merge($victims->pluck('ship_type_id'))
+            ->merge($items->pluck('type_id'))
+            ->filter()
             ->unique()
-            ->values()
-            ->all();
+            ->values();
 
-        $valuesById = !empty($all_ids)
-            ? \DB::connection($conn)
-                ->table($kmTable)
-                ->whereIn('killmail_id', $all_ids)
-                ->pluck($value_col, 'killmail_id')
-            : collect();
+        $priceMap = $this->priceMapForTypeIds($type_ids); // returns type_id => price
 
-        // Sum destroyed (wins) by day
+        // Compute total value per KM: victim ship + all items (destroyed + dropped)
+        $kmValue = [];
+
+        foreach ($victims as $v) {
+            $kmValue[$v->killmail_id] = (float) ($priceMap[(int) $v->ship_type_id] ?? 0.0);
+        }
+
+        foreach ($items as $it) {
+            $qty = (int) ($it->quantity_destroyed ?? 0) + (int) ($it->quantity_dropped ?? 0);
+            if ($qty <= 0) continue;
+            $px  = (float) ($priceMap[(int) $it->type_id] ?? 0.0);
+            $kmValue[$it->killmail_id] = ($kmValue[$it->killmail_id] ?? 0.0) + ($px * $qty);
+        }
+
+        // Bucket into days for destroyed (wins) and lost (losses)
         foreach ($win_details as $row) {
             $d = \Carbon\Carbon::parse($row->killmail_time, 'UTC')->day;
-            $val = (float) ($valuesById->get($row->killmail_id) ?? 0);
-            $isk_destroyed_per_day[$d] += $val;
+            $isk_destroyed_per_day[$d] += (float) ($kmValue[$row->killmail_id] ?? 0.0);
         }
-        // Sum lost (losses) by day
         foreach ($loss_details as $row) {
             $d = \Carbon\Carbon::parse($row->killmail_time, 'UTC')->day;
-            $val = (float) ($valuesById->get($row->killmail_id) ?? 0);
-            $isk_lost_per_day[$d] += $val;
+            $isk_lost_per_day[$d] += (float) ($kmValue[$row->killmail_id] ?? 0.0);
         }
     }
-    // else: leave arrays as zeros if no value column exists
 
     // Cumulative ISK
     $cum_isk_destroyed = $cum_isk_lost = [];
@@ -309,7 +319,8 @@ class HomeOverrideController extends Controller
         'total_losses'        => $total_losses,
         'total_killmails'     => $total_wins + $total_losses,
         'month'               => $start->format('Y-m'),
-        // ISK outputs
+
+        // ISK outputs (destroyed-focused; lost also included for future use)
         'daily_isk'           => $daily_isk,
         'cum_isk'             => $cum_isk,
         'daily_isk_destroyed' => array_values($isk_destroyed_per_day),
@@ -318,6 +329,7 @@ class HomeOverrideController extends Controller
         'cum_isk_lost'        => $cum_isk_lost,
     ];
 }
+
 
 
     // Example: expose a route JSON for your chart to consume
