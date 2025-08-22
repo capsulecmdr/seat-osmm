@@ -5,7 +5,7 @@
 @endphp
 
 @if ($sidebarFlag === 1)
-    {{-- Your custom sidebar --}}
+    {{-- Your custom sidebar
     <aside class="main-sidebar elevation-4 sidebar-dark-primary">
 
     <!-- Logo -->
@@ -218,9 +218,9 @@
 
     </div>
     <!-- /.sidebar -->
-    </aside>
+    </aside> --}}
 @else
     {{-- Fall back to the original SeAT sidebar --}}
-    @include('eveseat_web::includes.sidebar')
+    {{-- @include('eveseat_web::includes.sidebar') --}}
 @endif
 
