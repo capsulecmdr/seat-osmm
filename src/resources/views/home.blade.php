@@ -73,11 +73,23 @@
       </button>
       <div class="collapse navbar-collapse" id="navbarText">
       <ul class="navbar-nav mr-auto">
+        <li class="nav-item dropdown">
+      <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+        File
+      </a>
+      <div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
+        <a class="dropdown-item" href="#">Profile</a>
+        <hr/>
+        <a class="dropdown-item" href="#">Access Management</a>
+        <a class="dropdown-item" href="#">Users</a>
+        <a class="dropdown-item" href="#">Schedule</a>
+        <a class="dropdown-item" href="#">single sign on</a>
+      </div>
+      </li>
         @can('osmm.admin')
       <li class="nav-item dropdown">
-      <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink" data-toggle="dropdown"
-        aria-haspopup="true" aria-expanded="false">
-        OSMM Config
+      <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+        Edit
       </a>
       <div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
         <a class="dropdown-item" href="{{ route('osmm.config.branding') }}">Branding</a>
