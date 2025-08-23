@@ -7,6 +7,7 @@ use CapsuleCmdr\SeatOsmm\Http\Controllers\HomeOverrideController;
 use CapsuleCmdr\SeatOsmm\Http\Controllers\OsmmCalendarController;
 use CapsuleCmdr\SeatOsmm\Http\Controllers\TodoController;
 use CapsuleCmdr\SeatOsmm\Http\Controllers\Config\BrandingController;
+use CapsuleCmdr\SeatOsmm\Http\Controllers\OsmmMenuController;
 
 Log::info('[OSMM] routes.php loaded');
 
@@ -42,3 +43,21 @@ Route::middleware(['web', 'auth'])
 // Public manifest (no auth; referenced in <head>)
 Route::get('/osmm/manifest.json', [BrandingController::class, 'manifest'])
     ->name('osmm.manifest');
+
+    Route::middleware(['web','auth']) // add your own guards/permissions (e.g., can:osmm.admin)
+    ->prefix('osmm/menu')
+    ->name('osmm.menu.')
+    ->group(function () {
+        Route::get('/',             [OsmmMenuController::class, 'index'])->name('index');
+
+        // JSON feeds
+        Route::get('/native.json',  [OsmmMenuController::class, 'jsonNative'])->name('native');
+        Route::get('/merged.json',  [OsmmMenuController::class, 'jsonMerged'])->name('merged');
+        Route::get('/overrides.json',[OsmmMenuController::class, 'jsonOverrides'])->name('overrides');
+
+        // CRUD
+        Route::post('/parent/upsert', [OsmmMenuController::class, 'upsertParent'])->name('parent.upsert');
+        Route::post('/child/upsert',  [OsmmMenuController::class, 'upsertChild'])->name('child.upsert');
+        Route::delete('/delete',      [OsmmMenuController::class, 'delete'])->name('delete');
+        Route::post('/reset',         [OsmmMenuController::class, 'resetAll'])->name('reset');
+    });
