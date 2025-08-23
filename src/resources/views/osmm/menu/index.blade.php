@@ -7,7 +7,7 @@
     <div class="card mb-3">
       <div class="card-header">Native package.sidebar</div>
       <div class="card-body" style="max-height:60vh; overflow:auto">
-        @include('seat-osmm.menu.partials.tree', ['menu' => $native])
+        @include('seat-osmm::menu.partials.tree', ['menu' => $native])
       </div>
     </div>
   </div>
@@ -16,7 +16,7 @@
     <div class="card mb-3">
       <div class="card-header">DB Overrides (interpreted)</div>
       <div class="card-body" style="max-height:60vh; overflow:auto">
-        @include('seat-osmm.menu.partials.tree', ['menu' => $overrides])
+        @include('seat-osmm::menu.partials.tree', ['menu' => $overrides])
       </div>
     </div>
   </div>
@@ -25,7 +25,7 @@
     <div class="card mb-3">
       <div class="card-header">Merged (what the app uses)</div>
       <div class="card-body" style="max-height:60vh; overflow:auto">
-        @include('seat-osmm.menu.partials.tree', ['menu' => $merged])
+        @include('seat-osmm::menu.partials.tree', ['menu' => $merged])
       </div>
     </div>
   </div>
