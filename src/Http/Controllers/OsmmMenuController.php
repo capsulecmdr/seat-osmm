@@ -13,21 +13,22 @@ class OsmmMenuController extends Controller
 {
     /** CONFIG PAGE: side-by-side tree view (native vs merged) + CRUD tools */
     public function index()
-    {
-        // Native SeAT config
-        $native = config('package.sidebar') ?? [];
+{
+    $native    = config('package.sidebar') ?? [];
+    $overrides = $this->buildDbOverrides();
+    $merged    = $this->applyOverrides($native, $overrides);
 
-        // DB overrides shaped like config
-        $overrides = $this->buildDbOverrides();
+    // DB rows for center column list
+    $dbRows = \DB::table('osmm_menu_items')
+        ->select('id','parent','order','name','icon','route_segment','route','permission','created_at','updated_at')
+        ->orderBy('parent')->orderBy('order')
+        ->get();
 
-        // Merged final menu (DB non-null wins)
-        $merged = $this->applyOverrides($native, $overrides);
+    // (optional) permission lambda
+    $can = fn ($perm) => empty($perm) || (auth()->check() && auth()->user()->can($perm));
 
-        // Useful lists for UI selects (parents, permissions from data, etc.)
-        $parentOptions = $this->parentSelectOptions();
-
-        return view('seat-osmm::menu.index', compact('native', 'overrides', 'merged', 'parentOptions'));
-    }
+    return view('seat-osmm::menu.index', compact('native','merged','dbRows','can'));
+}
 
     /** API: merged menu as JSON for app consumption */
     public function jsonMerged()

@@ -1,28 +1,23 @@
 @php
   use Illuminate\Support\Facades\Route as RouteFacade;
 
-  // Permission checker (fallback if not provided)
   $can = $can ?? function ($perm) {
       return empty($perm) || (auth()->check() && auth()->user()->can($perm));
   };
 
-  // Safe route resolver: returns URL or '#'
   $resolveUrl = function (?string $routeName) {
       if (!$routeName) return '#';
       return RouteFacade::has($routeName) ? route($routeName) : '#';
   };
 
-  // Small helper to render a text label
   $labelOf = function (array $item, $fallback) {
-      // If your labels are translation keys (e.g. "web::seat.home"), __() will translate them
       return __($item['label'] ?? $item['name'] ?? $fallback);
   };
 
-  // base classes to mimic a sidebar look; tweak to match your theme/AdminLTE
-  $navClass   = 'nav flex-column nav-pills';
-  $itemClass  = 'nav-item';
-  $linkClass  = 'nav-link d-flex align-items-center';
-  $iconClass  = 'mr-2';
+  $navClass  = 'nav flex-column nav-pills osmm-sidebar';
+  $itemClass = 'nav-item';
+  $linkClass = 'nav-link d-flex align-items-center osmm-link';
+  $iconClass = 'mr-2';
 @endphp
 
 <nav class="osmm-sidebar">
@@ -31,18 +26,34 @@
       @php
         if (!is_array($section)) continue;
         $showParent = $can($section['permission'] ?? null);
-        $hasKids = !empty($section['entries']) && is_array($section['entries']);
-        $parentUrl = $resolveUrl($section['route'] ?? null);
-        $parentLabel = $labelOf($section, $topKey);
+        $hasKids    = !empty($section['entries']) && is_array($section['entries']);
+        $parentUrl  = $resolveUrl($section['route'] ?? null);
+        $parentLbl  = $labelOf($section, $topKey);
+        $payloadParent = [
+          'type'          => 'parent',
+          'source'        => $source ?? 'unknown',
+          'key'           => $topKey,
+          'name'          => $section['name'] ?? null,
+          'label'         => $section['label'] ?? null,
+          'icon'          => $section['icon'] ?? null,
+          'route_segment' => $section['route_segment'] ?? null,
+          'route'         => $section['route'] ?? null,
+          'url'           => $parentUrl,
+          'permission'    => $section['permission'] ?? null,
+          'plural'        => $section['plural'] ?? null,
+        ];
       @endphp
 
       @if($showParent)
         <li class="{{ $itemClass }}">
-          <a href="{{ $hasKids ? '#' : $parentUrl }}" class="{{ $linkClass }}">
+          <a href="{{ $hasKids ? '#' : $parentUrl }}"
+             class="{{ $linkClass }}"
+             data-osmm-item="{{ $source ?? 'unknown' }}"
+             data-item='@json($payloadParent)'>
             @if(!empty($section['icon']))
               <i class="{{ $section['icon'] }} {{ $iconClass }}"></i>
             @endif
-            <span>{{ $parentLabel }}</span>
+            <span>{{ $parentLbl }}</span>
             @if($hasKids)
               <span class="ml-auto"><i class="fas fa-angle-down small text-muted"></i></span>
             @endif
@@ -55,18 +66,34 @@
                   @php
                     $showChild = $can($child['permission'] ?? null);
                     $childUrl  = $resolveUrl($child['route'] ?? null);
-                    $childLabel = $labelOf($child, $child['name'] ?? '—');
+                    $childLbl  = $labelOf($child, $child['name'] ?? '—');
+                    $childKey  = $child['route'] ?? ($child['name'] ?? null);
+                    $payloadChild = [
+                      'type'          => 'child',
+                      'source'        => $source ?? 'unknown',
+                      'parent_key'    => $topKey,
+                      'key'           => $childKey,
+                      'name'          => $child['name'] ?? null,
+                      'label'         => $child['label'] ?? null,
+                      'icon'          => $child['icon'] ?? null,
+                      'route'         => $child['route'] ?? null,
+                      'url'           => $childUrl,
+                      'permission'    => $child['permission'] ?? null,
+                      'plural'        => $child['plural'] ?? null,
+                    ];
                   @endphp
-
                   @if($showChild)
                     <li class="{{ $itemClass }}">
-                      <a href="{{ $childUrl }}" class="{{ $linkClass }}">
+                      <a href="{{ $childUrl }}"
+                         class="{{ $linkClass }}"
+                         data-osmm-item="{{ $source ?? 'unknown' }}"
+                         data-item='@json($payloadChild)'>
                         @if(!empty($child['icon']))
                           <i class="{{ $child['icon'] }} {{ $iconClass }}"></i>
                         @else
                           <i class="fas fa-circle {{ $iconClass }}"></i>
                         @endif
-                        <span>{{ $childLabel }}</span>
+                        <span>{{ $childLbl }}</span>
                       </a>
                     </li>
                   @endif
@@ -79,10 +106,3 @@
     @endforeach
   </ul>
 </nav>
-
-{{-- Optional minimal styling for a “sidebar” feel; tweak or move to your CSS --}}
-<style>
-  .osmm-sidebar .nav-link { border-radius: 0; }
-  .osmm-sidebar .nav-link:hover { background: rgba(0,0,0,.04); }
-  .osmm-sidebar .nav .nav { border-left: 2px solid rgba(0,0,0,.08); }
-</style>

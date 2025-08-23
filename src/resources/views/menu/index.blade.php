@@ -3,36 +3,112 @@
 
 @section('content')
 <div class="row">
-  <div class="col-md-6">
+  {{-- Left: Native sidebar --}}
+  <div class="col-md-4">
     <div class="card mb-3">
-      <div class="card-header d-flex align-items-center">
-        <strong>Native Sidebar (package.sidebar)</strong>
-      </div>
-      <div class="card-body p-0" style="max-height:70vh; overflow:auto">
+      <div class="card-header"><strong>Native Sidebar</strong> <small class="text-muted">package.sidebar</small></div>
+      <div class="card-body p-0" style="max-height:60vh; overflow:auto">
         @include('seat-osmm::menu.partials.sidebar', [
           'menu' => $native,
-          'subtitle' => 'Native',
+          'source' => 'native',
           'can' => $can ?? null
         ])
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><strong>Details: Native</strong></div>
+      <div id="details-native" class="card-body small text-monospace">
+        <em>Select an item above…</em>
       </div>
     </div>
   </div>
 
-  <div class="col-md-6">
+  {{-- Center: DB Overrides list --}}
+  <div class="col-md-4">
     <div class="card mb-3">
-      <div class="card-header d-flex align-items-center">
-        <strong>Merged Sidebar (with DB overrides)</strong>
+      <div class="card-header"><strong>Overrides in Database</strong> <small class="text-muted">osmm_menu_items</small></div>
+      <div class="card-body p-0" style="max-height:60vh; overflow:auto">
+        @include('seat-osmm::menu.partials.overrides_list', ['rows' => $dbRows])
       </div>
-      <div class="card-body p-0" style="max-height:70vh; overflow:auto">
+    </div>
+
+    <div class="card">
+      <div class="card-header"><strong>Details: Override</strong></div>
+      <div id="details-overrides" class="card-body small text-monospace">
+        <em>Select an override row…</em>
+      </div>
+    </div>
+  </div>
+
+  {{-- Right: Merged sidebar --}}
+  <div class="col-md-4">
+    <div class="card mb-3">
+      <div class="card-header"><strong>Merged Sidebar</strong> <small class="text-muted">DB overrides applied</small></div>
+      <div class="card-body p-0" style="max-height:60vh; overflow:auto">
         @include('seat-osmm::menu.partials.sidebar', [
           'menu' => $merged,
-          'subtitle' => 'Merged',
+          'source' => 'merged',
           'can' => $can ?? null
         ])
       </div>
     </div>
+
+    <div class="card">
+      <div class="card-header"><strong>Details: Merged</strong></div>
+      <div id="details-merged" class="card-body small text-monospace">
+        <em>Select an item above…</em>
+      </div>
+    </div>
   </div>
 </div>
+
+{{-- Simple JS to render details for any clicked item --}}
+@push('javascript')
+<script>
+(function(){
+  function renderDetails(targetId, data){
+    const el = document.getElementById(targetId);
+    if(!el) return;
+    const pretty = JSON.stringify(data, null, 2);
+    el.textContent = pretty;
+  }
+
+  function wireClicks(selector, targetId){
+    document.addEventListener('click', function(ev){
+      const node = ev.target.closest(selector);
+      if(!node) return;
+      ev.preventDefault();
+      // highlight selection
+      document.querySelectorAll(selector+'.active').forEach(n => n.classList.remove('active'));
+      node.classList.add('active');
+      try {
+        const payload = JSON.parse(node.dataset.item || '{}');
+        renderDetails(targetId, payload);
+      } catch(e) { /* ignore */ }
+    });
+  }
+
+  // Sidebars (left/right)
+  wireClicks('[data-osmm-item="native"]',  'details-native');
+  wireClicks('[data-osmm-item="merged"]',  'details-merged');
+
+  // Center overrides
+  wireClicks('[data-osmm-override-row]',   'details-overrides');
+})();
+</script>
+@endpush
+
+{{-- A pinch of styling --}}
+<style>
+  .osmm-sidebar a.osmm-link { cursor: pointer; }
+  .osmm-sidebar .osmm-link.active,
+  .osmm-overrides .list-group-item.active {
+    background: rgba(0,123,255,.1);
+    border-left: 3px solid #007bff;
+  }
+  pre { margin: 0; }
+</style>
 
 {{-- Quick-create forms (minimal; expand as needed) --}}
 <div class="card mt-3">
