@@ -3,29 +3,32 @@
 
 @section('content')
 <div class="row">
-  <div class="col-md-4">
+  <div class="col-md-6">
     <div class="card mb-3">
-      <div class="card-header">Native package.sidebar</div>
-      <div class="card-body" style="max-height:60vh; overflow:auto">
-        @include('seat-osmm::menu.partials.tree', ['menu' => $native])
+      <div class="card-header d-flex align-items-center">
+        <strong>Native Sidebar (package.sidebar)</strong>
+      </div>
+      <div class="card-body p-0" style="max-height:70vh; overflow:auto">
+        @include('seat-osmm::menu.partials.sidebar', [
+          'menu' => $native,
+          'subtitle' => 'Native',
+          'can' => $can ?? null
+        ])
       </div>
     </div>
   </div>
 
-  <div class="col-md-4">
+  <div class="col-md-6">
     <div class="card mb-3">
-      <div class="card-header">DB Overrides (interpreted)</div>
-      <div class="card-body" style="max-height:60vh; overflow:auto">
-        @include('seat-osmm::menu.partials.tree', ['menu' => $overrides])
+      <div class="card-header d-flex align-items-center">
+        <strong>Merged Sidebar (with DB overrides)</strong>
       </div>
-    </div>
-  </div>
-
-  <div class="col-md-4">
-    <div class="card mb-3">
-      <div class="card-header">Merged (what the app uses)</div>
-      <div class="card-body" style="max-height:60vh; overflow:auto">
-        @include('seat-osmm::menu.partials.tree', ['menu' => $merged])
+      <div class="card-body p-0" style="max-height:70vh; overflow:auto">
+        @include('seat-osmm::menu.partials.sidebar', [
+          'menu' => $merged,
+          'subtitle' => 'Merged',
+          'can' => $can ?? null
+        ])
       </div>
     </div>
   </div>
