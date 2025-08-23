@@ -1,6 +1,21 @@
 @extends('web::layouts.app')
 @section('page_title', 'OSMM Menu Manager')
 
+@php
+  $parentOptions = $parentOptions ?? collect($native)->map(function ($v, $k) {
+      $seg = $v['route_segment'] ?? $k;
+      $parentId = \DB::table('osmm_menu_items')
+          ->whereNull('parent')->where('route_segment', $seg)->value('id');
+      return [
+          'key'       => $k,
+          'name'      => $v['name'] ?? $k,
+          'seg'       => $seg,
+          'label'     => ($v['name'] ?? $k).' ['.$seg.']',
+          'parent_id' => $parentId,
+      ];
+  })->values()->all();
+@endphp
+
 @section('content')
 <div class="row">
   {{-- Left: Native sidebar --}}
