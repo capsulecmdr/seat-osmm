@@ -48,7 +48,7 @@ Route::get('/osmm/manifest.json', [BrandingController::class, 'manifest'])
     ->prefix('osmm/menu')
     ->name('osmm.menu.')
     ->group(function () {
-        Route::get('/',             [OsmmMenuController::class, 'index'])->name('index');
+        Route::get('/',             [OsmmMenuController::class, 'index'])->name('osmm.menu.index');
 
         // JSON feeds
         Route::get('/native.json',  [OsmmMenuController::class, 'jsonNative'])->name('native');
