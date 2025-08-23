@@ -33,7 +33,7 @@
 
     <div class="card">
       <div class="card-header"><strong>Details: Native</strong></div>
-      <div id="details-native" class="card-body small text-monospace">
+      <div id="details-native" class="card-body small ">
         <em>Select an item above…</em>
       </div>
     </div>
@@ -50,7 +50,7 @@
 
     <div class="card">
       <div class="card-header"><strong>Details: Override</strong></div>
-      <div id="details-overrides" class="card-body small text-monospace">
+      <div id="details-overrides" class="card-body small">
         <em>Select an override row…</em>
       </div>
     </div>
@@ -71,7 +71,7 @@
 
     <div class="card">
       <div class="card-header"><strong>Details: Merged</strong></div>
-      <div id="details-merged" class="card-body small text-monospace">
+      <div id="details-merged" class="card-body small">
         <em>Select an item above…</em>
       </div>
     </div>
@@ -82,11 +82,97 @@
 @push('javascript')
 <script>
 (function(){
-  function renderDetails(targetId, data){
+  // ---- helpers ---------------------------------------------------
+  const esc = (s) => (s === null || s === undefined) ? '' :
+    String(s)
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;')
+      .replace(/'/g,'&#39;');
+
+  function badge(txt, type='info') {
+    return `<span class="badge badge-${type}">${esc(txt)}</span>`;
+  }
+
+  function iconTag(cls) {
+    return cls ? `<i class="${esc(cls)}"></i> <code class="ml-1">${esc(cls)}</code>` : '—';
+  }
+
+  function routeCell(obj) {
+    const route = obj.route || null;
+    const url   = obj.url || '#';
+    if (!route) return '—';
+    const link  = url && url !== '#' ? `<a href="${esc(url)}">${esc(route)}</a>` : `<span>${esc(route)}</span>`;
+    return `<div>${link}</div>`;
+  }
+
+  function keyRow(label, valueHtml) {
+    return `<tr><th class="w-35">${esc(label)}</th><td>${valueHtml}</td></tr>`;
+  }
+
+  function renderTableHTML(data) {
+    // Decide which field order to use
+    const isDb   = !!data.db;
+    const isParent = data.type === 'parent';
+    const order = isDb
+      ? (isParent
+          ? ['id','type','name','label','icon','route_segment','route','permission','order','created_at','updated_at']
+          : ['id','type','parent_id','parent_name','name','label','icon','route','permission','order','created_at','updated_at'])
+      : (isParent
+          ? ['type','source','key','name','label','icon','route_segment','route','permission','plural']
+          : ['type','source','parent_key','key','name','label','icon','route','permission','plural']);
+
+    const labels = {
+      id: 'DB ID',
+      type: 'Type',
+      source: 'Source',
+      key: 'Key',
+      parent_key: 'Parent Key',
+      parent_id: 'Parent ID',
+      parent_name: 'Parent Name',
+      name: 'Name',
+      label: 'Label',
+      icon: 'Icon',
+      route_segment: 'Route Segment',
+      route: 'Route',
+      url: 'URL',
+      permission: 'Permission',
+      plural: 'Plural',
+      order: 'Order',
+      created_at: 'Created',
+      updated_at: 'Updated'
+    };
+
+    const rows = [];
+    order.forEach(k => {
+      if (!(k in data)) return; // skip if not present
+      let html;
+      switch(k) {
+        case 'icon':        html = iconTag(data.icon); break;
+        case 'route':       html = routeCell(data);    break;
+        case 'permission':  html = data.permission ? badge(data.permission, 'primary') : '—'; break;
+        case 'type':        html = badge(data.type, 'secondary'); break;
+        case 'source':      html = data.source ? badge(data.source, 'light') : '—'; break;
+        case 'plural':      html = (data.plural === true) ? badge('true','success') :
+                                     (data.plural === false) ? badge('false','dark') : '—'; break;
+        default:            html = data[k] !== null && data[k] !== undefined && String(data[k]).length
+                                  ? `<code>${esc(data[k])}</code>` : '—';
+      }
+      rows.push(keyRow(labels[k] || k, html));
+    });
+
+    return `<div class="osmm-details">
+      <table class="table table-sm table-striped mb-0">
+        <tbody>${rows.join('')}</tbody>
+      </table>
+    </div>`;
+  }
+
+  function renderDetailsTable(targetId, data){
     const el = document.getElementById(targetId);
-    if(!el) return;
-    const pretty = JSON.stringify(data, null, 2);
-    el.textContent = pretty;
+    if (!el) return;
+    el.innerHTML = renderTableHTML(data);
   }
 
   function wireClicks(selector, targetId){
@@ -94,25 +180,25 @@
       const node = ev.target.closest(selector);
       if(!node) return;
       ev.preventDefault();
-      // highlight selection
       document.querySelectorAll(selector+'.active').forEach(n => n.classList.remove('active'));
       node.classList.add('active');
       try {
         const payload = JSON.parse(node.dataset.item || '{}');
-        renderDetails(targetId, payload);
-      } catch(e) { /* ignore */ }
+        renderDetailsTable(targetId, payload);
+      } catch(e) { /* ignore parse errors */ }
     });
   }
 
-  // Sidebars (left/right)
+  // Left & right sidebars (native, merged)
   wireClicks('[data-osmm-item="native"]',  'details-native');
   wireClicks('[data-osmm-item="merged"]',  'details-merged');
 
-  // Center overrides
+  // Center overrides list
   wireClicks('[data-osmm-override-row]',   'details-overrides');
 })();
 </script>
 @endpush
+
 
 {{-- A pinch of styling --}}
 <style>
@@ -123,6 +209,13 @@
     border-left: 3px solid #007bff;
   }
   pre { margin: 0; }
+  .osmm-details .table td, .osmm-details .table th { vertical-align: middle; }
+  .osmm-details .w-35 { width: 35%; }
+  .osmm-overrides .list-group-item.active,
+  .osmm-sidebar .osmm-link.active {
+    background: rgba(0,123,255,.08);
+    border-left: 3px solid #007bff;
+  }
 </style>
 
 {{-- Quick-create forms (minimal; expand as needed) --}}
