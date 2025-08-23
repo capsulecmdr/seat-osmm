@@ -221,6 +221,6 @@
     </aside>
 @else
     {{-- Fall back to the original SeAT sidebar --}}
-    {{-- @include('eveseat_web::includes.sidebar') --}}
+    @include('eveseat_web::includes.sidebar')
 @endif
 
