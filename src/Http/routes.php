@@ -46,9 +46,9 @@ Route::get('/osmm/manifest.json', [BrandingController::class, 'manifest'])
 
     Route::middleware(['web','auth']) // add your own guards/permissions (e.g., can:osmm.admin)
     ->prefix('osmm/menu')
-    ->name('osmm.menu.')
+    ->name('seat-osmm.menu.')
     ->group(function () {
-        Route::get('/',             [OsmmMenuController::class, 'index'])->name('osmm.menu.index');
+        Route::get('/',             [OsmmMenuController::class, 'index'])->name('index');
 
         // JSON feeds
         Route::get('/native.json',  [OsmmMenuController::class, 'jsonNative'])->name('native');

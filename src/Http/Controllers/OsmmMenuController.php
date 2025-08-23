@@ -26,7 +26,7 @@ class OsmmMenuController extends Controller
         // Useful lists for UI selects (parents, permissions from data, etc.)
         $parentOptions = $this->parentSelectOptions();
 
-        return view('osmm.menu.index', compact('native', 'overrides', 'merged', 'parentOptions'));
+        return view('seat-osmm.menu.index', compact('native', 'overrides', 'merged', 'parentOptions'));
     }
 
     /** API: merged menu as JSON for app consumption */
