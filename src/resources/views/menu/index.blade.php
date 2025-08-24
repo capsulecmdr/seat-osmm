@@ -56,26 +56,25 @@
           <div class="form-row">
             <div class="form-group col-md-6 mb-2">
               <label class="mb-0">Name override</label>
-              <input type="text" class="form-control form-control-sm" name="name" id="edit-name" placeholder="Leave blank to keep native">
+              <input type="text" class="form-control form-control-sm"
+                     name="name_override" id="edit-name_override"
+                     placeholder="Leave blank to keep native">
               <small class="form-text text-muted">Shown for section title or child label.</small>
             </div>
             <div class="form-group col-md-6 mb-2">
-              <label class="mb-0">Icon</label>
-              <input type="text" class="form-control form-control-sm" name="icon" id="edit-icon" placeholder="e.g., fas fa-user">
-              <small class="form-text text-muted">Font Awesome class.</small>
+              <label class="mb-0">Label override (translation key)</label>
+              <input type="text" class="form-control form-control-sm"
+                     name="label_override" id="edit-label_override"
+                     placeholder="e.g., web::seat.home">
+              <small class="form-text text-muted">Optional: replace the translation key used for the label.</small>
             </div>
-          </div>
-
-          <div id="wrap-route-segment" class="form-group mb-2">
-            <label class="mb-0">Route Segment (parents only)</label>
-            <input type="text" class="form-control form-control-sm" name="route_segment" id="edit-route_segment" placeholder="e.g., configuration">
-            <small class="form-text text-muted">Must match a native section to override it.</small>
           </div>
 
           <div class="form-row">
             <div class="form-group col-md-7 mb-2">
               <label class="mb-0">Route (optional)</label>
-              <input type="text" class="form-control form-control-sm" name="route" id="edit-route" placeholder="e.g., seatcore::tools.moons.index">
+              <input type="text" class="form-control form-control-sm"
+                     name="route" id="edit-route" placeholder="e.g., seatcore::tools.moons.index">
               <small class="form-text text-muted">Named route. If missing, link will be disabled.</small>
             </div>
             <div class="form-group col-md-5 mb-2">
@@ -95,6 +94,23 @@
           </div>
 
           <div class="form-row">
+            <div id="wrap-route-segment" class="form-group col-md-8 mb-2">
+              <label class="mb-0">Route Segment (parents only)</label>
+              <input type="text" class="form-control form-control-sm"
+                     name="route_segment" id="edit-route_segment"
+                     list="route-segment-options"
+                     placeholder="e.g., configuration">
+              <small class="form-text text-muted">Must match a native section to override it.</small>
+            </div>
+            <div class="form-group col-md-4 mb-2">
+              <label class="mb-0">Order</label>
+              <input type="number" min="1" class="form-control form-control-sm"
+                     name="order" id="edit-order" placeholder="1">
+              <small class="form-text text-muted">1-based position (blank = native).</small>
+            </div>
+          </div>
+
+          <div class="form-row">
             <div id="wrap-parent-select" class="form-group col-md-8 mb-2" style="display:none;">
               <label class="mb-0">Parent (for child items)</label>
               <select class="form-control form-control-sm" id="edit-parent-select">
@@ -105,9 +121,10 @@
               <small class="form-text text-muted">Top-level section this child belongs to.</small>
             </div>
             <div class="form-group col-md-4 mb-2">
-              <label class="mb-0">Order</label>
-              <input type="number" min="1" class="form-control form-control-sm" name="order" id="edit-order" placeholder="1">
-              <small class="form-text text-muted">1-based position (leave blank to follow native).</small>
+              <label class="mb-0">Icon</label>
+              <input type="text" class="form-control form-control-sm"
+                     name="icon" id="edit-icon" placeholder="e.g., fas fa-user">
+              <small class="form-text text-muted">Font Awesome class.</small>
             </div>
           </div>
 
@@ -189,6 +206,23 @@
           </div>
 
           <div class="form-row">
+            <div class="col-md-6 mb-2">
+              <label class="mb-0">Name override</label>
+              <input name="name_override" id="parent-name-override"
+                     class="form-control form-control-sm"
+                     placeholder="Leave blank to keep native name">
+              <small class="form-text text-muted">Replaces the section title in the sidebar.</small>
+            </div>
+            <div class="col-md-6 mb-2">
+              <label class="mb-0">Label override (translation key)</label>
+              <input name="label_override" id="parent-label-override"
+                     class="form-control form-control-sm"
+                     placeholder="e.g., web::seat.home">
+              <small class="form-text text-muted">Optional translation key to use for the label.</small>
+            </div>
+          </div>
+
+          <div class="form-row">
             <div class="col-md-7 mb-2">
               <label class="mb-0">Route (optional)</label>
               <select class="form-control form-control-sm" name="route" id="parent-route-select">
@@ -214,11 +248,6 @@
 
           <div class="form-row">
             <div class="col-md-6 mb-2">
-              <label class="mb-0">Name override</label>
-              <input name="name" id="parent-name-override" class="form-control form-control-sm" placeholder="Leave blank to keep native name">
-              <small class="form-text text-muted">Replaces the section title in the sidebar.</small>
-            </div>
-            <div class="col-md-3 mb-2">
               <label class="mb-0">Icon</label>
               <input name="icon" id="parent-icon" class="form-control form-control-sm" placeholder="fas fa-wrench">
               <small class="form-text text-muted">Font Awesome class.</small>
@@ -227,6 +256,13 @@
               <label class="mb-0">Order</label>
               <input name="order" type="number" min="1" id="parent-order" class="form-control form-control-sm" placeholder="1">
               <small class="form-text text-muted">1-based position among sections (blank = native).</small>
+            </div>
+            <div class="col-md-3 mb-2">
+              <label class="mb-0">Route Segment (quick pick)</label>
+              <input class="form-control form-control-sm"
+                     list="route-segment-options"
+                     placeholder="type to search">
+              <small class="form-text text-muted">This picker feeds the section select above.</small>
             </div>
           </div>
 
@@ -270,6 +306,19 @@
           </div>
 
           <div class="form-row">
+            <div class="col-md-6 mb-2">
+              <label class="mb-0">Name override</label>
+              <input name="name_override" id="child-name-override" class="form-control form-control-sm" placeholder="Leave blank to keep native name">
+              <small class="form-text text-muted">Replaces the child label in the submenu.</small>
+            </div>
+            <div class="col-md-6 mb-2">
+              <label class="mb-0">Label override (translation key)</label>
+              <input name="label_override" id="child-label-override" class="form-control form-control-sm" placeholder="e.g., web::seat.moons_reporter">
+              <small class="form-text text-muted">Optional translation key to use for the label.</small>
+            </div>
+          </div>
+
+          <div class="form-row">
             <div class="col-md-7 mb-2">
               <label class="mb-0">Route</label>
               <select class="form-control form-control-sm" name="route" id="child-route-select">
@@ -295,11 +344,6 @@
 
           <div class="form-row">
             <div class="col-md-6 mb-2">
-              <label class="mb-0">Name override</label>
-              <input name="name" id="child-name-override" class="form-control form-control-sm" placeholder="Leave blank to keep native name">
-              <small class="form-text text-muted">Replaces the child label in the submenu.</small>
-            </div>
-            <div class="col-md-3 mb-2">
               <label class="mb-0">Icon</label>
               <input name="icon" id="child-icon" class="form-control form-control-sm" placeholder="fas fa-moon">
               <small class="form-text text-muted">Font Awesome class.</small>
@@ -309,6 +353,13 @@
               <input name="order" id="child-order" type="number" min="1" class="form-control form-control-sm" placeholder="1">
               <small class="form-text text-muted">1-based position within section (blank = native).</small>
             </div>
+            <div class="col-md-3 mb-2">
+              <label class="mb-0">Quick pick: Route Segment</label>
+              <input class="form-control form-control-sm"
+                     list="route-segment-options"
+                     placeholder="type to search">
+              <small class="form-text text-muted">This picker feeds the parent section select above.</small>
+            </div>
           </div>
 
           <button class="btn btn-primary btn-sm">Save Child Override</button>
@@ -317,6 +368,13 @@
     </div>
   </div>
 </div>
+
+{{-- Shared datalist for route segments --}}
+<datalist id="route-segment-options">
+  @foreach(($routeSegments ?? []) as $opt)
+    <option value="{{ $opt['value'] }}">{{ $opt['label'] }}</option>
+  @endforeach
+</datalist>
 
 {{-- Styling --}}
 <style>
@@ -364,8 +422,8 @@
     const isParent = data.type === 'parent';
     const order = isDb
       ? (isParent
-          ? ['id','type','name','label','icon','route_segment','route','permission','order','created_at','updated_at']
-          : ['id','type','parent_id','parent_name','name','label','icon','route','permission','order','created_at','updated_at'])
+          ? ['id','type','name','name_override','label_override','label','icon','route_segment','route','permission','order','created_at','updated_at']
+          : ['id','type','parent_id','parent_name','name','name_override','label_override','label','icon','route','permission','order','created_at','updated_at'])
       : (isParent
           ? ['type','source','key','name','label','icon','route_segment','route','permission','plural']
           : ['type','source','parent_key','key','name','label','icon','route','permission','plural']);
@@ -373,7 +431,8 @@
     const labels = {
       id: 'DB ID', type: 'Type', source: 'Source', key: 'Key',
       parent_key: 'Parent Key', parent_id: 'Parent ID', parent_name: 'Parent Name',
-      name: 'Name', label: 'Label', icon: 'Icon', route_segment: 'Route Segment',
+      name: 'Name', name_override: 'Name Override', label_override: 'Label Override',
+      label: 'Label', icon: 'Icon', route_segment: 'Route Segment',
       route: 'Route', url: 'URL', permission: 'Permission', plural: 'Plural',
       order: 'Order', created_at: 'Created', updated_at: 'Updated'
     };
@@ -454,17 +513,18 @@
     form.action = isParent ? ROUTE_PARENT_UPSERT : ROUTE_CHILD_UPSERT;
 
     document.getElementById('edit-id').value = data.id || '';
-    document.getElementById('edit-name').value = data.name || '';
-    document.getElementById('edit-icon').value = data.icon || '';
+    document.getElementById('edit-name_override').value  = data.name_override  || '';
+    document.getElementById('edit-label_override').value = data.label_override || '';
+    document.getElementById('edit-icon').value  = data.icon || '';
     document.getElementById('edit-route').value = data.route || '';
     document.getElementById('edit-order').value = data.order || '';
     fillSelectPermission(data.permission);
 
-    const wrapRouteSeg = document.getElementById('wrap-route-segment');
-    const routeSegInput = document.getElementById('edit-route_segment');
-    const wrapParent = document.getElementById('wrap-parent-select');
-    const parentIdInput = document.getElementById('edit-parent_id');
-    const parentSelect  = document.getElementById('edit-parent-select');
+    const wrapRouteSeg   = document.getElementById('wrap-route-segment');
+    const routeSegInput  = document.getElementById('edit-route_segment');
+    const wrapParent     = document.getElementById('wrap-parent-select');
+    const parentIdInput  = document.getElementById('edit-parent_id');
+    const parentSelect   = document.getElementById('edit-parent-select');
 
     if (isParent) {
       wrapRouteSeg.style.display = '';
