@@ -29,7 +29,7 @@ $isRoot = $level === 0;
       <div class="dropdown-menu">
         @foreach($item['entries'] as $child)
           @if(is_array($child))
-            @include('seat-osmm::partials.osmm.topbar-submenu', ['item' => $child, 'can' => $can, 'level' => 1])
+            @include('seat-osmm::menu.partials.osmm.topbar-submenu', ['item' => $child, 'can' => $can, 'level' => 1])
           @endif
         @endforeach
       </div>

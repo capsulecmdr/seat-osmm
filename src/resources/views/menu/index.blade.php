@@ -11,7 +11,7 @@
         <small class="text-muted ml-2">base-native (consolidated)</small>
       </div>
       <div class="card-body p-0">
-        @include('seat-osmm::partials.osmm.topbar', ['menu' => $native, 'can' => $can ?? null])
+        @include('seat-osmm::menu.partials.osmm.topbar', ['menu' => $native, 'can' => $can ?? null])
       </div>
     </div>
   </div>
@@ -25,7 +25,7 @@
         <small class="text-muted ml-2">DB overrides applied</small>
       </div>
       <div class="card-body p-0">
-        @include('seat-osmm::partials.osmm.topbar', ['menu' => $merged, 'can' => $can ?? null])
+        @include('seat-osmm::menu.partials.osmm.topbar', ['menu' => $merged, 'can' => $can ?? null])
       </div>
     </div>
   </div>
