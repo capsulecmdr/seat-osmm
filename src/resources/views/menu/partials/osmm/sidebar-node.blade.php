@@ -50,7 +50,7 @@ $ulChild   = 'nav nav-treeview';
     <ul class="{{ $ulChild }}">
       @foreach($item['entries'] as $child)
         @if(is_array($child))
-          @include('seat-osmm::menu.partials.osmm.sidebar-node', ['item' => $child, 'can' => $can, 'level' => ($level ?? 0) + 1])
+          @include('seat-osmm::menu.partials.sidebar-node', ['item' => $child, 'can' => $can, 'level' => ($level ?? 0) + 1])
         @endif
       @endforeach
     </ul>
