@@ -68,8 +68,24 @@
 
           <div id="wrap-route-segment" class="form-group mb-2">
             <label class="mb-0">Route Segment (parents only)</label>
-            <input type="text" class="form-control form-control-sm" name="route_segment" id="edit-route_segment" placeholder="e.g., configuration">
-            <small class="form-text text-muted">Must match the native top-level section you want to override.</small>
+
+            {{-- input with suggestions, but still free-typed if needed --}}
+            <input type="text"
+                  class="form-control form-control-sm"
+                  name="route_segment"
+                  id="edit-route_segment"
+                  list="route-segment-options"
+                  placeholder="e.g., configuration">
+
+            <datalist id="route-segment-options">
+              @foreach(($routeSegments ?? []) as $opt)
+                <option value="{{ $opt['value'] }}">{{ $opt['label'] }}</option>
+              @endforeach
+            </datalist>
+
+            <small class="form-text text-muted">
+              Must match the native top-level section you want to override. Pick an existing segment or type a new one.
+            </small>
           </div>
 
           <div class="form-row">
@@ -172,8 +188,15 @@
             </div>
             <div class="col-md-4 mb-2">
               <label class="mb-0">Route Segment</label>
-              <input name="route_segment" class="form-control form-control-sm" placeholder="tools" required>
-              <small class="form-text text-muted">Must match native section to override.</small>
+              <input name="route_segment"
+                    class="form-control form-control-sm"
+                    list="route-segment-options"
+                    placeholder="tools" required>
+
+              {{-- reuse the same datalist defined above; if this is a separate blade, re-include the datalist --}}
+              <small class="form-text text-muted">
+                Should match a native section’s segment (see suggestions) or enter a custom one.
+              </small>
             </div>
           </div>
           <div class="form-row">
