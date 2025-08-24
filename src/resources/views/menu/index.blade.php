@@ -76,94 +76,103 @@
       <div class="card-footer">
         {{-- EDIT / UPDATE FORM (pre-filled on click in center list) --}}
         <form id="override-edit-form" method="post" action="{{ route('osmm.menu.parent.upsert') }}">
-          @csrf
-          {{-- hidden fields filled by JS --}}
-          <input type="hidden" name="id" id="edit-id">
-          <input type="hidden" name="parent_id" id="edit-parent_id">
+  @csrf
+  <input type="hidden" name="id" id="edit-id">
+  <input type="hidden" name="parent_id" id="edit-parent_id">
 
-          <div class="form-row">
-            <div class="form-group col-md-6 mb-2">
-              <label class="mb-0">Name override</label>
-              <input type="text" class="form-control form-control-sm"
-                     name="name_override" id="edit-name_override"
-                     placeholder="Leave blank to keep native">
-              <small class="form-text text-muted">Shown for section title or child label.</small>
-            </div>
-            <div class="form-group col-md-6 mb-2">
-              <label class="mb-0">Label override (translation key)</label>
-              <input type="text" class="form-control form-control-sm"
-                     name="label_override" id="edit-label_override"
-                     placeholder="e.g., web::seat.home">
-              <small class="form-text text-muted">Optional: replace the translation key used for the label.</small>
-            </div>
-          </div>
+  <div class="form-row">
+    <div class="form-group col-md-6 mb-2">
+      <label class="mb-0">Name override</label>
+      <input type="text" class="form-control form-control-sm"
+             name="name_override" id="edit-name_override"
+             placeholder="Leave blank to keep native">
+      <small class="form-text text-muted">Shown for section title or child label.</small>
+    </div>
+    <div class="form-group col-md-6 mb-2">
+      <label class="mb-0">Label override (translation key)</label>
+      <input type="text" class="form-control form-control-sm"
+             name="label_override" id="edit-label_override"
+             placeholder="e.g., web::seat.home">
+      <small class="form-text text-muted">Optional: replace the translation key used for the label.</small>
+    </div>
+  </div>
 
-          <div class="form-row">
-            <div class="form-group col-md-7 mb-2">
-              <label class="mb-0">Route (optional)</label>
-              <input type="text" class="form-control form-control-sm"
-                     name="route" id="edit-route" placeholder="e.g., seatcore::tools.moons.index">
-              <small class="form-text text-muted">Named route. If missing, link will be disabled.</small>
-            </div>
-            <div class="form-group col-md-5 mb-2">
-              <label class="mb-0">Permission</label>
-              <select class="form-control form-control-sm" name="permission" id="edit-permission">
-                <option value="">(none)</option>
-                @foreach(($allPermissions ?? []) as $opt)
-                  @php
-                    $val = is_array($opt) ? $opt['value'] : $opt;
-                    $lab = is_array($opt) ? $opt['label'] : $opt;
-                  @endphp
-                  <option value="{{ $val }}">{{ $lab }}</option>
-                @endforeach
-              </select>
-              <small class="form-text text-muted">Users must have this permission to see it.</small>
-            </div>
-          </div>
+  <div class="form-row">
+    <div class="form-group col-md-5 mb-2">
+      <label class="mb-0">Visibility override</label>
+      <select class="form-control form-control-sm" name="visible" id="edit-visible">
+        <option value="">(no override)</option>
+        <option value="1">Show (force visible)</option>
+        <option value="0">Hide (force hidden)</option>
+      </select>
+      <small class="form-text text-muted">Show/hide regardless of permission.</small>
+    </div>
+    <div class="form-group col-md-7 mb-2">
+      <label class="mb-0">Route (optional)</label>
+      <input type="text" class="form-control form-control-sm"
+             name="route" id="edit-route" placeholder="e.g., seatcore::tools.moons.index">
+      <small class="form-text text-muted">Named route. If missing, link will be disabled.</small>
+    </div>
+  </div>
 
-          <div class="form-row">
-            <div id="wrap-route-segment" class="form-group col-md-8 mb-2">
-              <label class="mb-0">Route Segment (parents only)</label>
-              <input type="text" class="form-control form-control-sm"
-                     name="route_segment" id="edit-route_segment"
-                     list="route-segment-options"
-                     placeholder="e.g., configuration">
-              <small class="form-text text-muted">Must match a native section to override it.</small>
-            </div>
-            <div class="form-group col-md-4 mb-2">
-              <label class="mb-0">Order</label>
-              <input type="number" min="1" class="form-control form-control-sm"
-                     name="order" id="edit-order" placeholder="1">
-              <small class="form-text text-muted">1-based position (blank = native).</small>
-            </div>
-          </div>
+  <div class="form-row">
+    <div id="wrap-route-segment" class="form-group col-md-5 mb-2">
+      <label class="mb-0">Route Segment (parents only)</label>
+      <input type="text" class="form-control form-control-sm"
+             name="route_segment" id="edit-route_segment"
+             list="route-segment-options"
+             placeholder="e.g., configuration">
+      <small class="form-text text-muted">Must match a native section to override it.</small>
+    </div>
+    <div class="form-group col-md-3 mb-2">
+      <label class="mb-0">Order</label>
+      <input type="number" min="1" class="form-control form-control-sm"
+             name="order" id="edit-order" placeholder="1">
+      <small class="form-text text-muted">1-based position (blank = native).</small>
+    </div>
+    <div class="form-group col-md-4 mb-2">
+      <label class="mb-0">Permission</label>
+      <select class="form-control form-control-sm" name="permission" id="edit-permission">
+        <option value="">(none)</option>
+        @foreach(($allPermissions ?? []) as $opt)
+          @php
+            $val = is_array($opt) ? $opt['value'] : $opt;
+            $lab = is_array($opt) ? $opt['label'] : $opt;
+          @endphp
+          <option value="{{ $val }}">{{ $lab }}</option>
+        @endforeach
+      </select>
+      <small class="form-text text-muted">Users must have this permission to see it (unless visibility=Show).</small>
+    </div>
+  </div>
 
-          <div class="form-row">
-            <div id="wrap-parent-select" class="form-group col-md-8 mb-2" style="display:none;">
-              <label class="mb-0">Parent (for child items)</label>
-              <select class="form-control form-control-sm" id="edit-parent-select">
-                @foreach(($parentOptions ?? []) as $p)
-                  <option value="{{ $p['parent_id'] ?? '' }}">{{ $p['label'] }}</option>
-                @endforeach
-              </select>
-              <small class="form-text text-muted">Top-level section this child belongs to.</small>
-            </div>
-            <div class="form-group col-md-4 mb-2">
-              <label class="mb-0">Icon</label>
-              <input type="text" class="form-control form-control-sm"
-                     name="icon" id="edit-icon" placeholder="e.g., fas fa-user">
-              <small class="form-text text-muted">Font Awesome class.</small>
-            </div>
-          </div>
+  <div class="form-row">
+    <div id="wrap-parent-select" class="form-group col-md-8 mb-2" style="display:none;">
+      <label class="mb-0">Parent (for child items)</label>
+      <select class="form-control form-control-sm" id="edit-parent-select">
+        @foreach(($parentOptions ?? []) as $p)
+          <option value="{{ $p['parent_id'] ?? '' }}">{{ $p['label'] }}</option>
+        @endforeach
+      </select>
+      <small class="form-text text-muted">Top-level section this child belongs to.</small>
+    </div>
+    <div class="form-group col-md-4 mb-2">
+      <label class="mb-0">Icon</label>
+      <input type="text" class="form-control form-control-sm"
+             name="icon" id="edit-icon" placeholder="e.g., fas fa-user">
+      <small class="form-text text-muted">Font Awesome class.</small>
+    </div>
+  </div>
 
-          <div class="d-flex justify-content-between align-items-center">
-            <div>
-              <button type="submit" class="btn btn-primary btn-sm" id="edit-submit">Save Changes</button>
-              <button type="button" class="btn btn-outline-danger btn-sm" id="edit-delete">Delete</button>
-            </div>
-            <small id="edit-mode-help" class="text-muted"></small>
-          </div>
-        </form>
+  <div class="d-flex justify-content-between align-items-center">
+    <div>
+      <button type="submit" class="btn btn-primary btn-sm" id="edit-submit">Save Changes</button>
+      <button type="button" class="btn btn-outline-danger btn-sm" id="edit-delete">Delete</button>
+    </div>
+    <small id="edit-mode-help" class="text-muted"></small>
+  </div>
+</form>
+
 
         {{-- Hidden delete form --}}
         <form id="override-delete-form" method="post" action="{{ route('osmm.menu.delete') }}" style="display:none;">
@@ -208,94 +217,97 @@
       <div class="card-header"><strong>Override: Parent (Top-level section)</strong></div>
       <div class="card-body">
         <form method="post" action="{{ route('osmm.menu.parent.upsert') }}" id="form-parent-override">
-          @csrf
-          <input type="hidden" name="id" id="parent-id"> {{-- existing parent override id, if any --}}
-          <input type="hidden" name="route_segment" id="parent-seg-hidden">
-          <input type="hidden" name="parent_id" id="parent-db-id">
+  @csrf
+  <input type="hidden" name="id" id="parent-id">
+  <input type="hidden" name="route_segment" id="parent-seg-hidden">
+  <input type="hidden" name="parent_id" id="parent-db-id">
 
-          <div class="form-row">
-            <div class="col-md-6 mb-2">
-              <label class="mb-0">Section (route_segment)</label>
-              <select class="form-control form-control-sm" id="parent-seg-select">
-                @foreach(($routeSegments ?? []) as $opt)
-                  <option value="{{ $opt['value'] }}">{{ $opt['label'] }}</option>
-                @endforeach
-              </select>
-              <small class="form-text text-muted">Select the existing top-level section to override.</small>
-            </div>
+  <div class="form-row">
+    <div class="col-md-6 mb-2">
+      <label class="mb-0">Section (route_segment)</label>
+      <select class="form-control form-control-sm" id="parent-seg-select">
+        @foreach(($routeSegments ?? []) as $opt)
+          <option value="{{ $opt['value'] }}">{{ $opt['label'] }}</option>
+        @endforeach
+      </select>
+      <small class="form-text text-muted">Select the existing top-level section to override.</small>
+    </div>
 
-            <div class="col-md-6 mb-2">
-              <label class="mb-0">Item to override</label>
-              <select class="form-control form-control-sm" id="parent-item-select" disabled>
-                <option value="">(the section itself)</option>
-              </select>
-              <small class="form-text text-muted">Parent overrides always target the section itself.</small>
-            </div>
-          </div>
+    <div class="col-md-6 mb-2">
+      <label class="mb-0">Item to override</label>
+      <select class="form-control form-control-sm" id="parent-item-select" disabled>
+        <option value="">(the section itself)</option>
+      </select>
+      <small class="form-text text-muted">Parent overrides always target the section itself.</small>
+    </div>
+  </div>
 
-          <div class="form-row">
-            <div class="col-md-6 mb-2">
-              <label class="mb-0">Name override</label>
-              <input name="name_override" id="parent-name-override"
-                     class="form-control form-control-sm"
-                     placeholder="Leave blank to keep native name">
-              <small class="form-text text-muted">Replaces the section title in the sidebar.</small>
-            </div>
-            <div class="col-md-6 mb-2">
-              <label class="mb-0">Label override (translation key)</label>
-              <input name="label_override" id="parent-label-override"
-                     class="form-control form-control-sm"
-                     placeholder="e.g., web::seat.home">
-              <small class="form-text text-muted">Optional translation key to use for the label.</small>
-            </div>
-          </div>
+  <div class="form-row">
+    <div class="col-md-6 mb-2">
+      <label class="mb-0">Name override</label>
+      <input name="name_override" id="parent-name-override"
+             class="form-control form-control-sm"
+             placeholder="Leave blank to keep native name">
+      <small class="form-text text-muted">Replaces the section title in the sidebar.</small>
+    </div>
+    <div class="col-md-6 mb-2">
+      <label class="mb-0">Label override (translation key)</label>
+      <input name="label_override" id="parent-label-override"
+             class="form-control form-control-sm"
+             placeholder="e.g., web::seat.home">
+      <small class="form-text text-muted">Optional translation key to use for the label.</small>
+    </div>
+  </div>
 
-          <div class="form-row">
-            <div class="col-md-7 mb-2">
-              <label class="mb-0">Route (optional)</label>
-              <select class="form-control form-control-sm" name="route" id="parent-route-select">
-                <option value="">(no route)</option>
-              </select>
-              <small class="form-text text-muted">Use the section’s route or one of its children’s routes.</small>
-            </div>
-            <div class="col-md-5 mb-2">
-              <label class="mb-0">Permission</label>
-              <select name="permission" class="form-control form-control-sm" id="parent-permission-select">
-                <option value="">(none)</option>
-                @foreach(($allPermissions ?? []) as $opt)
-                  @php
-                    $val = is_array($opt) ? $opt['value'] : $opt;
-                    $lab = is_array($opt) ? $opt['label'] : $opt;
-                  @endphp
-                  <option value="{{ $val }}">{{ $lab }}</option>
-                @endforeach
-              </select>
-              <small class="form-text text-muted">Users must have this permission to see the section.</small>
-            </div>
-          </div>
+  <div class="form-row">
+    <div class="col-md-4 mb-2">
+      <label class="mb-0">Visibility override</label>
+      <select class="form-control form-control-sm" name="visible" id="parent-visible">
+        <option value="">(no override)</option>
+        <option value="1">Show (force visible)</option>
+        <option value="0">Hide (force hidden)</option>
+      </select>
+      <small class="form-text text-muted">Show/hide regardless of permission.</small>
+    </div>
+    <div class="col-md-5 mb-2">
+      <label class="mb-0">Route (optional)</label>
+      <select class="form-control form-control-sm" name="route" id="parent-route-select">
+        <option value="">(no route)</option>
+      </select>
+      <small class="form-text text-muted">Use the section’s route or one of its children’s routes.</small>
+    </div>
+    <div class="col-md-3 mb-2">
+      <label class="mb-0">Order</label>
+      <input name="order" type="number" min="1" id="parent-order" class="form-control form-control-sm" placeholder="1">
+      <small class="form-text text-muted">1-based position among sections (blank = native).</small>
+    </div>
+  </div>
 
-          <div class="form-row">
-            <div class="col-md-6 mb-2">
-              <label class="mb-0">Icon</label>
-              <input name="icon" id="parent-icon" class="form-control form-control-sm" placeholder="fas fa-wrench">
-              <small class="form-text text-muted">Font Awesome class.</small>
-            </div>
-            <div class="col-md-3 mb-2">
-              <label class="mb-0">Order</label>
-              <input name="order" type="number" min="1" id="parent-order" class="form-control form-control-sm" placeholder="1">
-              <small class="form-text text-muted">1-based position among sections (blank = native).</small>
-            </div>
-            <div class="col-md-3 mb-2">
-              <label class="mb-0">Route Segment (quick pick)</label>
-              <input class="form-control form-control-sm"
-                     list="route-segment-options"
-                     placeholder="type to search">
-              <small class="form-text text-muted">This picker feeds the section select above.</small>
-            </div>
-          </div>
+  <div class="form-row">
+    <div class="col-md-6 mb-2">
+      <label class="mb-0">Permission</label>
+      <select name="permission" class="form-control form-control-sm" id="parent-permission-select">
+        <option value="">(none)</option>
+        @foreach(($allPermissions ?? []) as $opt)
+          @php
+            $val = is_array($opt) ? $opt['value'] : $opt;
+            $lab = is_array($opt) ? $opt['label'] : $opt;
+          @endphp
+          <option value="{{ $val }}">{{ $lab }}</option>
+        @endforeach
+      </select>
+      <small class="form-text text-muted">Users must have this permission to see the section (unless visibility=Show).</small>
+    </div>
+    <div class="col-md-6 mb-2">
+      <label class="mb-0">Icon</label>
+      <input name="icon" id="parent-icon" class="form-control form-control-sm" placeholder="fas fa-wrench">
+      <small class="form-text text-muted">Font Awesome class.</small>
+    </div>
+  </div>
 
-          <button class="btn btn-primary btn-sm">Save Parent Override</button>
-        </form>
+  <button class="btn btn-primary btn-sm">Save Parent Override</button>
+</form>
+
       </div>
     </div>
   </div>
@@ -306,92 +318,95 @@
       <div class="card-header"><strong>Override: Child (Menu item)</strong></div>
       <div class="card-body">
         <form method="post" action="{{ route('osmm.menu.child.upsert') }}" id="form-child-override">
-          @csrf
-          <input type="hidden" name="id" id="child-id">
-          <input type="hidden" name="parent_id" id="child-parent-id">
-          <input type="hidden" name="route_segment" id="child-seg-hidden">
-          <input type="hidden" name="target_route" id="child-target-route">
-          <input type="hidden" name="target_name"  id="child-target-name">
+  @csrf
+  <input type="hidden" name="id" id="child-id">
+  <input type="hidden" name="parent_id" id="child-parent-id">
+  <input type="hidden" name="route_segment" id="child-seg-hidden">
+  <input type="hidden" name="target_route" id="child-target-route">
+  <input type="hidden" name="target_name"  id="child-target-name">
 
-          <div class="form-row">
-            <div class="col-md-6 mb-2">
-              <label class="mb-0">Parent section</label>
-              <select class="form-control form-control-sm" id="child-seg-select" required>
-                @foreach(($routeSegments ?? []) as $opt)
-                  <option value="{{ $opt['value'] }}">{{ $opt['label'] }}</option>
-                @endforeach
-              </select>
-              <small class="form-text text-muted">Section containing the child to override.</small>
-            </div>
+  <div class="form-row">
+    <div class="col-md-6 mb-2">
+      <label class="mb-0">Parent section</label>
+      <select class="form-control form-control-sm" id="child-seg-select" required>
+        @foreach(($routeSegments ?? []) as $opt)
+          <option value="{{ $opt['value'] }}">{{ $opt['label'] }}</option>
+        @endforeach
+      </select>
+      <small class="form-text text-muted">Section containing the child to override.</small>
+    </div>
 
-            <div class="col-md-6 mb-2">
-              <label class="mb-0">Item to override</label>
-              <select class="form-control form-control-sm" id="child-item-select" required>
-                <option value="">Select an item…</option>
-              </select>
-              <small class="form-text text-muted">Populated from the selected section’s children.</small>
-            </div>
-          </div>
+    <div class="col-md-6 mb-2">
+      <label class="mb-0">Item to override</label>
+      <select class="form-control form-control-sm" id="child-item-select" required>
+        <option value="">Select an item…</option>
+      </select>
+      <small class="form-text text-muted">Populated from the selected section’s children.</small>
+    </div>
+  </div>
 
-          <div class="form-row">
-            <div class="col-md-6 mb-2">
-              <label class="mb-0">Name override</label>
-              <input name="name_override" id="child-name-override" class="form-control form-control-sm" placeholder="Leave blank to keep native name">
-              <small class="form-text text-muted">Replaces the child label in the submenu.</small>
-            </div>
-            <div class="col-md-6 mb-2">
-              <label class="mb-0">Label override (translation key)</label>
-              <input name="label_override" id="child-label-override" class="form-control form-control-sm" placeholder="e.g., web::seat.moons_reporter">
-              <small class="form-text text-muted">Optional translation key to use for the label.</small>
-            </div>
-          </div>
+  <div class="form-row">
+    <div class="col-md-6 mb-2">
+      <label class="mb-0">Name override</label>
+      <input name="name_override" id="child-name-override" class="form-control form-control-sm" placeholder="Leave blank to keep native name">
+      <small class="form-text text-muted">Replaces the child label in the submenu.</small>
+    </div>
+    <div class="col-md-6 mb-2">
+      <label class="mb-0">Label override (translation key)</label>
+      <input name="label_override" id="child-label-override" class="form-control form-control-sm" placeholder="e.g., web::seat.moons_reporter">
+      <small class="form-text text-muted">Optional translation key to use for the label.</small>
+    </div>
+  </div>
 
-          <div class="form-row">
-            <div class="col-md-7 mb-2">
-              <label class="mb-0">Route</label>
-              <select class="form-control form-control-sm" name="route" id="child-route-select">
-                <option value="">(no change)</option>
-              </select>
-              <small class="form-text text-muted">Filtered to routes within the selected section.</small>
-            </div>
-            <div class="col-md-5 mb-2">
-              <label class="mb-0">Permission</label>
-              <select name="permission" class="form-control form-control-sm" id="child-permission-select">
-                <option value="">(none)</option>
-                @foreach(($allPermissions ?? []) as $opt)
-                  @php
-                    $val = is_array($opt) ? $opt['value'] : $opt;
-                    $lab = is_array($opt) ? $opt['label'] : $opt;
-                  @endphp
-                  <option value="{{ $val }}">{{ $lab }}</option>
-                @endforeach
-              </select>
-              <small class="form-text text-muted">Restrict visibility for this item.</small>
-            </div>
-          </div>
+  <div class="form-row">
+    <div class="col-md-4 mb-2">
+      <label class="mb-0">Visibility override</label>
+      <select class="form-control form-control-sm" name="visible" id="child-visible">
+        <option value="">(no override)</option>
+        <option value="1">Show (force visible)</option>
+        <option value="0">Hide (force hidden)</option>
+      </select>
+      <small class="form-text text-muted">Show/hide regardless of permission.</small>
+    </div>
+    <div class="col-md-5 mb-2">
+      <label class="mb-0">Route</label>
+      <select class="form-control form-control-sm" name="route" id="child-route-select">
+        <option value="">(no change)</option>
+      </select>
+      <small class="form-text text-muted">Filtered to routes within the selected section.</small>
+    </div>
+    <div class="col-md-3 mb-2">
+      <label class="mb-0">Order</label>
+      <input name="order" id="child-order" type="number" min="1" class="form-control form-control-sm" placeholder="1">
+      <small class="form-text text-muted">1-based position within section (blank = native).</small>
+    </div>
+  </div>
 
-          <div class="form-row">
-            <div class="col-md-6 mb-2">
-              <label class="mb-0">Icon</label>
-              <input name="icon" id="child-icon" class="form-control form-control-sm" placeholder="fas fa-moon">
-              <small class="form-text text-muted">Font Awesome class.</small>
-            </div>
-            <div class="col-md-3 mb-2">
-              <label class="mb-0">Order</label>
-              <input name="order" id="child-order" type="number" min="1" class="form-control form-control-sm" placeholder="1">
-              <small class="form-text text-muted">1-based position within section (blank = native).</small>
-            </div>
-            <div class="col-md-3 mb-2">
-              <label class="mb-0">Quick pick: Route Segment</label>
-              <input class="form-control form-control-sm"
-                     list="route-segment-options"
-                     placeholder="type to search">
-              <small class="form-text text-muted">This picker feeds the parent section select above.</small>
-            </div>
-          </div>
+  <div class="form-row">
+    <div class="col-md-6 mb-2">
+      <label class="mb-0">Permission</label>
+      <select name="permission" class="form-control form-control-sm" id="child-permission-select">
+        <option value="">(none)</option>
+        @foreach(($allPermissions ?? []) as $opt)
+          @php
+            $val = is_array($opt) ? $opt['value'] : $opt;
+            $lab = is_array($opt) ? $opt['label'] : $opt;
+          @endphp
+          <option value="{{ $val }}">{{ $lab }}</option>
+        @endforeach
+      </select>
+      <small class="form-text text-muted">Restrict visibility for this item (unless visibility=Show).</small>
+    </div>
+    <div class="col-md-6 mb-2">
+      <label class="mb-0">Icon</label>
+      <input name="icon" id="child-icon" class="form-control form-control-sm" placeholder="fas fa-moon">
+      <small class="form-text text-muted">Font Awesome class.</small>
+    </div>
+  </div>
 
-          <button class="btn btn-primary btn-sm">Save Child Override</button>
-        </form>
+  <button class="btn btn-primary btn-sm">Save Child Override</button>
+</form>
+
       </div>
     </div>
   </div>
@@ -571,6 +586,11 @@
         }, { once: true });
       }
     }
+
+    document.getElementById('edit-visible').value =
+      (payload.visible === 0 || payload.visible === '0') ? '0' :
+      (payload.visible === 1 || payload.visible === '1') ? '1' : '';
+
 
     const help = document.getElementById('edit-mode-help');
     if (help) help.textContent = isParent ? 'Editing parent override' : 'Editing child override';

@@ -25,6 +25,7 @@ class OsmmMenuController extends Controller
                 'id','parent','order','name',
                 'name_override','label_override', // << include overrides
                 'icon','route_segment','route','permission',
+                'visible',
                 'created_at','updated_at'
             )
             ->orderBy('parent')
@@ -292,168 +293,205 @@ class OsmmMenuController extends Controller
     /* ==================== CRUD for overrides ==================== */
 
     public function upsertParent(Request $request)
-    {
-        $data = $request->validate([
-            'id'             => 'nullable|integer|exists:osmm_menu_items,id',
-            'route_segment'  => 'required|string|max:150',
-            'name_override'  => 'nullable|string|max:150',
-            'label_override' => 'nullable|string|max:190',
-            'icon'           => 'nullable|string|max:150',
-            'route'          => 'nullable|string|max:190',
-            'permission'     => 'nullable|string|max:190',
-            'order'          => 'nullable|integer|min:1',
+{
+    $data = $request->validate([
+        'id'             => 'nullable|integer|exists:osmm_menu_items,id',
+        'route_segment'  => 'required|string|max:150',
+        'name_override'  => 'nullable|string|max:150',
+        'label_override' => 'nullable|string|max:190',
+        'icon'           => 'nullable|string|max:150',
+        'route'          => 'nullable|string|max:190',
+        'permission'     => 'nullable|string|max:190',
+        // allow both string and int versions of 0/1
+        'visible'        => ['nullable', Rule::in([0,1,'0','1'])],
+        'order'          => 'nullable|integer|min:1',
+    ]);
+
+    // normalize empties -> null
+    foreach (['name_override','label_override','icon','route','permission','order','visible'] as $k) {
+        if (array_key_exists($k, $data) && $data[$k] === '') $data[$k] = null;
+    }
+    // coerce visible to int 0/1 or null
+    if (array_key_exists('visible', $data)) {
+        $data['visible'] = ($data['visible'] === '' || $data['visible'] === null)
+            ? null
+            : (int) $data['visible'];
+    }
+
+    if (!empty($data['id'])) {
+        DB::table('osmm_menu_items')->where('id', $data['id'])->update([
+            'route_segment'  => $data['route_segment'],
+            'name_override'  => $data['name_override']  ?? null,
+            'label_override' => $data['label_override'] ?? null,
+            'icon'           => $data['icon']           ?? null,
+            'route'          => $data['route']          ?? null,
+            'permission'     => $data['permission']     ?? null,
+            'visible'        => $data['visible']        ?? null,
+            'order'          => $data['order']          ?? null,
+            'updated_at'     => now(),
         ]);
+    } else {
+        // ensure one parent row per segment
+        $row = DB::table('osmm_menu_items')
+            ->whereNull('parent')
+            ->where('route_segment', $data['route_segment'])
+            ->first();
 
-        foreach (['name_override','label_override','icon','route','permission','order'] as $k) {
-            if (array_key_exists($k, $data) && $data[$k] === '') $data[$k] = null;
-        }
-
-        if (!empty($data['id'])) {
-            DB::table('osmm_menu_items')->where('id', $data['id'])->update([
+        if ($row) {
+            DB::table('osmm_menu_items')->where('id', $row->id)->update([
+                'name_override'  => $data['name_override']  ?? null,
+                'label_override' => $data['label_override'] ?? null,
+                'icon'           => $data['icon']           ?? null,
+                'route'          => $data['route']          ?? null,
+                'permission'     => $data['permission']     ?? null,
+                'visible'        => $data['visible']        ?? null,
+                'order'          => $data['order']          ?? null,
+                'updated_at'     => now(),
+            ]);
+        } else {
+            DB::table('osmm_menu_items')->insert([
+                'parent'         => null,
                 'route_segment'  => $data['route_segment'],
                 'name_override'  => $data['name_override']  ?? null,
                 'label_override' => $data['label_override'] ?? null,
                 'icon'           => $data['icon']           ?? null,
                 'route'          => $data['route']          ?? null,
                 'permission'     => $data['permission']     ?? null,
-                'order'          => $data['order']          ?? null,
-                'updated_at'     => now(),
-            ]);
-        } else {
-            $row = DB::table('osmm_menu_items')
-                ->whereNull('parent')
-                ->where('route_segment', $data['route_segment'])
-                ->first();
-
-            if ($row) {
-                DB::table('osmm_menu_items')->where('id', $row->id)->update([
-                    'name_override'  => $data['name_override']  ?? null,
-                    'label_override' => $data['label_override'] ?? null,
-                    'icon'           => $data['icon']           ?? null,
-                    'route'          => $data['route']          ?? null,
-                    'permission'     => $data['permission']     ?? null,
-                    'order'          => $data['order']          ?? null,
-                    'updated_at'     => now(),
-                ]);
-            } else {
-                DB::table('osmm_menu_items')->insert([
-                    'parent'         => null,
-                    'route_segment'  => $data['route_segment'],
-                    'name_override'  => $data['name_override']  ?? null,
-                    'label_override' => $data['label_override'] ?? null,
-                    'icon'           => $data['icon']           ?? null,
-                    'route'          => $data['route']          ?? null,
-                    'permission'     => $data['permission']     ?? null,
-                    'order'          => $data['order']          ?? null,
-                    'created_at'     => now(),
-                    'updated_at'     => now(),
-                ]);
-            }
-        }
-
-        Cache::forget('osmm_menu_rows');
-        return back()->with('status', 'Parent override saved.');
-    }
-
-    public function upsertChild(Request $request)
-    {
-        $data = $request->validate([
-            'id'             => 'nullable|integer|exists:osmm_menu_items,id',
-            'parent_id'      => 'nullable|integer|exists:osmm_menu_items,id',
-            'route_segment'  => 'nullable|string|max:150',
-            'target_route'   => 'nullable|string|max:190',
-            'target_name'    => 'nullable|string|max:150',
-            'name_override'  => 'nullable|string|max:150',
-            'label_override' => 'nullable|string|max:190',
-            'icon'           => 'nullable|string|max:150',
-            'route'          => 'nullable|string|max:190',
-            'permission'     => 'nullable|string|max:190',
-            'order'          => 'nullable|integer|min:1',
-        ]);
-
-        foreach (['name_override','label_override','icon','route','permission','order'] as $k) {
-            if (array_key_exists($k, $data) && $data[$k] === '') $data[$k] = null;
-        }
-
-        $parentId = $data['parent_id'] ?? null;
-        if (!$parentId && !empty($data['route_segment'])) {
-            $parentId = DB::table('osmm_menu_items')
-                ->whereNull('parent')
-                ->where('route_segment', $data['route_segment'])
-                ->value('id');
-
-            if (!$parentId) {
-                $parentId = DB::table('osmm_menu_items')->insertGetId([
-                    'parent'         => null,
-                    'route_segment'  => $data['route_segment'],
-                    'created_at'     => now(),
-                    'updated_at'     => now(),
-                ]);
-            }
-        }
-
-        if (!$parentId) {
-            return back()->withErrors(['parent_id' => 'Parent section is required.']);
-        }
-
-        if (!empty($data['id'])) {
-            DB::table('osmm_menu_items')->where('id', $data['id'])->update([
-                'parent'         => $parentId,
-                'name_override'  => $data['name_override']  ?? null,
-                'label_override' => $data['label_override'] ?? null,
-                'icon'           => $data['icon']           ?? null,
-                'route'          => $data['route']          ?? null,
-                'permission'     => $data['permission']     ?? null,
-                'order'          => $data['order']          ?? null,
-                'updated_at'     => now(),
-            ]);
-            Cache::forget('osmm_menu_rows');
-            return back()->with('status', 'Child override saved.');
-        }
-
-        $existingId = null;
-        if (!empty($data['target_route'])) {
-            $existingId = DB::table('osmm_menu_items')
-                ->where('parent', $parentId)
-                ->where('route', $data['target_route'])
-                ->value('id');
-        }
-        if (!$existingId && !empty($data['target_name'])) {
-            $existingId = DB::table('osmm_menu_items')
-                ->where('parent', $parentId)
-                ->whereNull('route')
-                ->where('name', $data['target_name'])
-                ->value('id');
-        }
-
-        if ($existingId) {
-            DB::table('osmm_menu_items')->where('id', $existingId)->update([
-                'name_override'  => $data['name_override']  ?? null,
-                'label_override' => $data['label_override'] ?? null,
-                'icon'           => $data['icon']           ?? null,
-                'route'          => $data['route']          ?? DB::raw('`route`'),
-                'permission'     => $data['permission']     ?? null,
-                'order'          => $data['order']          ?? null,
-                'updated_at'     => now(),
-            ]);
-        } else {
-            DB::table('osmm_menu_items')->insert([
-                'parent'         => $parentId,
-                'name'           => $data['target_name']   ?? null, // identity fallback
-                'route'          => $data['route']         ?? ($data['target_route'] ?? null),
-                'name_override'  => $data['name_override']  ?? null,
-                'label_override' => $data['label_override'] ?? null,
-                'icon'           => $data['icon']           ?? null,
-                'permission'     => $data['permission']     ?? null,
+                'visible'        => $data['visible']        ?? null,
                 'order'          => $data['order']          ?? null,
                 'created_at'     => now(),
                 'updated_at'     => now(),
             ]);
         }
+    }
 
+    Cache::forget('osmm_menu_rows');
+    return back()->with('status', 'Parent override saved.');
+}
+
+
+    public function upsertChild(Request $request)
+{
+    $data = $request->validate([
+        'id'             => 'nullable|integer|exists:osmm_menu_items,id',
+        'parent_id'      => 'nullable|integer|exists:osmm_menu_items,id',
+        'route_segment'  => 'nullable|string|max:150', // used to resolve/create parent if parent_id missing
+        'target_route'   => 'nullable|string|max:190', // identity of native child (match primary)
+        'target_name'    => 'nullable|string|max:150', // identity fallback for route-less children
+        'name_override'  => 'nullable|string|max:150',
+        'label_override' => 'nullable|string|max:190',
+        'icon'           => 'nullable|string|max:150',
+        'route'          => 'nullable|string|max:190', // override route (can differ from target_route)
+        'permission'     => 'nullable|string|max:190',
+        // allow both string and int versions of 0/1
+        'visible'        => ['nullable', Rule::in([0,1,'0','1'])],
+        'order'          => 'nullable|integer|min:1',
+    ]);
+
+    // normalize empties -> null
+    foreach (['name_override','label_override','icon','route','permission','order','visible'] as $k) {
+        if (array_key_exists($k, $data) && $data[$k] === '') $data[$k] = null;
+    }
+    // coerce visible to int 0/1 or null
+    if (array_key_exists('visible', $data)) {
+        $data['visible'] = ($data['visible'] === '' || $data['visible'] === null)
+            ? null
+            : (int) $data['visible'];
+    }
+
+    // Resolve parent id (by parent_id or route_segment)
+    $parentId = $data['parent_id'] ?? null;
+    if (!$parentId && !empty($data['route_segment'])) {
+        $parentId = DB::table('osmm_menu_items')
+            ->whereNull('parent')
+            ->where('route_segment', $data['route_segment'])
+            ->value('id');
+
+        // create placeholder parent row if not present yet
+        if (!$parentId) {
+            $parentId = DB::table('osmm_menu_items')->insertGetId([
+                'parent'         => null,
+                'route_segment'  => $data['route_segment'],
+                'created_at'     => now(),
+                'updated_at'     => now(),
+            ]);
+        }
+    }
+
+    if (!$parentId) {
+        return back()->withErrors(['parent_id' => 'Parent section is required.']);
+    }
+
+    // If editing existing row by id
+    if (!empty($data['id'])) {
+        DB::table('osmm_menu_items')->where('id', $data['id'])->update([
+            'parent'         => $parentId,
+            'name_override'  => $data['name_override']  ?? null,
+            'label_override' => $data['label_override'] ?? null,
+            'icon'           => $data['icon']           ?? null,
+            'route'          => $data['route']          ?? null,
+            'permission'     => $data['permission']     ?? null,
+            'visible'        => $data['visible']        ?? null,
+            'order'          => $data['order']          ?? null,
+            'updated_at'     => now(),
+        ]);
         Cache::forget('osmm_menu_rows');
         return back()->with('status', 'Child override saved.');
     }
+
+    // Otherwise, locate an existing child row by identity (target_route / target_name)
+    $existingId = null;
+
+    if (!empty($data['target_route'])) {
+        $existingId = DB::table('osmm_menu_items')
+            ->where('parent', $parentId)
+            ->where('route', $data['target_route'])
+            ->value('id');
+    }
+
+    if (!$existingId && !empty($data['target_name'])) {
+        // Route-less child: match by stored identity name
+        $existingId = DB::table('osmm_menu_items')
+            ->where('parent', $parentId)
+            ->whereNull('route')
+            ->where('name', $data['target_name'])
+            ->value('id');
+    }
+
+    if ($existingId) {
+        // Update found row
+        DB::table('osmm_menu_items')->where('id', $existingId)->update([
+            'name_override'  => $data['name_override']  ?? null,
+            'label_override' => $data['label_override'] ?? null,
+            'icon'           => $data['icon']           ?? null,
+            // allow overriding the route (if not provided, keep existing)
+            'route'          => $data['route']          ?? DB::raw('`route`'),
+            'permission'     => $data['permission']     ?? null,
+            'visible'        => $data['visible']        ?? null,
+            'order'          => $data['order']          ?? null,
+            'updated_at'     => now(),
+        ]);
+    } else {
+        // Create new child override row, binding identity for future matches
+        DB::table('osmm_menu_items')->insert([
+            'parent'         => $parentId,
+            'name'           => $data['target_name']   ?? null,                     // identity fallback
+            'route'          => $data['route']         ?? ($data['target_route'] ?? null),
+            'name_override'  => $data['name_override']  ?? null,
+            'label_override' => $data['label_override'] ?? null,
+            'icon'           => $data['icon']           ?? null,
+            'permission'     => $data['permission']     ?? null,
+            'visible'        => $data['visible']        ?? null,
+            'order'          => $data['order']          ?? null,
+            'created_at'     => now(),
+            'updated_at'     => now(),
+        ]);
+    }
+
+    Cache::forget('osmm_menu_rows');
+    return back()->with('status', 'Child override saved.');
+}
+
 
     public function delete(Request $req)
     {
@@ -524,9 +562,9 @@ class OsmmMenuController extends Controller
     {
         $merged = $native;
 
-        // ----- Parents (parent = NULL)
+        // ----- Parents
         foreach ($dbRowsCol as $row0) {
-            $row = is_array($row0) ? (object)$row0 : $row0; // defensive
+            $row = is_array($row0) ? (object)$row0 : $row0;
             if (!is_null($row->parent)) continue;
             $seg = $row->route_segment;
             if (!$seg) continue;
@@ -534,18 +572,31 @@ class OsmmMenuController extends Controller
             $key = $this->findParentKeyBySegment($merged, $seg);
             if ($key === null) continue;
 
+            // VISIBILITY override
+            if ($row->visible !== null) {
+                if ((int)$row->visible === 0) { // force hide
+                    unset($merged[$key]);
+                    continue; // nothing else to apply
+                }
+                if ((int)$row->visible === 1) { // force show
+                    $merged[$key]['permission'] = null;
+                }
+            }
+
+            // Display overrides
             if (!is_null($row->name_override))  $merged[$key]['name']  = $row->name_override;
             if (!is_null($row->label_override)) $merged[$key]['label'] = $row->label_override;
 
+            // Other attributes
             if (!is_null($row->icon))           $merged[$key]['icon']  = $row->icon;
             if (!is_null($row->route))          $merged[$key]['route'] = $row->route;
             if (!is_null($row->permission))     $merged[$key]['permission'] = $row->permission;
         }
 
-        // ----- Children (parent != NULL) — match by route first, then name
+        // ----- Children
         $segByParentId = [];
         foreach ($dbRowsCol as $r0) {
-            $r = is_array($r0) ? (object)$r0 : $r0; // defensive
+            $r = is_array($r0) ? (object)$r0 : $r0;
             if (is_null($r->parent)) continue;
             if (!isset($segByParentId[$r->parent])) {
                 $segByParentId[$r->parent] = DB::table('osmm_menu_items')
@@ -554,7 +605,7 @@ class OsmmMenuController extends Controller
         }
 
         foreach ($dbRowsCol as $row0) {
-            $row = is_array($row0) ? (object)$row0 : $row0; // defensive
+            $row = is_array($row0) ? (object)$row0 : $row0;
             if (is_null($row->parent)) continue;
 
             $seg = $segByParentId[$row->parent] ?? $row->route_segment;
@@ -572,9 +623,23 @@ class OsmmMenuController extends Controller
             $idx = $this->findChildIndex($seq, $row->route, $row->name);
             if ($idx === null) continue;
 
+            // VISIBILITY override
+            if ($row->visible !== null) {
+                if ((int)$row->visible === 0) { // force hide
+                    array_splice($seq, $idx, 1);
+                    $merged[$pKey]['entries'] = $seq;
+                    continue; // removed, stop processing this row
+                }
+                if ((int)$row->visible === 1) { // force show
+                    $seq[$idx]['permission'] = null;
+                }
+            }
+
+            // Display overrides
             if (!is_null($row->name_override))  $seq[$idx]['name']  = $row->name_override;
             if (!is_null($row->label_override)) $seq[$idx]['label'] = $row->label_override;
 
+            // Other attributes
             if (!is_null($row->icon))           $seq[$idx]['icon']  = $row->icon;
             if (!is_null($row->route))          $seq[$idx]['route'] = $row->route;
             if (!is_null($row->permission))     $seq[$idx]['permission'] = $row->permission;
@@ -584,6 +649,7 @@ class OsmmMenuController extends Controller
 
         return $merged;
     }
+
 
     /** Find the parent key in the menu by its route_segment (falls back to key). */
     protected function findParentKeyBySegment(array $menu, string $segment): ?string
