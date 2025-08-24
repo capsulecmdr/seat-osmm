@@ -21,6 +21,6 @@
 
 <ul class="navbar-nav">
   @foreach($menu as $key => $item)
-    @include('seat-osmm::menu.partials.topbar-node', ['item' => $item, 'can' => $can, 'level' => 0])
+    @include('seat-osmm::menu.partials.osmm.topbar-node', ['item' => $item, 'can' => $can, 'level' => 0])
   @endforeach
 </ul>
