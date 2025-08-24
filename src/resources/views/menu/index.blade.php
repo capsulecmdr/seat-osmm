@@ -2,6 +2,33 @@
 @section('page_title', 'OSMM Menu Manager')
 
 @section('content')
+{{-- Top previews: Native vs Merged as a navbar --}}
+<div class="row">
+  <div class="col-md-6">
+    <div class="card mb-3">
+      <div class="card-header">
+        <strong>Native Navbar (preview)</strong>
+        <small class="text-muted ml-2">package.sidebar</small>
+      </div>
+      <div class="card-body p-0">
+        @include('seat-osmm::menu.partials.topbar', ['menu' => $native, 'can' => $can ?? null])
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-6">
+    <div class="card mb-3">
+      <div class="card-header">
+        <strong>Merged Navbar (preview)</strong>
+        <small class="text-muted ml-2">DB overrides applied</small>
+      </div>
+      <div class="card-body p-0">
+        @include('seat-osmm::menu.partials.topbar', ['menu' => $merged, 'can' => $can ?? null])
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="row">
   {{-- LEFT: Native sidebar --}}
   <div class="col-md-4">
