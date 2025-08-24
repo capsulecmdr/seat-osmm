@@ -46,63 +46,51 @@
       </div>
 
       <div class="card-footer">
-        {{-- EDIT / UPDATE FORM (pre-filled on click) --}}
+        {{-- EDIT / UPDATE FORM (pre-filled on click in center list) --}}
         <form id="override-edit-form" method="post" action="{{ route('osmm.menu.parent.upsert') }}">
           @csrf
-          {{-- hidden fields (populated by JS) --}}
+          {{-- hidden fields filled by JS --}}
           <input type="hidden" name="id" id="edit-id">
-          <input type="hidden" name="parent_id" id="edit-parent_id"> {{-- for children --}}
+          <input type="hidden" name="parent_id" id="edit-parent_id">
 
           <div class="form-row">
             <div class="form-group col-md-6 mb-2">
-              <label class="mb-0">Name</label>
-              <input type="text" class="form-control form-control-sm" name="name" id="edit-name" placeholder="Display name">
-              <small class="form-text text-muted">Shown in the sidebar title (parent) or child label.</small>
+              <label class="mb-0">Name override</label>
+              <input type="text" class="form-control form-control-sm" name="name" id="edit-name" placeholder="Leave blank to keep native">
+              <small class="form-text text-muted">Shown for section title or child label.</small>
             </div>
             <div class="form-group col-md-6 mb-2">
               <label class="mb-0">Icon</label>
               <input type="text" class="form-control form-control-sm" name="icon" id="edit-icon" placeholder="e.g., fas fa-user">
-              <small class="form-text text-muted">Font Awesome class, e.g. <code>fas fa-cog</code>.</small>
+              <small class="form-text text-muted">Font Awesome class.</small>
             </div>
           </div>
 
           <div id="wrap-route-segment" class="form-group mb-2">
             <label class="mb-0">Route Segment (parents only)</label>
-
-            {{-- input with suggestions, but still free-typed if needed --}}
-            <input type="text"
-                  class="form-control form-control-sm"
-                  name="route_segment"
-                  id="edit-route_segment"
-                  list="route-segment-options"
-                  placeholder="e.g., configuration">
-
-            <datalist id="route-segment-options">
-              @foreach(($routeSegments ?? []) as $opt)
-                <option value="{{ $opt['value'] }}">{{ $opt['label'] }}</option>
-              @endforeach
-            </datalist>
-
-            <small class="form-text text-muted">
-              Must match the native top-level section you want to override. Pick an existing segment or type a new one.
-            </small>
+            <input type="text" class="form-control form-control-sm" name="route_segment" id="edit-route_segment" placeholder="e.g., configuration">
+            <small class="form-text text-muted">Must match a native section to override it.</small>
           </div>
 
           <div class="form-row">
             <div class="form-group col-md-7 mb-2">
               <label class="mb-0">Route (optional)</label>
               <input type="text" class="form-control form-control-sm" name="route" id="edit-route" placeholder="e.g., seatcore::tools.moons.index">
-              <small class="form-text text-muted">Named route. If not registered, the menu link won’t be clickable.</small>
+              <small class="form-text text-muted">Named route. If missing, link will be disabled.</small>
             </div>
             <div class="form-group col-md-5 mb-2">
               <label class="mb-0">Permission</label>
               <select class="form-control form-control-sm" name="permission" id="edit-permission">
                 <option value="">(none)</option>
-                @foreach(($allPermissions ?? []) as $perm)
-                  <option value="{{ $perm }}">{{ $perm }}</option>
+                @foreach(($allPermissions ?? []) as $opt)
+                  @php
+                    $val = is_array($opt) ? $opt['value'] : $opt;
+                    $lab = is_array($opt) ? $opt['label'] : $opt;
+                  @endphp
+                  <option value="{{ $val }}">{{ $lab }}</option>
                 @endforeach
               </select>
-              <small class="form-text text-muted">Users must have this permission to see the item.</small>
+              <small class="form-text text-muted">Users must have this permission to see it.</small>
             </div>
           </div>
 
@@ -114,12 +102,12 @@
                   <option value="{{ $p['parent_id'] ?? '' }}">{{ $p['label'] }}</option>
                 @endforeach
               </select>
-              <small class="form-text text-muted">Choose the top-level section this child belongs to.</small>
+              <small class="form-text text-muted">Top-level section this child belongs to.</small>
             </div>
             <div class="form-group col-md-4 mb-2">
               <label class="mb-0">Order</label>
               <input type="number" min="1" class="form-control form-control-sm" name="order" id="edit-order" placeholder="1">
-              <small class="form-text text-muted">Position among siblings (1 = first).</small>
+              <small class="form-text text-muted">1-based position (leave blank to follow native).</small>
             </div>
           </div>
 
@@ -167,120 +155,163 @@
   </div>
 </div>
 
-{{-- CREATE FORMS --}}
+{{-- OVERRIDE-ONLY FORMS (no brand-new items; only override existing) --}}
 <div class="row mt-4">
+  {{-- PARENT OVERRIDE --}}
   <div class="col-md-6">
     <div class="card">
-      <div class="card-header"><strong>Create Parent (Top-level)</strong></div>
+      <div class="card-header"><strong>Override: Parent (Top-level section)</strong></div>
       <div class="card-body">
-        <form method="post" action="{{ route('osmm.menu.parent.upsert') }}">
+        <form method="post" action="{{ route('osmm.menu.parent.upsert') }}" id="form-parent-override">
           @csrf
-          <div class="form-row">
-            <div class="col-md-4 mb-2">
-              <label class="mb-0">Name</label>
-              <input name="name" class="form-control form-control-sm" placeholder="e.g., Tools">
-              <small class="form-text text-muted">Shown as the section header.</small>
-            </div>
-            <div class="col-md-4 mb-2">
-              <label class="mb-0">Icon</label>
-              <input name="icon" class="form-control form-control-sm" placeholder="fas fa-wrench">
-              <small class="form-text text-muted">Font Awesome icon.</small>
-            </div>
-            <div class="col-md-4 mb-2">
-              <label class="mb-0">Route Segment</label>
-              <input name="route_segment"
-                    class="form-control form-control-sm"
-                    list="route-segment-options"
-                    placeholder="tools" required>
+          <input type="hidden" name="id" id="parent-id"> {{-- existing parent override id, if any --}}
+          <input type="hidden" name="route_segment" id="parent-seg-hidden">
+          <input type="hidden" name="parent_id" id="parent-db-id">
 
-              {{-- reuse the same datalist defined above; if this is a separate blade, re-include the datalist --}}
-              <small class="form-text text-muted">
-                Should match a native section’s segment (see suggestions) or enter a custom one.
-              </small>
+          <div class="form-row">
+            <div class="col-md-6 mb-2">
+              <label class="mb-0">Section (route_segment)</label>
+              <select class="form-control form-control-sm" id="parent-seg-select">
+                @foreach(($routeSegments ?? []) as $opt)
+                  <option value="{{ $opt['value'] }}">{{ $opt['label'] }}</option>
+                @endforeach
+              </select>
+              <small class="form-text text-muted">Select the existing top-level section to override.</small>
+            </div>
+
+            <div class="col-md-6 mb-2">
+              <label class="mb-0">Item to override</label>
+              <select class="form-control form-control-sm" id="parent-item-select" disabled>
+                <option value="">(the section itself)</option>
+              </select>
+              <small class="form-text text-muted">Parent overrides always target the section itself.</small>
             </div>
           </div>
+
           <div class="form-row">
             <div class="col-md-7 mb-2">
               <label class="mb-0">Route (optional)</label>
-              <input name="route" class="form-control form-control-sm" placeholder="seatcore::tools.market.browser">
-              <small class="form-text text-muted">If set, parent is clickable.</small>
+              <select class="form-control form-control-sm" name="route" id="parent-route-select">
+                <option value="">(no route)</option>
+              </select>
+              <small class="form-text text-muted">Use the section’s route or one of its children’s routes.</small>
             </div>
             <div class="col-md-5 mb-2">
               <label class="mb-0">Permission</label>
-              <select name="permission" class="form-control form-control-sm">
+              <select name="permission" class="form-control form-control-sm" id="parent-permission-select">
                 <option value="">(none)</option>
-                @foreach(($allPermissions ?? []) as $perm)
-                  <option value="{{ $perm }}">{{ $perm }}</option>
+                @foreach(($allPermissions ?? []) as $opt)
+                  @php
+                    $val = is_array($opt) ? $opt['value'] : $opt;
+                    $lab = is_array($opt) ? $opt['label'] : $opt;
+                  @endphp
+                  <option value="{{ $val }}">{{ $lab }}</option>
                 @endforeach
               </select>
-              <small class="form-text text-muted">Users must have this permission.</small>
+              <small class="form-text text-muted">Users must have this permission to see the section.</small>
             </div>
           </div>
+
           <div class="form-row">
+            <div class="col-md-6 mb-2">
+              <label class="mb-0">Name override</label>
+              <input name="name" id="parent-name-override" class="form-control form-control-sm" placeholder="Leave blank to keep native name">
+              <small class="form-text text-muted">Replaces the section title in the sidebar.</small>
+            </div>
+            <div class="col-md-3 mb-2">
+              <label class="mb-0">Icon</label>
+              <input name="icon" id="parent-icon" class="form-control form-control-sm" placeholder="fas fa-wrench">
+              <small class="form-text text-muted">Font Awesome class.</small>
+            </div>
             <div class="col-md-3 mb-2">
               <label class="mb-0">Order</label>
-              <input name="order" type="number" class="form-control form-control-sm" placeholder="1" min="1">
-              <small class="form-text text-muted">Position among top-level sections.</small>
+              <input name="order" type="number" min="1" id="parent-order" class="form-control form-control-sm" placeholder="1">
+              <small class="form-text text-muted">1-based position among sections (blank = native).</small>
             </div>
           </div>
-          <button class="btn btn-primary btn-sm">Create Parent</button>
+
+          <button class="btn btn-primary btn-sm">Save Parent Override</button>
         </form>
       </div>
     </div>
   </div>
 
+  {{-- CHILD OVERRIDE --}}
   <div class="col-md-6">
     <div class="card">
-      <div class="card-header"><strong>Create Child (Menu Item)</strong></div>
+      <div class="card-header"><strong>Override: Child (Menu item)</strong></div>
       <div class="card-body">
-        <form method="post" action="{{ route('osmm.menu.child.upsert') }}">
+        <form method="post" action="{{ route('osmm.menu.child.upsert') }}" id="form-child-override">
           @csrf
+          <input type="hidden" name="id" id="child-id">
+          <input type="hidden" name="parent_id" id="child-parent-id">
+          <input type="hidden" name="route_segment" id="child-seg-hidden">
+          <input type="hidden" name="target_route" id="child-target-route">
+          <input type="hidden" name="target_name"  id="child-target-name">
+
           <div class="form-row">
             <div class="col-md-6 mb-2">
-              <label class="mb-0">Parent Section</label>
-              <select name="parent_id" class="form-control form-control-sm" required>
-                @foreach(($parentOptions ?? []) as $p)
-                  <option value="{{ $p['parent_id'] ?? '' }}">{{ $p['label'] }}</option>
+              <label class="mb-0">Parent section</label>
+              <select class="form-control form-control-sm" id="child-seg-select" required>
+                @foreach(($routeSegments ?? []) as $opt)
+                  <option value="{{ $opt['value'] }}">{{ $opt['label'] }}</option>
                 @endforeach
               </select>
-              <small class="form-text text-muted">Which top-level section this child lives under.</small>
+              <small class="form-text text-muted">Section containing the child to override.</small>
             </div>
+
             <div class="col-md-6 mb-2">
-              <label class="mb-0">Name</label>
-              <input name="name" class="form-control form-control-sm" placeholder="e.g., Moons Reporter">
-              <small class="form-text text-muted">Label shown in the submenu.</small>
+              <label class="mb-0">Item to override</label>
+              <select class="form-control form-control-sm" id="child-item-select" required>
+                <option value="">Select an item…</option>
+              </select>
+              <small class="form-text text-muted">Populated from the selected section’s children.</small>
             </div>
           </div>
+
           <div class="form-row">
             <div class="col-md-7 mb-2">
               <label class="mb-0">Route</label>
-              <input name="route" class="form-control form-control-sm" placeholder="seatcore::tools.moons.index" required>
-              <small class="form-text text-muted">Named route the item links to.</small>
+              <select class="form-control form-control-sm" name="route" id="child-route-select">
+                <option value="">(no change)</option>
+              </select>
+              <small class="form-text text-muted">Filtered to routes within the selected section.</small>
             </div>
             <div class="col-md-5 mb-2">
               <label class="mb-0">Permission</label>
-              <select name="permission" class="form-control form-control-sm">
+              <select name="permission" class="form-control form-control-sm" id="child-permission-select">
                 <option value="">(none)</option>
-                @foreach(($allPermissions ?? []) as $perm)
-                  <option value="{{ $perm }}">{{ $perm }}</option>
+                @foreach(($allPermissions ?? []) as $opt)
+                  @php
+                    $val = is_array($opt) ? $opt['value'] : $opt;
+                    $lab = is_array($opt) ? $opt['label'] : $opt;
+                  @endphp
+                  <option value="{{ $val }}">{{ $lab }}</option>
                 @endforeach
               </select>
-              <small class="form-text text-muted">Restrict visibility to this permission.</small>
+              <small class="form-text text-muted">Restrict visibility for this item.</small>
             </div>
           </div>
+
           <div class="form-row">
             <div class="col-md-6 mb-2">
+              <label class="mb-0">Name override</label>
+              <input name="name" id="child-name-override" class="form-control form-control-sm" placeholder="Leave blank to keep native name">
+              <small class="form-text text-muted">Replaces the child label in the submenu.</small>
+            </div>
+            <div class="col-md-3 mb-2">
               <label class="mb-0">Icon</label>
-              <input name="icon" class="form-control form-control-sm" placeholder="fas fa-moon">
-              <small class="form-text text-muted">Optional Font Awesome icon.</small>
+              <input name="icon" id="child-icon" class="form-control form-control-sm" placeholder="fas fa-moon">
+              <small class="form-text text-muted">Font Awesome class.</small>
             </div>
             <div class="col-md-3 mb-2">
               <label class="mb-0">Order</label>
-              <input name="order" type="number" class="form-control form-control-sm" placeholder="1" min="1">
-              <small class="form-text text-muted">Position within the parent’s submenu.</small>
+              <input name="order" id="child-order" type="number" min="1" class="form-control form-control-sm" placeholder="1">
+              <small class="form-text text-muted">1-based position within section (blank = native).</small>
             </div>
           </div>
-          <button class="btn btn-primary btn-sm">Create Child</button>
+
+          <button class="btn btn-primary btn-sm">Save Child Override</button>
         </form>
       </div>
     </div>
@@ -299,10 +330,11 @@
   .osmm-details .w-35 { width: 35%; }
 </style>
 
-{{-- Script: details table + edit form population --}}
+{{-- Script: details tables, edit form, and dependent dropdowns for override forms --}}
+@push('javascript')
 <script>
 (function(){
-  // ---- helpers ---------------------------------------------------
+  // ---- details helpers -----------------------------------------------------
   const esc = (s) => (s === null || s === undefined) ? '' :
     String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
              .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
@@ -396,7 +428,7 @@
   // CENTER overrides (also fills the edit form)
   wireClicks('[data-osmm-override-row]',   'details-overrides');
 
-  // ---- Edit form population -------------------------------------
+  // ---- Edit form population (center) ---------------------------------------
   const ROUTE_PARENT_UPSERT = @json(route('osmm.menu.parent.upsert'));
   const ROUTE_CHILD_UPSERT  = @json(route('osmm.menu.child.upsert'));
   const ROUTE_DELETE        = @json(route('osmm.menu.delete'));
@@ -408,11 +440,11 @@
     const sel = document.getElementById('edit-permission');
     if (!sel) return;
     if (value && ![...sel.options].some(o => o.value === value)) {
-      const opt = document.createElement('option');
-      opt.value = value; opt.textContent = value;
-      sel.appendChild(opt);
+      const opt = new Option(value, value, true, true);
+      sel.add(opt);
+    } else {
+      sel.value = value || '';
     }
-    sel.value = value || '';
   }
 
   function setEditMode(data){
@@ -476,6 +508,102 @@
       setEditMode(payload);
     } catch (e) {}
   });
+
+  // ---- Dependent dropdowns for override-only forms (bottom) ----------------
+  const CATALOG = @json($menuCatalog ?? []);
+  // seg -> parent DB id (if a parent override row already exists)
+  const PARENT_IDS = {};
+  Object.keys(CATALOG).forEach(seg => { PARENT_IDS[seg] = CATALOG[seg].parent.db_parent_id || ''; });
+
+  // ----- Parent Override
+  const pSegSel  = document.getElementById('parent-seg-select');
+  const pSegHid  = document.getElementById('parent-seg-hidden');
+  const pDbIdHid = document.getElementById('parent-db-id');
+  const pItemSel = document.getElementById('parent-item-select');
+  const pRouteSel= document.getElementById('parent-route-select');
+
+  function rebuildParentRoutes(seg) {
+    pRouteSel.innerHTML = '<option value="">(no route)</option>';
+    if (!seg || !CATALOG[seg]) return;
+    (CATALOG[seg].routes || []).forEach(r => {
+      const opt = new Option(r, r);
+      pRouteSel.add(opt);
+    });
+  }
+
+  function onParentSegChange() {
+    const seg = pSegSel.value || '';
+    pSegHid.value  = seg;
+    pDbIdHid.value = PARENT_IDS[seg] || '';
+    // Lock item select to the section itself
+    pItemSel.innerHTML = '';
+    pItemSel.add(new Option(CATALOG[seg]?.parent?.label || seg, seg, true, true));
+    rebuildParentRoutes(seg);
+  }
+
+  if (pSegSel) {
+    onParentSegChange();
+    pSegSel.addEventListener('change', onParentSegChange);
+  }
+
+  // ----- Child Override
+  const cSegSel   = document.getElementById('child-seg-select');
+  const cSegHid   = document.getElementById('child-seg-hidden');
+  const cParentId = document.getElementById('child-parent-id');
+
+  const cItemSel  = document.getElementById('child-item-select');
+  const cRouteSel = document.getElementById('child-route-select');
+
+  const cTargetRoute = document.getElementById('child-target-route');
+  const cTargetName  = document.getElementById('child-target-name');
+
+  function PARENTIDS_SAFE(seg) { return (PARENT_IDS[seg] || ''); }
+
+  function rebuildChildItems(seg) {
+    cItemSel.innerHTML = '<option value="">Select an item…</option>';
+    if (!seg || !CATALOG[seg]) return;
+    (CATALOG[seg].children || []).forEach(c => {
+      const text = c.label + (c.route ? ` [${c.route}]` : '');
+      const val  = JSON.stringify({ route: c.route || '', name: c.name || '' });
+      cItemSel.add(new Option(text, val));
+    });
+  }
+
+  function rebuildChildRoutes(seg) {
+    cRouteSel.innerHTML = '<option value="">(no change)</option>';
+    if (!seg || !CATALOG[seg]) return;
+    (CATALOG[seg].routes || []).forEach(r => cRouteSel.add(new Option(r, r)));
+  }
+
+  function onChildSegChange() {
+    const seg = cSegSel.value || '';
+    cSegHid.value  = seg;
+    cParentId.value= PARENTIDS_SAFE(seg);
+    rebuildChildItems(seg);
+    rebuildChildRoutes(seg);
+    cTargetRoute.value = '';
+    cTargetName.value  = '';
+  }
+
+  function onChildItemChange() {
+    const val = cItemSel.value;
+    try {
+      const obj = JSON.parse(val || '{}');
+      cTargetRoute.value = obj.route || '';
+      cTargetName.value  = obj.name  || '';
+      if (obj.route) cRouteSel.value = obj.route; // preselect route if present
+    } catch(e) {
+      cTargetRoute.value = '';
+      cTargetName.value  = '';
+    }
+  }
+
+  if (cSegSel) {
+    onChildSegChange();
+    cSegSel.addEventListener('change', onChildSegChange);
+  }
+  if (cItemSel) cItemSel.addEventListener('change', onChildItemChange);
 })();
 </script>
+@endpush
 @endsection

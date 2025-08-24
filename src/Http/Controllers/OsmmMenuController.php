@@ -209,6 +209,8 @@ class OsmmMenuController extends Controller
         $allPermissions = \Cache::remember('osmm_permission_options', 300, fn() => $this->collectPermissionOptions());
         $routeSegments  = \Cache::remember('osmm_route_segment_options', 300, fn() => $this->collectRouteSegmentOptions());
 
+        $menuCatalog = $this->buildMenuCatalog($nativeSorted);
+
         // 6) Permission checker for rendering sidebars ---------------------------
         $can = fn ($perm) => empty($perm) || (\auth()->check() && \auth()->user()->can($perm));
 
@@ -221,6 +223,7 @@ class OsmmMenuController extends Controller
             'allPermissions' => $allPermissions,
             'routeSegments'  => $routeSegments,
             'can'            => $can,
+            'menuCatalog'    => $menuCatalog,
         ]);
     }
 
@@ -598,4 +601,59 @@ class OsmmMenuController extends Controller
 
         return $menu;
     }
+
+    protected function buildMenuCatalog(array $nativeSorted): array
+    {
+        // Map: route_segment => existing parent override DB id (if any)
+        $parentIds = \DB::table('osmm_menu_items')
+            ->whereNull('parent')
+            ->whereNotNull('route_segment')
+            ->pluck('id', 'route_segment')
+            ->all();
+
+        $catalog = [];
+        foreach ($nativeSorted as $key => $p) {
+            if (!is_array($p)) continue;
+            $seg = $p['route_segment'] ?? $key;
+
+            $parent = [
+                'key'         => $key,
+                'segment'     => $seg,
+                'name'        => $p['name'] ?? $key,
+                'label'       => __($p['label'] ?? $p['name'] ?? $key),
+                'route'       => $p['route'] ?? null,
+                'icon'        => $p['icon'] ?? null,
+                'permission'  => $p['permission'] ?? null,
+                'db_parent_id'=> $parentIds[$seg] ?? null,
+            ];
+
+            $children = [];
+            foreach (($p['entries'] ?? []) as $c) {
+                if (!is_array($c)) continue;
+                $children[] = [
+                    'segment'    => $seg,
+                    'name'       => $c['name'] ?? null,
+                    'label'      => __($c['label'] ?? $c['name'] ?? ''),
+                    'route'      => $c['route'] ?? null,
+                    'icon'       => $c['icon'] ?? null,
+                    'permission' => $c['permission'] ?? null,
+                ];
+            }
+
+            // Build route options (parent route + child routes)
+            $routes = [];
+            if (!empty($parent['route'])) $routes[$parent['route']] = $parent['route'];
+            foreach ($children as $c) {
+                if (!empty($c['route'])) $routes[$c['route']] = $c['route'];
+            }
+
+            $catalog[$seg] = [
+                'parent'   => $parent,
+                'children' => $children,
+                'routes'   => array_values($routes), // unique list
+            ];
+        }
+        return $catalog;
+    }
+
 }
