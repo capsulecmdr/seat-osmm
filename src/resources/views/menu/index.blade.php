@@ -43,7 +43,7 @@
            class="card-body p-0"
            style="max-height:60vh; overflow:auto"
            data-menu='@json($native)'>
-        @include('seat-osmm::partials.sidebar', [
+        @include('seat-osmm::menu.partials.sidebar', [
           'menu' => $native,
           'can'  => $can ?? null
         ])
