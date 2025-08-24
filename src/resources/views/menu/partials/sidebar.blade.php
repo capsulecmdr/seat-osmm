@@ -5,8 +5,8 @@
  * - $can  : callable permission checker: fn(string $perm|null): bool
  *
  * Usage:
- * @include('seat-osmm::partials.osmm.sidebar', ['menu' => $native, 'can' => $can])
- * @include('seat-osmm::partials.osmm.sidebar', ['menu' => $merged, 'can' => $can])
+ * @include('seat-osmm::menu.partials.osmm.sidebar', ['menu' => $native, 'can' => $can])
+ * @include('seat-osmm::menu.partials.osmm.sidebar', ['menu' => $merged, 'can' => $can])
  */
 @endphp
 

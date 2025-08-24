@@ -197,7 +197,7 @@
            class="card-body p-0"
            style="max-height:60vh; overflow:auto"
            data-menu='@json($merged)'>
-        @include('seat-osmm::partials.osmm.sidebar', [
+        @include('seat-osmm::menu.partials.osmm.sidebar', [
           'menu' => $merged,
           'can'  => $can ?? null
         ])
