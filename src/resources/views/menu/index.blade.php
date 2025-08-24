@@ -3,12 +3,19 @@
 
 @section('content')
 {{-- Top previews: Native vs Merged as a navbar --}}
-<div>    
-<strong>Native Navbar (preview)</strong>
-    <small class="text-muted ml-2">package.sidebar</small>
-</div>
+<div class="row">
+  <div class="col-md-12">
+    <div class="card mb-3">
+      <div class="card-header">
+        <strong>Native Navbar (preview)</strong>
+        <small class="text-muted ml-2">package.sidebar</small>
+      </div>
+      <div class="card-body p-0">
     @include('seat-osmm::menu.partials.topbar', ['menu' => $native, 'can' => $can ?? null])
-
+        </div>
+    </div>
+  </div>
+</div>
 <div class="row">
   <div class="col-md-12">
     <div class="card mb-3">
