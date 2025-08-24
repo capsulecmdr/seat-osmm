@@ -53,7 +53,7 @@ class OsmmMenuController extends Controller
         $fromPermsTable = [];
         if (Schema::hasTable('permissions')) {
             // Adjust table/column if your SeAT version differs
-            $fromPermsTable = DB::table('permissions')->pluck('name')->all();
+            $fromPermsTable = DB::table('permissions')->pluck('title')->all();
         }
 
         return collect([$fromConfig, $fromDb, $fromPermsTable])
