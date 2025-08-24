@@ -8,27 +8,57 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Arr;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Schema;
+
 
 class OsmmMenuController extends Controller
 {
     /** CONFIG PAGE: side-by-side tree view (native vs merged) + CRUD tools */
     public function index()
-{
-    $native    = config('package.sidebar') ?? [];
-    $overrides = $this->buildDbOverrides();
-    $merged    = $this->applyOverrides($native, $overrides);
+    {
+        $native    = config('package.sidebar') ?? [];
+        $overrides = $this->buildDbOverrides();
+        $merged    = $this->applyOverrides($native, $overrides);
 
-    // DB rows for center column list
-    $dbRows = \DB::table('osmm_menu_items')
-        ->select('id','parent','order','name','icon','route_segment','route','permission','created_at','updated_at')
-        ->orderBy('parent')->orderBy('order')
-        ->get();
+        $dbRows = DB::table('osmm_menu_items')
+            ->select('id','parent','order','name','icon','route_segment','route','permission','created_at','updated_at')
+            ->orderBy('parent')->orderBy('order')->get();
 
-    // (optional) permission lambda
-    $can = fn ($perm) => empty($perm) || (auth()->check() && auth()->user()->can($perm));
+        $can = fn ($perm) => empty($perm) || (auth()->check() && auth()->user()->can($perm));
 
-    return view('seat-osmm::menu.index', compact('native','merged','dbRows','can'));
-}
+        $parentOptions = collect($native)->map(function ($v, $k) {
+            $seg = $v['route_segment'] ?? $k;
+            $parentId = DB::table('osmm_menu_items')->whereNull('parent')->where('route_segment', $seg)->value('id');
+            return ['key'=>$k,'name'=>$v['name'] ?? $k,'seg'=>$seg,'label'=>($v['name'] ?? $k)." [{$seg}]",'parent_id'=>$parentId];
+        })->values()->all();
+
+        $allPermissions = Cache::remember('osmm_permission_options', 300, fn() => $this->collectPermissionOptions());
+
+        return view('seat-osmm::menu.index', compact('native','merged','dbRows','can','parentOptions','allPermissions'));
+    }
+
+    protected function collectPermissionOptions(): array
+    {
+        $fromConfig = collect(config('package.sidebar') ?? [])
+            ->flatMap(function ($p) {
+                return array_filter([
+                    $p['permission'] ?? null,
+                    ...collect($p['entries'] ?? [])->pluck('permission')->all(),
+                ]);
+            })->all();
+
+        $fromDb = DB::table('osmm_menu_items')
+            ->whereNotNull('permission')->distinct()->pluck('permission')->all();
+
+        $fromPermsTable = [];
+        if (Schema::hasTable('permissions')) {
+            // Adjust table/column if your SeAT version differs
+            $fromPermsTable = DB::table('permissions')->pluck('name')->all();
+        }
+
+        return collect([$fromConfig, $fromDb, $fromPermsTable])
+            ->flatten()->filter()->unique()->sort()->values()->all();
+    }
 
     /** API: merged menu as JSON for app consumption */
     public function jsonMerged()
