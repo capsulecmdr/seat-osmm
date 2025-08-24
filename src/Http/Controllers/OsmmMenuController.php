@@ -15,139 +15,215 @@ class OsmmMenuController extends Controller
 {
     /** CONFIG PAGE: side-by-side tree view (native vs merged) + CRUD tools */
     public function index()
-{
-    // ---- 1) Source data ----------------------------------------------------
-    $native    = config('package.sidebar') ?? [];
+    {
+        // 1) Load sources ---------------------------------------------------------
+        $native = config('package.sidebar') ?? [];
 
-    // Raw DB rows (collection) for center column and for sorting hints
-    $dbRowsCol = \DB::table('osmm_menu_items')
-        ->select('id','parent','order','name','icon','route_segment','route','permission','created_at','updated_at')
-        ->orderBy('parent')->orderBy('order')
-        ->get();
+        // Raw DB rows (for center list + explicit order)
+        $dbRowsCol = \DB::table('osmm_menu_items')
+            ->select('id','parent','order','name','icon','route_segment','route','permission','created_at','updated_at')
+            ->orderBy('parent')->orderBy('order')->get();
 
-    // Build overrides -> merge them into native
-    $overrides = $this->buildDbOverrides();
-    $merged    = $this->applyOverrides($native, $overrides);
+        // Overrides -> merged menu
+        $overrides = $this->buildDbOverrides();       // your existing helper
+        $merged    = $this->applyOverrides($native, $overrides); // your existing helper
 
-    // ---- 2) Sorting (to match SeAT sidebar) --------------------------------
-    // Helpers inline to keep this self-contained
-    $labelOf = function(array $item, string $fallback = '') {
-        $label = $item['label'] ?? $item['name'] ?? $fallback;
-        try { $label = __($label); } catch (\Throwable $e) {}
-        return (string) $label;
-    };
-    $numericPrefixWeight = function(string $key) {
-        return preg_match('/^\d+/', $key, $m) ? (int) $m[0] : 1000;
-    };
-
-    // Parent order map from DB (parent rows have parent = null)
-    $parentOrderMap = [];
-    foreach ($dbRowsCol as $r) {
-        if (is_null($r->parent) && $r->route_segment && isset($r->order)) {
-            $parentOrderMap[$r->route_segment] = (int) $r->order;
-        }
-    }
-
-    // Child order maps (match by route first, fallback to name)
-    $childOrderByRoute = $childOrderByName = [];
-    foreach ($dbRowsCol as $r) {
-        if (!is_null($r->parent) && isset($r->order)) {
-            if (!empty($r->route)) $childOrderByRoute[$r->route] = (int) $r->order;
-            if (!empty($r->name))  $childOrderByName[$r->name]   = (int) $r->order;
-        }
-    }
-
-    $sortParents = function(array &$menu) use ($labelOf, $numericPrefixWeight, $parentOrderMap) {
-        uksort($menu, function ($aKey, $bKey) use ($menu, $labelOf, $numericPrefixWeight, $parentOrderMap) {
-            $a = $menu[$aKey]; $b = $menu[$bKey];
-
-            $aSeg = $a['route_segment'] ?? $aKey;
-            $bSeg = $b['route_segment'] ?? $bKey;
-
-            // 1) DB order (if present)
-            $aW = $parentOrderMap[$aSeg] ?? null;
-            $bW = $parentOrderMap[$bSeg] ?? null;
-
-            // 2) Numeric key prefix like "0home"
-            $aW = $aW ?? $numericPrefixWeight($aKey);
-            $bW = $bW ?? $numericPrefixWeight($bKey);
-
-            if ($aW !== $bW) return $aW <=> $bW;
-
-            // 3) Alpha by translated label
-            $aL = mb_strtolower($labelOf($a, $aKey));
-            $bL = mb_strtolower($labelOf($b, $bKey));
-            return strnatcasecmp($aL, $bL);
-        });
-    };
-
-    $sortChildren = function(array &$menu) use ($labelOf, $childOrderByRoute, $childOrderByName) {
-        foreach ($menu as &$parent) {
-            if (empty($parent['entries']) || !is_array($parent['entries'])) continue;
-
-            // Normalize to a sequential array
+        // 2) Sort Native like SeAT ------------------------------------------------
+        $labelOf = function(array $item, string $fallback = ''): string {
+            $label = $item['label'] ?? $item['name'] ?? $fallback;
+            try { $label = __($label); } catch (\Throwable $e) {}
+            return (string) $label;
+        };
+        $numericPrefixWeight = function(string $key): int {
+            // SeAT often uses numeric prefixes to pin items (e.g. "0home")
+            return preg_match('/^\d+/', $key, $m) ? (int) $m[0] : 1000;
+        };
+        $sortChildrenAlpha = function(array &$parent) use ($labelOf) {
+            if (empty($parent['entries']) || !is_array($parent['entries'])) return;
             $entries = [];
             foreach ($parent['entries'] as $e) if (is_array($e)) $entries[] = $e;
-
-            usort($entries, function ($a, $b) use ($labelOf, $childOrderByRoute, $childOrderByName) {
-                // Weight from DB.order, matched by route first, then name
-                $aW = $a['route'] ?? null; $aW = $aW && isset($childOrderByRoute[$aW]) ? $childOrderByRoute[$aW] : (
-                      (isset($a['name']) && isset($childOrderByName[$a['name']])) ? $childOrderByName[$a['name']] : 1000);
-                $bW = $b['route'] ?? null; $bW = $bW && isset($childOrderByRoute[$bW]) ? $childOrderByRoute[$bW] : (
-                      (isset($b['name']) && isset($childOrderByName[$b['name']])) ? $childOrderByName[$b['name']] : 1000);
-
-                if ($aW !== $bW) return $aW <=> $bW;
-
-                $aL = mb_strtolower($labelOf($a));
-                $bL = mb_strtolower($labelOf($b));
-                return strnatcasecmp($aL, $bL);
+            usort($entries, function($a,$b) use ($labelOf){
+                return strnatcasecmp(
+                    mb_strtolower($labelOf($a, $a['name'] ?? '')),
+                    mb_strtolower($labelOf($b, $b['name'] ?? ''))
+                );
             });
+            $parent['entries'] = $entries;
+        };
+        $nativeSorted = $native;
+        // parents
+        uksort($nativeSorted, function($aKey,$bKey) use ($nativeSorted,$labelOf,$numericPrefixWeight){
+            $a = $nativeSorted[$aKey]; $b = $nativeSorted[$bKey];
+            $aW = $numericPrefixWeight($aKey); $bW = $numericPrefixWeight($bKey);
+            if ($aW !== $bW) return $aW <=> $bW;
+            return strnatcasecmp(
+                mb_strtolower($labelOf($a,$aKey)),
+                mb_strtolower($labelOf($b,$bKey))
+            );
+        });
+        // children (alpha)
+        foreach ($nativeSorted as &$p) $sortChildrenAlpha($p);
+        unset($p);
+
+        // 3) Prepare helpers for explicit reordering ------------------------------
+        // Build segment map: parent key -> segment
+        $segOfKey = [];
+        foreach ($nativeSorted as $k => $p) $segOfKey[$k] = $p['route_segment'] ?? $k;
+
+        // Map: route_segment -> parent DB id (for matching children rows)
+        $parentDbIdBySeg = \DB::table('osmm_menu_items')
+            ->whereNull('parent')->whereNotNull('route_segment')->pluck('id','route_segment')->all();
+        // Inverse: parent DB id -> segment
+        $segByParentDbId = array_flip($parentDbIdBySeg);
+
+        // Explicit orders from DB
+        $parentOrderBySeg = [];               // e.g. ['alliances' => 99]
+        $childOrdersBySeg = [];               // e.g. ['alliances' => [['route'=>'seatcore::...','order'=>3], ...]]
+        foreach ($dbRowsCol as $r) {
+            if (!isset($r->order)) continue;
+            if (is_null($r->parent)) {
+                if (!empty($r->route_segment)) $parentOrderBySeg[$r->route_segment] = (int)$r->order;
+            } else {
+                $seg = $segByParentDbId[$r->parent] ?? null;
+                if (!$seg) continue;
+                $childOrdersBySeg[$seg] = $childOrdersBySeg[$seg] ?? [];
+                $childOrdersBySeg[$seg][] = [
+                    'route' => $r->route,
+                    'name'  => $r->name,
+                    'order' => (int)$r->order,
+                ];
+            }
+        }
+
+        // Helper: reposition items in a list by 1-based "order" (clamped)
+        $reposition = function(array $keys, array $orderMap) {
+            // $orderMap: map key => pos (1-based)
+            // Process by ascending desired pos to keep intuitive outcomes
+            $indexed = array_values($keys);
+            // Build pairs [key, pos]
+            $pairs = [];
+            foreach ($orderMap as $k => $pos) $pairs[] = [$k, max(1,(int)$pos)];
+            usort($pairs, fn($a,$b) => $a[1] <=> $b[1]);
+
+            foreach ($pairs as [$key, $pos]) {
+                $i = array_search($key, $indexed, true);
+                if ($i === false) continue;
+                array_splice($indexed, $i, 1); // remove
+                $insertAt = min(max($pos-1, 0), count($indexed)); // clamp to end
+                array_splice($indexed, $insertAt, 0, [$key]); // insert
+            }
+            return $indexed;
+        };
+
+        // 4) Build Merged in *native* order first, then apply DB 'order' ----------
+        // a) Parent order: start with native keys
+        $nativeParentKeys = array_keys($nativeSorted);
+
+        // Map segment->key so we can translate DB orders (by segment) to actual keys
+        $keyBySeg = [];
+        foreach ($nativeSorted as $k => $p) $keyBySeg[$segOfKey[$k]] = $k;
+
+        // Translate parent orders (seg->pos) into key->pos for the *merged* menu
+        $parentOrderByKey = [];
+        foreach ($parentOrderBySeg as $seg => $pos) {
+            if (isset($keyBySeg[$seg])) $parentOrderByKey[$keyBySeg[$seg]] = (int)$pos;
+        }
+
+        // Reorder parent keys
+        $mergedParentKeys = $reposition($nativeParentKeys, $parentOrderByKey);
+
+        // Rebuild merged assoc in that order
+        $mergedInNativeOrder = [];
+        foreach ($mergedParentKeys as $k) if (array_key_exists($k, $merged)) $mergedInNativeOrder[$k] = $merged[$k];
+
+        // b) For each parent, default-sort children like Native (alpha), then apply DB orders
+        foreach ($mergedInNativeOrder as $pKey => &$parent) {
+            // default child sort (same method as native)
+            $sortChildrenAlpha($parent);
+
+            $seg = $segOfKey[$pKey] ?? ($parent['route_segment'] ?? $pKey);
+            if (empty($childOrdersBySeg[$seg]) || empty($parent['entries'])) continue;
+
+            // Prepare child list and indexes (by route then by name)
+            $entries = $parent['entries'];
+            $indexByRoute = [];
+            $indexByName  = [];
+            foreach ($entries as $idx => $e) {
+                if (!empty($e['route'])) $indexByRoute[$e['route']] = $idx;
+                if (!empty($e['name']))  $indexByName[$e['name']]   = $idx;
+            }
+
+            // Build order map for existing items (by key = current index placeholder)
+            // We'll translate into "reposition on the fly" using array_splice on the entries array.
+            // Sort requested moves by desired position
+            usort($childOrdersBySeg[$seg], fn($a,$b) => $a['order'] <=> $b['order']);
+
+            foreach ($childOrdersBySeg[$seg] as $req) {
+                $keyIdx = null;
+                if (!empty($req['route']) && isset($indexByRoute[$req['route']])) {
+                    $keyIdx = $indexByRoute[$req['route']];
+                } elseif (!empty($req['name']) && isset($indexByName[$req['name']])) {
+                    $keyIdx = $indexByName[$req['name']];
+                }
+                if ($keyIdx === null) continue; // not present in merged entries (skip)
+
+                // remove the item
+                $item = $entries[$keyIdx];
+                array_splice($entries, $keyIdx, 1);
+
+                // recompute length & clamp target
+                $insertAt = (int)$req['order'] - 1;
+                if ($insertAt < 0) $insertAt = 0;
+                if ($insertAt > count($entries)) $insertAt = count($entries);
+
+                // insert at new position
+                array_splice($entries, $insertAt, 0, [$item]);
+
+                // rebuild indexes after mutation
+                $indexByRoute = $indexByName = [];
+                foreach ($entries as $idx => $e) {
+                    if (!empty($e['route'])) $indexByRoute[$e['route']] = $idx;
+                    if (!empty($e['name']))  $indexByName[$e['name']]   = $idx;
+                }
+            }
 
             $parent['entries'] = $entries;
         }
         unset($parent);
-    };
 
-    $nativeSorted = $native;
-    $sortParents($nativeSorted);
-    $sortChildren($nativeSorted);
+        $mergedSorted = $mergedInNativeOrder;
 
-    $mergedSorted = $merged;
-    $sortParents($mergedSorted);
-    $sortChildren($mergedSorted);
+        // 5) Dropdown data --------------------------------------------------------
+        $parentOptions = collect($nativeSorted)->map(function ($v, $k) {
+            $seg      = $v['route_segment'] ?? $k;
+            $parentId = \DB::table('osmm_menu_items')->whereNull('parent')->where('route_segment', $seg)->value('id');
+            return [
+                'key'       => $k,
+                'name'      => $v['name'] ?? $k,
+                'seg'       => $seg,
+                'label'     => ($v['name'] ?? $k)." [{$seg}]",
+                'parent_id' => $parentId,
+            ];
+        })->values()->all();
 
-    // ---- 3) Dropdown data --------------------------------------------------
-    // Parent options (for Create Child + edit form)
-    $parentOptions = collect($nativeSorted)->map(function ($v, $k) {
-        $seg      = $v['route_segment'] ?? $k;
-        $parentId = \DB::table('osmm_menu_items')->whereNull('parent')->where('route_segment', $seg)->value('id');
-        return [
-            'key'       => $k,
-            'name'      => $v['name'] ?? $k,
-            'seg'       => $seg,
-            'label'     => ($v['name'] ?? $k) . " [{$seg}]",
-            'parent_id' => $parentId,
-        ];
-    })->values()->all();
+        $allPermissions = \Cache::remember('osmm_permission_options', 300, fn() => $this->collectPermissionOptions());
+        $routeSegments  = \Cache::remember('osmm_route_segment_options', 300, fn() => $this->collectRouteSegmentOptions());
 
-    // Permissions + route segments (cached; helpers you added earlier)
-    $allPermissions = \Cache::remember('osmm_permission_options', 300, fn() => $this->collectPermissionOptions());
-    $routeSegments  = \Cache::remember('osmm_route_segment_options', 300, fn() => $this->collectRouteSegmentOptions());
+        // 6) Permission checker for rendering sidebars ---------------------------
+        $can = fn ($perm) => empty($perm) || (\auth()->check() && \auth()->user()->can($perm));
 
-    // ---- 4) Permission checker for the two sidebars ------------------------
-    $can = fn ($perm) => empty($perm) || (\auth()->check() && \auth()->user()->can($perm));
+        // 7) Render ---------------------------------------------------------------
+        return view('seat-osmm::menu.index', [
+            'native'         => $nativeSorted,     // native order (SeAT-style)
+            'merged'         => $mergedSorted,     // native order + explicit DB repositions
+            'dbRows'         => $dbRowsCol,
+            'parentOptions'  => $parentOptions,
+            'allPermissions' => $allPermissions,
+            'routeSegments'  => $routeSegments,
+            'can'            => $can,
+        ]);
+    }
 
-    // ---- 5) Render ----------------------------------------------------------
-    return view('seat-osmm::menu.index', [
-        'native'         => $nativeSorted,
-        'merged'         => $mergedSorted,
-        'dbRows'         => $dbRowsCol,      // collection used by the center list partial
-        'parentOptions'  => $parentOptions,
-        'allPermissions' => $allPermissions, // array of ['value','label'] or strings, per your helper
-        'routeSegments'  => $routeSegments,  // array of ['value','label']
-        'can'            => $can,
-    ]);
-}
 
 
     protected function collectPermissionOptions(): array
