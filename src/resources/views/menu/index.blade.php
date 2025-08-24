@@ -9,7 +9,7 @@
 </div>
     @include('seat-osmm::menu.partials.topbar', ['menu' => $native, 'can' => $can ?? null])
 
-{{-- <div class="row">
+<div class="row">
   <div class="col-md-12">
     <div class="card mb-3">
       <div class="card-header">
@@ -21,7 +21,7 @@
       </div>
     </div>
   </div>
-</div> --}}
+</div>
 
 <div class="row">
   {{-- LEFT: Native sidebar --}}
