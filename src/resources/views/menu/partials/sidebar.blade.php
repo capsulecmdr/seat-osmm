@@ -12,6 +12,6 @@
 
 <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu">
   @foreach($menu as $key => $item)
-    @include('seat-osmm::menu.partials.sidebar-node', ['item' => $item, 'can' => $can, 'level' => 0])
+    @include('seat-osmm::menu.partials.osmm.sidebar-node', ['item' => $item, 'can' => $can, 'level' => 0])
   @endforeach
 </ul>
