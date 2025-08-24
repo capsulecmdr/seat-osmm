@@ -33,8 +33,9 @@ class OsmmMenuController extends Controller
         })->values()->all();
 
         $allPermissions = Cache::remember('osmm_permission_options', 300, fn() => $this->collectPermissionOptions());
+        $routeSegments = Cache::remember('osmm_route_segment_options', 300, fn() => $this->collectRouteSegmentOptions());
 
-        return view('seat-osmm::menu.index', compact('native','merged','dbRows','can','parentOptions','allPermissions'));
+        return view('seat-osmm::menu.index', compact('native','merged','dbRows','can','parentOptions','allPermissions','routeSegments'));
     }
 
     protected function collectPermissionOptions(): array
@@ -58,6 +59,36 @@ class OsmmMenuController extends Controller
 
         return collect([$fromConfig, $fromDb, $fromPermsTable])
             ->flatten()->filter()->unique()->sort()->values()->all();
+    }
+
+    protected function collectRouteSegmentOptions(): array
+    {
+        $native = config('package.sidebar') ?? [];
+
+        // From native config: seg = route_segment or fallback to the key
+        $fromConfig = collect($native)->map(function ($v, $k) {
+            $seg = $v['route_segment'] ?? $k;
+            return [
+                'value' => $seg,
+                'label' => ($v['name'] ?? $k) . " [{$seg}]",
+            ];
+        });
+
+        // From DB parents that already have a route_segment
+        $fromDb = DB::table('osmm_menu_items')
+            ->whereNull('parent')
+            ->whereNotNull('route_segment')
+            ->distinct()
+            ->pluck('route_segment')
+            ->map(fn($seg) => ['value' => $seg, 'label' => $seg]);
+
+        return $fromConfig
+            ->merge($fromDb)
+            ->filter(fn($o) => filled($o['value']))
+            ->unique('value')
+            ->sortBy('label', SORT_NATURAL | SORT_FLAG_CASE)
+            ->values()
+            ->all();
     }
 
     /** API: merged menu as JSON for app consumption */
