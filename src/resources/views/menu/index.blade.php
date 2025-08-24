@@ -4,7 +4,7 @@
 @section('content')
 {{-- Top previews: Native vs Merged as a navbar --}}
 <div class="row">
-  <div class="col-md-6">
+  <div class="col-md-12">
     <div class="card mb-3">
       <div class="card-header">
         <strong>Native Navbar (preview)</strong>
@@ -15,8 +15,9 @@
       </div>
     </div>
   </div>
-
-  <div class="col-md-6">
+</div>
+<div class="row">
+  <div class="col-md-12">
     <div class="card mb-3">
       <div class="card-header">
         <strong>Merged Navbar (preview)</strong>
