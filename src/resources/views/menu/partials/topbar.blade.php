@@ -71,7 +71,7 @@
 </nav>
 
 <style>
-  .osmm-topbar { overflow-x: auto; white-space: nowrap; }
+  .osmm-topbar { white-space: nowrap; }
   .osmm-topbar .navbar-nav > li { margin-right: .5rem; }
   .osmm-topbar .dropdown-menu { max-height: 60vh; overflow: auto; }
 </style>
