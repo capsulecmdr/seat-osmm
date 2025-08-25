@@ -888,13 +888,14 @@ protected function buildBaseNative(array $nativeSorted): array
         $pluginSubEntries[] = $sub;
     }
 
-    // Assemble base menu
+    // Assemble base menu: kept parents first (native order)
     $base = [];
     foreach ($nativeSorted as $k => $p) {
         $seg = $segOfKey[$k];
         if (in_array($seg, $keepSegs, true)) $base[$k] = $p;
     }
 
+    // Add Administration
     $base['administration'] = [
         'name'          => 'Administration',
         'label'         => 'Administration',
@@ -904,6 +905,7 @@ protected function buildBaseNative(array $nativeSorted): array
         'entries'       => $adminEntries,
     ];
 
+    // Add Plugins
     $base['plugins'] = [
         'name'          => 'Plugins',
         'label'         => 'Plugins',
@@ -913,6 +915,68 @@ protected function buildBaseNative(array $nativeSorted): array
         'entries'       => $pluginSubEntries,
     ];
 
+    /* ---------- Inject Custom Links into Tools (top) ---------- */
+    try {
+        $raw = function_exists('setting') ? setting('customlinks', true) : null;
+    } catch (\Throwable $e) {
+        $raw = null;
+    }
+    // Normalize to a collection
+    if (is_array($raw)) {
+        $raw = collect($raw);
+    } elseif (!($raw instanceof \Illuminate\Support\Collection)) {
+        $raw = collect();
+    }
+
+    $customLinks = [];
+    foreach ($raw as $cl) {
+        // support array or object forms
+        $name   = is_array($cl) ? ($cl['name'] ?? null) : ($cl->name ?? null);
+        $url    = is_array($cl) ? ($cl['url'] ?? null)  : ($cl->url ?? null);
+        $icon   = is_array($cl) ? ($cl['icon'] ?? null) : ($cl->icon ?? null);
+        $newTab = is_array($cl) ? ($cl['new_tab'] ?? false) : ($cl->new_tab ?? false);
+
+        if (!$name || !$url) continue;
+
+        $customLinks[] = [
+            'name'     => $name,
+            'label'    => $name,
+            'icon'     => $icon ?: 'fas fa-external-link-alt',
+            'url'      => $url,
+            'external' => true,
+            'target'   => $newTab ? '_blank' : null,
+        ];
+    }
+
+    if (!empty($customLinks)) {
+        // Find the actual array key for the 'tools' segment (could be '2tools', etc.)
+        $toolsKey = null;
+        foreach ($base as $k => $v) {
+            $seg = $v['route_segment'] ?? $k;
+            if ($seg === 'tools') { $toolsKey = $k; break; }
+        }
+
+        if ($toolsKey) {
+            $existing = array_values(array_filter($base[$toolsKey]['entries'] ?? [], 'is_array'));
+            $merged   = $customLinks;
+            if (!empty($existing)) {
+                $merged[] = ['divider' => true]; // only add divider if we actually have native tools items
+                $merged   = array_merge($merged, $existing);
+            }
+            $base[$toolsKey]['entries'] = $merged;
+        } else {
+            // No tools parent? Create one to host custom links (with divider ready for future native)
+            $base['tools'] = [
+                'name'          => 'Tools',
+                'label'         => 'Tools',
+                'icon'          => 'fas fa-wrench',
+                'route_segment' => 'tools',
+                'entries'       => array_merge($customLinks, [['divider'=>true]]),
+            ];
+        }
+    }
+    /* ---------- end custom links injection ---------- */
+
     return [
         'menu' => $base,
         'maps' => [
@@ -921,6 +985,7 @@ protected function buildBaseNative(array $nativeSorted): array
         ],
     ];
 }
+
 
 
 /** Find index of a Plugins sub-entry by its original segment tag. */

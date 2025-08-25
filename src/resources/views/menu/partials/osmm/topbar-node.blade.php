@@ -1,7 +1,8 @@
 @php
-  // helpers
   $t = fn($v) => __($v ?? '');
-  $perm = $item['permission'] ?? null;
+
+  // ----- permission / visibility -----
+  $perm   = $item['permission'] ?? null;
   $forced = array_key_exists('visible', $item) ? $item['visible'] : null;
 
   $canSee = $can ? $can($perm) : true;
@@ -10,20 +11,26 @@
 
   if (!$canSee) return;
 
+  // ----- label / icon -----
   $label = $t($item['label'] ?? $item['name'] ?? ($key ?? ''));
   $icon  = $item['icon'] ?? null;
 
-  $url = '#';
+  // ----- link (route OR url) -----
+  $url   = '#';
+  $attrs = '';
   if (!empty($item['route']) && \Illuminate\Support\Facades\Route::has($item['route'])) {
-    try { $url = route($item['route']); } catch (\Throwable $e) { $url = '#'; }
+      try { $url = route($item['route']); } catch (\Throwable $e) { $url = '#'; }
+  } elseif (!empty($item['url'])) {
+      $url = $item['url'];
+  }
+  if (!empty($item['target'])) {
+      $attrs .= ' target="' . e($item['target']) . '" rel="noopener"';
   }
 
-  // children
+  // ----- children / grandchildren -----
   $children = [];
   if (!empty($item['entries']) && is_array($item['entries'])) {
-    foreach ($item['entries'] as $e) {
-      if (is_array($e)) $children[] = $e;
-    }
+      foreach ($item['entries'] as $e) if (is_array($e)) $children[] = $e;
   }
   $hasKids = count($children) > 0;
 @endphp
@@ -35,9 +42,16 @@
       @if($icon)<i class="{{ $icon }}"></i>@endif
       <span class="ml-1">{{ $label }}</span>
     </a>
+
     <div class="dropdown-menu">
       @foreach($children as $child)
         @php
+          // dividers at topbar level
+          if (!empty($child['divider'])) {
+            echo '<div class="dropdown-divider"></div>';
+            continue;
+          }
+
           $cForced = $child['visible'] ?? null;
           $cPerm   = $child['permission'] ?? null;
           $cShow   = $can ? $can($cPerm) : true;
@@ -48,22 +62,34 @@
           $cLabel = $t($child['label'] ?? $child['name'] ?? '');
           $cIcon  = $child['icon'] ?? null;
 
-          $cUrl = '#';
+          $cUrl   = '#';
+          $cAttrs = '';
           if (!empty($child['route']) && \Illuminate\Support\Facades\Route::has($child['route'])) {
-            try { $cUrl = route($child['route']); } catch (\Throwable $e) { $cUrl = '#'; }
+              try { $cUrl = route($child['route']); } catch (\Throwable $e) { $cUrl = '#'; }
+          } elseif (!empty($child['url'])) {
+              $cUrl = $child['url'];
+          }
+          if (!empty($child['target'])) {
+              $cAttrs .= ' target="' . e($child['target']) . '" rel="noopener"';
           }
 
           $grand = [];
           if (!empty($child['entries']) && is_array($child['entries'])) {
-            foreach ($child['entries'] as $g) if (is_array($g)) $grand[] = $g;
+              foreach ($child['entries'] as $g) if (is_array($g)) $grand[] = $g;
           }
         @endphp
 
         @if(count($grand))
-          {{-- simple section header + its grandchildren as items (Bootstrap 4 doesn’t nest dropdowns well) --}}
+          {{-- section header, then grandchildren items (no nested dropdowns in BS4) --}}
           <h6 class="dropdown-header">{{ $cLabel }}</h6>
+
           @foreach($grand as $gc)
             @php
+              if (!empty($gc['divider'])) {
+                echo '<div class="dropdown-divider"></div>';
+                continue;
+              }
+
               $gcForced = $gc['visible'] ?? null;
               $gcPerm   = $gc['permission'] ?? null;
               $gcShow   = $can ? $can($gcPerm) : true;
@@ -73,15 +99,25 @@
 
               $gcLabel = $t($gc['label'] ?? $gc['name'] ?? '');
               $gcUrl   = '#';
+              $gcAttrs = '';
               if (!empty($gc['route']) && \Illuminate\Support\Facades\Route::has($gc['route'])) {
-                try { $gcUrl = route($gc['route']); } catch (\Throwable $e) { $gcUrl = '#'; }
+                  try { $gcUrl = route($gc['route']); } catch (\Throwable $e) { $gcUrl = '#'; }
+              } elseif (!empty($gc['url'])) {
+                  $gcUrl = $gc['url'];
+              }
+              if (!empty($gc['target'])) {
+                  $gcAttrs .= ' target="' . e($gc['target']) . '" rel="noopener"';
               }
             @endphp
-            <a class="dropdown-item nav-link osmm-link" href="{{ $gcUrl }}">{{ $gcLabel }}</a>
+
+            <a class="dropdown-item nav-link osmm-link" href="{{ $gcUrl }}" {!! $gcAttrs !!}>
+              {{ $gcLabel }}
+            </a>
           @endforeach
+
           <div class="dropdown-divider"></div>
         @else
-          <a class="dropdown-item nav-link osmm-link" href="{{ $cUrl }}">
+          <a class="dropdown-item nav-link osmm-link" href="{{ $cUrl }}" {!! $cAttrs !!}>
             @if($cIcon)<i class="{{ $cIcon }}"></i>@endif
             <span class="ml-1">{{ $cLabel }}</span>
           </a>
@@ -91,7 +127,7 @@
   </li>
 @else
   <li class="nav-item">
-    <a class="nav-link osmm-link" href="{{ $url }}">
+    <a class="nav-link osmm-link" href="{{ $url }}" {!! $attrs !!}>
       @if($icon)<i class="{{ $icon }}"></i>@endif
       <span class="ml-1">{{ $label }}</span>
     </a>
