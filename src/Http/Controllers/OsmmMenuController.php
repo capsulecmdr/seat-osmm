@@ -16,10 +16,10 @@ class OsmmMenuController extends Controller
     /** CONFIG PAGE: side-by-side tree view (native vs merged) + CRUD tools */
     public function index()
 {
-    // 1) Load raw native config --------------------------------------------------
+    // 1) Load raw native config
     $native = config('package.sidebar') ?? [];
 
-    // 2) Sort Native like SeAT (parents by numeric prefix then alpha; children alpha)
+    // 2) SeAT-like sort of raw native
     $labelOf = function(array $item, string $fallback = ''): string {
         $label = $item['label'] ?? $item['name'] ?? $fallback;
         try { $label = __($label); } catch (\Throwable $e) {}
@@ -40,9 +40,7 @@ class OsmmMenuController extends Controller
         });
         $parent['entries'] = $entries;
     };
-
     $nativeSorted = $native;
-    // parents
     uksort($nativeSorted, function($aKey,$bKey) use ($nativeSorted,$labelOf,$numericPrefixWeight){
         $a = $nativeSorted[$aKey]; $b = $nativeSorted[$bKey];
         $aW = $numericPrefixWeight($aKey); $bW = $numericPrefixWeight($bKey);
@@ -52,75 +50,70 @@ class OsmmMenuController extends Controller
             mb_strtolower($labelOf($b,$bKey))
         );
     });
-    // children (alpha)
     foreach ($nativeSorted as &$p) $sortChildrenAlpha($p);
     unset($p);
 
-    // 3) Build BASE-NATIVE (keep + Administration + Plugins), BEFORE overrides ---
-    $base      = $this->buildBaseNative($nativeSorted);   // helper provided earlier
-    $baseNative = $base['menu'];                          // left column uses this
-    $maps       = $base['maps'];                          // ['admin_segments'=>[], 'plugin_segments'=>[]]
+    // 3) Build BASE-NATIVE (keep + Administration + Plugins), BEFORE overrides
+    $base       = $this->buildBaseNative($nativeSorted);
+    $baseNative = $base['menu'];
+    $maps       = $base['maps']; // ['admin_segments'=>[], 'plugin_segments'=>[]]
 
-    // 4) Load DB rows (for center list + explicit order) -------------------------
+    // 4) Load DB rows (include overrides + visible)
     $dbRowsCol = DB::table('osmm_menu_items')
         ->select(
-            'id','parent','order','name',
+            'id','parent','`order`','name',
             'name_override','label_override',
             'icon','route_segment','route','permission',
             'visible',
             'created_at','updated_at'
         )
-        ->orderBy('parent')
-        ->orderBy('order')
-        ->get();
-
-    // normalize to objects
+        ->orderBy('parent')->orderBy('order')->get();
     $dbRowsCol = collect($dbRowsCol)->map(fn($r) => is_array($r) ? (object)$r : $r);
 
-    // 5) Apply overrides AFTER consolidation ------------------------------------
-    $merged = $this->applyOverridesWithConsolidation($baseNative, $dbRowsCol, $maps); // helper provided earlier
+    // 5) Apply overrides AFTER consolidation
+    $merged = $this->applyOverridesWithConsolidation($baseNative, $dbRowsCol, $maps);
 
-    // 6) Reordering (parents, Administration children, Plugins sub-entries & their children)
-    // Build helper: DB parent id -> route_segment (to place child orders)
+    // 6) Reordering (parents + children)
+    // Build seg lookup for base keys
+    $segOfKeyBase = [];
+    foreach ($baseNative as $k => $p) $segOfKeyBase[$k] = $p['route_segment'] ?? $k;
+
+    // Map DB parent id -> segment for child ordering
     $segByParentDbId = [];
-    foreach ($dbRowsCol as $r0) {
-        $r = is_array($r0) ? (object)$r0 : $r0;
+    foreach ($dbRowsCol as $r) {
         if (is_null($r->parent)) continue;
         if (!isset($segByParentDbId[$r->parent])) {
             $segByParentDbId[$r->parent] = DB::table('osmm_menu_items')->where('id',$r->parent)->value('route_segment');
         }
     }
 
-    $parentOrderBySeg   = [];   // e.g. ['home'=>1, 'plugins'=>9]
-    $childOrdersBySeg   = [];   // e.g. ['administration'=> [ ['route'=>..., 'order'=>3], ... ], 'home'=> [...]]
-    $pluginsSubOrder    = [];   // e.g. ['seat-connector'=>2, 'seat-bilt'=>5]
-    $childOrdersPlugins = [];   // e.g. ['seat-connector'=> [ ... children ... ]]
+    $parentOrderBySeg   = [];
+    $childOrdersBySeg   = []; // keyed by segment ('administration', 'home', 'plugins-subseg', etc.)
+    $pluginsSubOrder    = []; // segment -> order (for sub-entries under Plugins)
+    $childOrdersPlugins = []; // subsegment -> list of child moves
 
-    foreach ($dbRowsCol as $r0) {
-        $r = is_array($r0) ? (object)$r0 : $r0;
+    foreach ($dbRowsCol as $r) {
         if (!isset($r->order)) continue;
 
         if (is_null($r->parent)) {
-            // top-level reorders
             $seg = $r->route_segment ?? null;
             if (!$seg) continue;
 
-            // Plugin parent orders: position a plugin sub-entry within Plugins
+            // If this is a plugin parent, it's a sub-entry order inside Plugins
             if (in_array($seg, $maps['plugin_segments'] ?? [], true)) {
                 $pluginsSubOrder[$seg] = (int)$r->order;
                 continue;
             }
 
-            // direct orders for 'administration' or 'plugins' themselves (user may target these)
+            // Otherwise: order a top-level section by its segment
             $parentOrderBySeg[$seg] = (int)$r->order;
             continue;
         }
 
-        // child reorders
+        // Child orders
         $seg = $segByParentDbId[$r->parent] ?? null;
         if (!$seg) continue;
 
-        // children under Administration (flattened)
         if (in_array($seg, $maps['admin_segments'] ?? [], true)) {
             $childOrdersBySeg['administration'][] = [
                 'route' => $r->route,
@@ -130,7 +123,6 @@ class OsmmMenuController extends Controller
             continue;
         }
 
-        // children under Plugins (nested under each plugin sub-segment)
         if (in_array($seg, $maps['plugin_segments'] ?? [], true)) {
             $childOrdersPlugins[$seg][] = [
                 'route' => $r->route,
@@ -140,7 +132,6 @@ class OsmmMenuController extends Controller
             continue;
         }
 
-        // kept parents' children
         $childOrdersBySeg[$seg][] = [
             'route' => $r->route,
             'name'  => $r->name,
@@ -148,7 +139,7 @@ class OsmmMenuController extends Controller
         ];
     }
 
-    // Helper: reposition items in an indexed list by 1-based "order" (clamped)
+    // helper: reposition by desired 1-based order
     $reposition = function(array $keys, array $orderMap) {
         $indexed = array_values($keys);
         $pairs = [];
@@ -164,10 +155,7 @@ class OsmmMenuController extends Controller
         return $indexed;
     };
 
-    // Parent reorder: we map route_segment -> key for BASE-NATIVE
-    $segOfKeyBase = [];
-    foreach ($baseNative as $k => $p) $segOfKeyBase[$k] = $p['route_segment'] ?? $k;
-
+    // Parent reordering: translate segment -> key
     $keyBySeg = [];
     foreach ($baseNative as $k => $p) $keyBySeg[$segOfKeyBase[$k]] = $k;
 
@@ -182,23 +170,25 @@ class OsmmMenuController extends Controller
     $mergedInNativeOrder = [];
     foreach ($mergedParentKeys as $k) if (array_key_exists($k, $merged)) $mergedInNativeOrder[$k] = $merged[$k];
 
-    // Children reorders (kept parents + Administration)
+    // Children reorders (use SEGMENT to read orders, not the parent key)
     foreach ($mergedInNativeOrder as $pKey => &$parent) {
         if (empty($parent['entries']) || !is_array($parent['entries'])) continue;
 
-        // Default child sort alpha (optional; matches your earlier behavior)
+        // default child sort alpha
         $sortChildrenAlpha($parent);
 
-        // direct children orders
-        if (!empty($childOrdersBySeg[$pKey])) {
+        $seg = $segOfKeyBase[$pKey] ?? ($parent['route_segment'] ?? $pKey);
+        $orders = $childOrdersBySeg[$seg] ?? [];
+
+        if (!empty($orders)) {
             $entries = $parent['entries'];
             $indexByRoute = $indexByName = [];
             foreach ($entries as $idx => $e) {
                 if (!empty($e['route'])) $indexByRoute[$e['route']] = $idx;
                 if (!empty($e['name']))  $indexByName[$e['name']]   = $idx;
             }
-            usort($childOrdersBySeg[$pKey], fn($a,$b) => $a['order'] <=> $b['order']);
-            foreach ($childOrdersBySeg[$pKey] as $req) {
+            usort($orders, fn($a,$b) => $a['order'] <=> $b['order']);
+            foreach ($orders as $req) {
                 $keyIdx = null;
                 if (!empty($req['route']) && isset($indexByRoute[$req['route']])) $keyIdx = $indexByRoute[$req['route']];
                 elseif (!empty($req['name']) && isset($indexByName[$req['name']])) $keyIdx = $indexByName[$req['name']];
@@ -222,7 +212,7 @@ class OsmmMenuController extends Controller
 
         // Plugins special: reorder sub-entries and their children
         if ($pKey === 'plugins') {
-            // 1) reorder plugin sub-entries by $pluginsSubOrder (keys are plugin segments)
+            // sub-entries by sub-segment
             if (!empty($pluginsSubOrder)) {
                 $subSegKeys = [];
                 foreach ($parent['entries'] as $e) {
@@ -240,7 +230,7 @@ class OsmmMenuController extends Controller
                 $parent['entries'] = $newSubEntries;
             }
 
-            // 2) reorder nested children within each plugin sub-entry
+            // nested children within each plugin sub-entry
             if (!empty($parent['entries'])) {
                 foreach ($parent['entries'] as &$sub) {
                     $ss = $sub['_osmm_subsegment'] ?? null;
@@ -252,8 +242,9 @@ class OsmmMenuController extends Controller
                         if (!empty($e['route'])) $indexByRoute[$e['route']] = $idx;
                         if (!empty($e['name']))  $indexByName[$e['name']]   = $idx;
                     }
-                    usort($childOrdersPlugins[$ss], fn($a,$b) => $a['order'] <=> $b['order']);
-                    foreach ($childOrdersPlugins[$ss] as $req) {
+                    $orders = $childOrdersPlugins[$ss];
+                    usort($orders, fn($a,$b) => $a['order'] <=> $b['order']);
+                    foreach ($orders as $req) {
                         $keyIdx = null;
                         if (!empty($req['route']) && isset($indexByRoute[$req['route']])) $keyIdx = $indexByRoute[$req['route']];
                         elseif (!empty($req['name']) && isset($indexByName[$req['name']])) $keyIdx = $indexByName[$req['name']];
@@ -281,7 +272,7 @@ class OsmmMenuController extends Controller
 
     $mergedSorted = $mergedInNativeOrder;
 
-    // 7) Dropdown data: build from BASE-NATIVE (what user targets now) ----------
+    // 7) Dropdown data from BASE-NATIVE
     $parentOptions = collect($baseNative)->map(function ($v, $k) {
         $seg      = $v['route_segment'] ?? $k;
         $parentId = DB::table('osmm_menu_items')->whereNull('parent')->where('route_segment', $seg)->value('id');
@@ -295,22 +286,17 @@ class OsmmMenuController extends Controller
     })->values()->all();
 
     $allPermissions = Cache::remember('osmm_permission_options', 300, fn() => $this->collectPermissionOptions());
-
-    // Route segment options from BASE-NATIVE (not raw native)
-    $routeSegments = collect($baseNative)->map(function ($v, $k) {
+    $routeSegments  = collect($baseNative)->map(function ($v, $k) {
         $seg = $v['route_segment'] ?? $k;
         return ['value' => $seg, 'label' => ($v['name'] ?? $k) . " [{$seg}]"];
     })->values()->all();
 
-    // Menu catalog for pickers built from BASE-NATIVE (handles Plugins flattening)
-    $menuCatalog = $this->buildMenuCatalog($baseNative);
+    $menuCatalog    = $this->buildMenuCatalog($baseNative);
 
-    // 8) Permission checker for previews ---------------------------------------
     $can = fn ($perm) => empty($perm) || (\auth()->check() && \auth()->user()->can($perm));
 
-    // 9) Render -----------------------------------------------------------------
     return view('seat-osmm::menu.index', [
-        'native'         => $baseNative,   // Left column now shows BASE-NATIVE
+        'native'         => $baseNative,
         'merged'         => $mergedSorted,
         'dbRows'         => $dbRowsCol,
         'parentOptions'  => $parentOptions,
@@ -320,6 +306,7 @@ class OsmmMenuController extends Controller
         'menuCatalog'    => $menuCatalog,
     ]);
 }
+
 
 
     protected function collectPermissionOptions(): array
@@ -392,12 +379,239 @@ class OsmmMenuController extends Controller
 
     /** Helper for views: returns merged array */
     public function menu(): array
-    {
-        $seat     = config('package.sidebar') ?? [];
-        $dbRowsCol = DB::table('osmm_menu_items')->get();
-        $dbRowsCol = collect($dbRowsCol)->map(fn($r) => is_array($r) ? (object)$r : $r);
-        return $this->applyOverrides($seat, $dbRowsCol);
+{
+    // raw config
+    $native = config('package.sidebar') ?? [];
+
+    // sort native (same as index)
+    $labelOf = function(array $item, string $fallback = ''): string {
+        $label = $item['label'] ?? $item['name'] ?? $fallback;
+        try { $label = __($label); } catch (\Throwable $e) {}
+        return (string) $label;
+    };
+    $numericPrefixWeight = fn(string $key) => (preg_match('/^\d+/', $key, $m) ? (int)$m[0] : 1000);
+    $sortChildrenAlpha   = function(array &$parent) use ($labelOf) {
+        if (empty($parent['entries']) || !is_array($parent['entries'])) return;
+        $entries = [];
+        foreach ($parent['entries'] as $e) if (is_array($e)) $entries[] = $e;
+        usort($entries, function($a,$b) use ($labelOf){
+            return strnatcasecmp(
+                mb_strtolower($labelOf($a, $a['name'] ?? '')),
+                mb_strtolower($labelOf($b, $b['name'] ?? ''))
+            );
+        });
+        $parent['entries'] = $entries;
+    };
+    $nativeSorted = $native;
+    uksort($nativeSorted, function($aKey,$bKey) use ($nativeSorted,$labelOf,$numericPrefixWeight){
+        $a = $nativeSorted[$aKey]; $b = $nativeSorted[$bKey];
+        $aW = $numericPrefixWeight($aKey); $bW = $numericPrefixWeight($bKey);
+        if ($aW !== $bW) return $aW <=> $bW;
+        return strnatcasecmp(
+            mb_strtolower($labelOf($a,$aKey)),
+            mb_strtolower($labelOf($b,$bKey))
+        );
+    });
+    foreach ($nativeSorted as &$p) $sortChildrenAlpha($p);
+    unset($p);
+
+    // base-native consolidation
+    $base       = $this->buildBaseNative($nativeSorted);
+    $baseNative = $base['menu'];
+    $maps       = $base['maps'];
+
+    // DB rows
+    $dbRowsCol = DB::table('osmm_menu_items')
+        ->select(
+            'id','parent','`order`','name',
+            'name_override','label_override',
+            'icon','route_segment','route','permission',
+            'visible',
+            'created_at','updated_at'
+        )
+        ->orderBy('parent')->orderBy('order')->get();
+    $dbRowsCol = collect($dbRowsCol)->map(fn($r) => is_array($r) ? (object)$r : $r);
+
+    // apply overrides
+    $merged = $this->applyOverridesWithConsolidation($baseNative, $dbRowsCol, $maps);
+
+    // reorder (same logic as index, but only return final array)
+    $segOfKeyBase = [];
+    foreach ($baseNative as $k => $p) $segOfKeyBase[$k] = $p['route_segment'] ?? $k;
+
+    $segByParentDbId = [];
+    foreach ($dbRowsCol as $r) {
+        if (is_null($r->parent)) continue;
+        if (!isset($segByParentDbId[$r->parent])) {
+            $segByParentDbId[$r->parent] = DB::table('osmm_menu_items')->where('id',$r->parent)->value('route_segment');
+        }
     }
+
+    $parentOrderBySeg   = [];
+    $childOrdersBySeg   = [];
+    $pluginsSubOrder    = [];
+    $childOrdersPlugins = [];
+    foreach ($dbRowsCol as $r) {
+        if (!isset($r->order)) continue;
+
+        if (is_null($r->parent)) {
+            $seg = $r->route_segment ?? null;
+            if (!$seg) continue;
+            if (in_array($seg, $maps['plugin_segments'] ?? [], true)) {
+                $pluginsSubOrder[$seg] = (int)$r->order;
+                continue;
+            }
+            $parentOrderBySeg[$seg] = (int)$r->order;
+            continue;
+        }
+
+        $seg = $segByParentDbId[$r->parent] ?? null;
+        if (!$seg) continue;
+
+        if (in_array($seg, $maps['admin_segments'] ?? [], true)) {
+            $childOrdersBySeg['administration'][] = ['route'=>$r->route, 'name'=>$r->name, 'order'=>(int)$r->order];
+            continue;
+        }
+        if (in_array($seg, $maps['plugin_segments'] ?? [], true)) {
+            $childOrdersPlugins[$seg][] = ['route'=>$r->route, 'name'=>$r->name, 'order'=>(int)$r->order];
+            continue;
+        }
+        $childOrdersBySeg[$seg][] = ['route'=>$r->route, 'name'=>$r->name, 'order'=>(int)$r->order];
+    }
+
+    $reposition = function(array $keys, array $orderMap) {
+        $indexed = array_values($keys);
+        $pairs = [];
+        foreach ($orderMap as $k => $pos) $pairs[] = [$k, max(1,(int)$pos)];
+        usort($pairs, fn($a,$b) => $a[1] <=> $b[1]);
+        foreach ($pairs as [$key, $pos]) {
+            $i = array_search($key, $indexed, true);
+            if ($i === false) continue;
+            array_splice($indexed, $i, 1);
+            $insertAt = min(max($pos-1, 0), count($indexed));
+            array_splice($indexed, $insertAt, 0, [$key]);
+        }
+        return $indexed;
+    };
+
+    $keyBySeg = [];
+    foreach ($baseNative as $k => $p) $keyBySeg[$segOfKeyBase[$k]] = $k;
+
+    $parentOrderByKey = [];
+    foreach ($parentOrderBySeg as $seg => $pos) {
+        if (isset($keyBySeg[$seg])) $parentOrderByKey[$keyBySeg[$seg]] = (int)$pos;
+    }
+
+    $baseParentKeys   = array_keys($baseNative);
+    $mergedParentKeys = $reposition($baseParentKeys, $parentOrderByKey);
+
+    $mergedInOrder = [];
+    foreach ($mergedParentKeys as $k) if (array_key_exists($k, $merged)) $mergedInOrder[$k] = $merged[$k];
+
+    foreach ($mergedInOrder as $pKey => &$parent) {
+        if (empty($parent['entries']) || !is_array($parent['entries'])) continue;
+
+        // default alpha
+        $entries = $parent['entries'];
+        $entries = array_values(array_filter($entries, 'is_array'));
+        usort($entries, function($a,$b){
+            $al = __($a['label'] ?? $a['name'] ?? '');
+            $bl = __($b['label'] ?? $b['name'] ?? '');
+            return strnatcasecmp(mb_strtolower($al), mb_strtolower($bl));
+        });
+
+        $seg = $segOfKeyBase[$pKey] ?? ($parent['route_segment'] ?? $pKey);
+        $orders = $childOrdersBySeg[$seg] ?? [];
+
+        if (!empty($orders)) {
+            $indexByRoute = []; $indexByName = [];
+            foreach ($entries as $idx => $e) {
+                if (!empty($e['route'])) $indexByRoute[$e['route']] = $idx;
+                if (!empty($e['name']))  $indexByName[$e['name']]   = $idx;
+            }
+            usort($orders, fn($a,$b) => $a['order'] <=> $b['order']);
+            foreach ($orders as $req) {
+                $keyIdx = null;
+                if (!empty($req['route']) && isset($indexByRoute[$req['route']])) $keyIdx = $indexByRoute[$req['route']];
+                elseif (!empty($req['name']) && isset($indexByName[$req['name']])) $keyIdx = $indexByName[$req['name']];
+                if ($keyIdx === null) continue;
+
+                $item = $entries[$keyIdx];
+                array_splice($entries, $keyIdx, 1);
+
+                $insertAt = max(0, min((int)$req['order'] - 1, count($entries)));
+                array_splice($entries, $insertAt, 0, [$item]);
+
+                $indexByRoute = $indexByName = [];
+                foreach ($entries as $i => $e) {
+                    if (!empty($e['route'])) $indexByRoute[$e['route']] = $i;
+                    if (!empty($e['name']))  $indexByName[$e['name']]   = $i;
+                }
+            }
+        }
+
+        $parent['entries'] = $entries;
+
+        if ($pKey === 'plugins') {
+            if (!empty($pluginsSubOrder)) {
+                $subSegKeys = [];
+                foreach ($parent['entries'] as $e) {
+                    if (is_array($e) && isset($e['_osmm_subsegment'])) $subSegKeys[] = $e['_osmm_subsegment'];
+                }
+                $reorderedSubSegs = $reposition($subSegKeys, $pluginsSubOrder);
+
+                $bySeg = [];
+                foreach ($parent['entries'] as $e) {
+                    $ss = $e['_osmm_subsegment'] ?? null;
+                    if ($ss) $bySeg[$ss] = $e;
+                }
+                $newSubEntries = [];
+                foreach ($reorderedSubSegs as $ss) if (isset($bySeg[$ss])) $newSubEntries[] = $bySeg[$ss];
+                $parent['entries'] = $newSubEntries;
+            }
+
+            if (!empty($parent['entries'])) {
+                foreach ($parent['entries'] as &$sub) {
+                    $ss = $sub['_osmm_subsegment'] ?? null;
+                    if (!$ss || empty($childOrdersPlugins[$ss]) || empty($sub['entries'])) continue;
+
+                    $entries = $sub['entries'];
+                    $indexByRoute = $indexByName = [];
+                    foreach ($entries as $idx => $e) {
+                        if (!empty($e['route'])) $indexByRoute[$e['route']] = $idx;
+                        if (!empty($e['name']))  $indexByName[$e['name']]   = $idx;
+                    }
+                    $orders = $childOrdersPlugins[$ss];
+                    usort($orders, fn($a,$b) => $a['order'] <=> $b['order']);
+                    foreach ($orders as $req) {
+                        $keyIdx = null;
+                        if (!empty($req['route']) && isset($indexByRoute[$req['route']])) $keyIdx = $indexByRoute[$req['route']];
+                        elseif (!empty($req['name']) && isset($indexByName[$req['name']])) $keyIdx = $indexByName[$req['name']];
+                        if ($keyIdx === null) continue;
+
+                        $item = $entries[$keyIdx];
+                        array_splice($entries, $keyIdx, 1);
+
+                        $insertAt = max(0, min((int)$req['order'] - 1, count($entries)));
+                        array_splice($entries, $insertAt, 0, [$item]);
+
+                        $indexByRoute = $indexByName = [];
+                        foreach ($entries as $i => $e) {
+                            if (!empty($e['route'])) $indexByRoute[$e['route']] = $i;
+                            if (!empty($e['name']))  $indexByName[$e['name']]   = $i;
+                        }
+                    }
+                    $sub['entries'] = $entries;
+                }
+                unset($sub);
+            }
+        }
+    }
+    unset($parent);
+
+    return $mergedInOrder;
+}
+
 
     /* ==================== CRUD for overrides ==================== */
 
@@ -613,28 +827,25 @@ class OsmmMenuController extends Controller
  */
 protected function buildBaseNative(array $nativeSorted): array
 {
-    // 1) identify route_segment for each native parent
+    // key -> segment
     $segOfKey = [];
-    foreach ($nativeSorted as $k => $p) {
-        $segOfKey[$k] = $p['route_segment'] ?? $k;
-    }
+    foreach ($nativeSorted as $k => $p) $segOfKey[$k] = $p['route_segment'] ?? $k;
 
-    // 2) sets
+    // Keep these segments as-is:
     $keepSegs  = ['home','alliances','characters','corporations','tools'];
-    $adminSegs = ['settings','notifications','api-admin']; // api-admin == SeAT API
+    // Admin buckets come from:
+    $adminSegs = ['configuration','notifications','api-admin']; // NOTE: 'configuration' (not 'settings')
 
-    // 3) collect admin entries (flatten)
+    // Collect admin entries (flatten)
     $adminEntries = [];
 
-    // settings children
-    $settingsKey = array_search('settings', $segOfKey, true);
+    // settings = 'configuration'
+    $settingsKey = array_search('configuration', $segOfKey, true);
     if ($settingsKey !== false && !empty($nativeSorted[$settingsKey]['entries'])) {
-        foreach ($nativeSorted[$settingsKey]['entries'] as $c) {
-            if (is_array($c)) $adminEntries[] = $c;
-        }
+        foreach ($nativeSorted[$settingsKey]['entries'] as $c) if (is_array($c)) $adminEntries[] = $c;
     }
 
-    // seatapi single item as child
+    // SeAT API = 'api-admin'
     $seatApiKey = array_search('api-admin', $segOfKey, true);
     if ($seatApiKey !== false) {
         $seatApi = $nativeSorted[$seatApiKey];
@@ -647,33 +858,28 @@ protected function buildBaseNative(array $nativeSorted): array
         ];
     }
 
-    // notifications children
+    // notifications
     $notifKey = array_search('notifications', $segOfKey, true);
     if ($notifKey !== false && !empty($nativeSorted[$notifKey]['entries'])) {
-        foreach ($nativeSorted[$notifKey]['entries'] as $c) {
-            if (is_array($c)) $adminEntries[] = $c;
-        }
+        foreach ($nativeSorted[$notifKey]['entries'] as $c) if (is_array($c)) $adminEntries[] = $c;
     }
 
-    // 4) build plugins group = every non-kept / non-admin parent
+    // Build Plugins = all parents not in keep/admin
     $pluginSegs = [];
     $pluginSubEntries = [];
     foreach ($nativeSorted as $k => $p) {
         $seg = $segOfKey[$k];
-
-        if (in_array($seg, $keepSegs, true))       continue;
-        if (in_array($seg, $adminSegs, true))      continue;
+        if (in_array($seg, $keepSegs, true))  continue;
+        if (in_array($seg, $adminSegs, true)) continue;
 
         $pluginSegs[] = $seg;
 
-        // child group under Plugins, keep original entries (may be empty)
         $sub = [
             'name'            => $p['name'] ?? $k,
             'label'           => $p['label'] ?? ($p['name'] ?? $k),
             'icon'            => $p['icon'] ?? 'fas fa-puzzle-piece',
             'route'           => $p['route'] ?? null,
             'permission'      => $p['permission'] ?? null,
-            // helper tag so overrides can target this sub-entry
             '_osmm_subsegment'=> $seg,
         ];
         if (!empty($p['entries']) && is_array($p['entries'])) {
@@ -682,18 +888,13 @@ protected function buildBaseNative(array $nativeSorted): array
         $pluginSubEntries[] = $sub;
     }
 
-    // 5) assemble base-native with kept parents first (original order), then Admin, then Plugins
+    // Assemble base menu
     $base = [];
-
-    // kept ones in their native order
     foreach ($nativeSorted as $k => $p) {
         $seg = $segOfKey[$k];
-        if (in_array($seg, $keepSegs, true)) {
-            $base[$k] = $p;
-        }
+        if (in_array($seg, $keepSegs, true)) $base[$k] = $p;
     }
 
-    // administration (only if any content)
     $base['administration'] = [
         'name'          => 'Administration',
         'label'         => 'Administration',
@@ -703,7 +904,6 @@ protected function buildBaseNative(array $nativeSorted): array
         'entries'       => $adminEntries,
     ];
 
-    // plugins (even if empty, we include the group)
     $base['plugins'] = [
         'name'          => 'Plugins',
         'label'         => 'Plugins',
@@ -721,6 +921,7 @@ protected function buildBaseNative(array $nativeSorted): array
         ],
     ];
 }
+
 
 /** Find index of a Plugins sub-entry by its original segment tag. */
 protected function findPluginsSubIndex(array $pluginsEntries, string $subseg): ?int
@@ -803,49 +1004,46 @@ protected function findPluginsSubIndex(array $pluginsEntries, string $subseg): ?
  */
 protected function applyOverridesWithConsolidation(array $baseNative, $dbRowsCol, array $maps): array
 {
-    $merged = $baseNative;
-    $adminSet   = array_flip($maps['admin_segments'] ?? []);
-    $pluginSet  = array_flip($maps['plugin_segments'] ?? []);
+    $merged   = $baseNative;
+    $adminSet = array_flip($maps['admin_segments'] ?? []);
+    $plugSet  = array_flip($maps['plugin_segments'] ?? []);
 
-    // ---------- Parent rows (parent = NULL)
+    // ----- Parent rows (parent = NULL)
     foreach ($dbRowsCol as $row0) {
         $row = is_array($row0) ? (object)$row0 : $row0;
         if (!is_null($row->parent)) continue;
         $seg = $row->route_segment;
         if (!$seg) continue;
 
-        // kept parents (home/alliances/characters/corporations/tools)
-        if (!isset($adminSet[$seg]) && !isset($pluginSet[$seg]) && isset($merged[$seg])) {
-            // VISIBILITY
-            if (property_exists($row, 'visible') && $row->visible !== null) {
-                if ((int)$row->visible === 0) { unset($merged[$seg]); continue; }
-                if ((int)$row->visible === 1) { $merged[$seg]['permission'] = null; }
+        // Kept parents: locate actual key by segment
+        if (!isset($adminSet[$seg]) && !isset($plugSet[$seg])) {
+            $pKey = $this->findParentKeyBySegment($merged, $seg);
+            if ($pKey === null) continue;
+
+            // visibility
+            if (property_exists($row,'visible') && $row->visible !== null) {
+                if ((int)$row->visible === 0) { unset($merged[$pKey]); continue; }
+                if ((int)$row->visible === 1) { $merged[$pKey]['permission'] = null; }
             }
-            // display/other
-            if (!is_null($row->name_override))  $merged[$seg]['name']  = $row->name_override;
-            if (!is_null($row->label_override)) $merged[$seg]['label'] = $row->label_override;
-            if (!is_null($row->icon))           $merged[$seg]['icon']  = $row->icon;
-            if (!is_null($row->route))          $merged[$seg]['route'] = $row->route;
-            if (!is_null($row->permission))     $merged[$seg]['permission'] = $row->permission;
+
+            if (!is_null($row->name_override))  $merged[$pKey]['name']  = $row->name_override;
+            if (!is_null($row->label_override)) $merged[$pKey]['label'] = $row->label_override;
+            if (!is_null($row->icon))           $merged[$pKey]['icon']  = $row->icon;
+            if (!is_null($row->route))          $merged[$pKey]['route'] = $row->route;
+            if (!is_null($row->permission))     $merged[$pKey]['permission'] = $row->permission;
             continue;
         }
 
-        // consolidated → administration (we do NOT map parent-level overrides onto Administration parent,
-        // because multiple sources would conflict; users should target 'administration' directly if needed)
-        if (isset($adminSet[$seg])) {
-            // No-op at the parent level to avoid conflicts
-            continue;
-        }
+        // Admin sources: skip parent-level override (user can target 'administration' directly if desired)
+        if (isset($adminSet[$seg])) continue;
 
-        // consolidated → plugins: parent-level overrides target the sub-entry
-        if (isset($pluginSet[$seg])) {
+        // Plugins sources: override the corresponding sub-entry under Plugins
+        if (isset($plugSet[$seg])) {
             if (empty($merged['plugins']['entries']) || !is_array($merged['plugins']['entries'])) continue;
-
             $idx = $this->findPluginsSubIndex($merged['plugins']['entries'], $seg);
             if ($idx === null) continue;
 
-            // VISIBILITY on sub-entry
-            if (property_exists($row, 'visible') && $row->visible !== null) {
+            if (property_exists($row,'visible') && $row->visible !== null) {
                 if ((int)$row->visible === 0) {
                     array_splice($merged['plugins']['entries'], $idx, 1);
                     continue;
@@ -864,17 +1062,17 @@ protected function applyOverridesWithConsolidation(array $baseNative, $dbRowsCol
         }
     }
 
-    // Build helper map: DB parent id → its route_segment (so we can map children)
+    // DB parent id -> segment (for child rows)
     $segByDbParentId = [];
     foreach ($dbRowsCol as $r0) {
         $r = is_array($r0) ? (object)$r0 : $r0;
         if (is_null($r->parent)) continue;
         if (!isset($segByDbParentId[$r->parent])) {
-            $segByDbParentId[$r->parent] = \DB::table('osmm_menu_items')->where('id',$r->parent)->value('route_segment');
+            $segByDbParentId[$r->parent] = DB::table('osmm_menu_items')->where('id',$r->parent)->value('route_segment');
         }
     }
 
-    // ---------- Child rows (parent != NULL)
+    // ----- Child rows (parent != NULL)
     foreach ($dbRowsCol as $row0) {
         $row = is_array($row0) ? (object)$row0 : $row0;
         if (is_null($row->parent)) continue;
@@ -882,21 +1080,18 @@ protected function applyOverridesWithConsolidation(array $baseNative, $dbRowsCol
         $srcSeg = $segByDbParentId[$row->parent] ?? $row->route_segment;
         if (!$srcSeg) continue;
 
-        // → administration (flattened)
+        // Administration (flattened)
         if (isset($adminSet[$srcSeg])) {
             if (empty($merged['administration']['entries'])) continue;
-
             $entries = $merged['administration']['entries'];
-            // locate by route first, then by name
             $idx = $this->findChildIndex($entries, $row->route, $row->name);
             if ($idx === null) continue;
 
-            // visibility
             if (property_exists($row,'visible') && $row->visible !== null) {
                 if ((int)$row->visible === 0) { array_splice($entries, $idx, 1); $merged['administration']['entries'] = $entries; continue; }
                 if ((int)$row->visible === 1) { $entries[$idx]['permission'] = null; }
             }
-            // display/other
+
             if (!is_null($row->name_override))  $entries[$idx]['name']  = $row->name_override;
             if (!is_null($row->label_override)) $entries[$idx]['label'] = $row->label_override;
             if (!is_null($row->icon))           $entries[$idx]['icon']  = $row->icon;
@@ -907,10 +1102,9 @@ protected function applyOverridesWithConsolidation(array $baseNative, $dbRowsCol
             continue;
         }
 
-        // → plugins (nested: sub-entry then its children)
-        if (isset($pluginSet[$srcSeg])) {
+        // Plugins (nested under a sub-entry)
+        if (isset($plugSet[$srcSeg])) {
             if (empty($merged['plugins']['entries']) || !is_array($merged['plugins']['entries'])) continue;
-
             $pIdx = $this->findPluginsSubIndex($merged['plugins']['entries'], $srcSeg);
             if ($pIdx === null) continue;
 
@@ -920,12 +1114,11 @@ protected function applyOverridesWithConsolidation(array $baseNative, $dbRowsCol
             $idx = $this->findChildIndex($children, $row->route, $row->name);
             if ($idx === null) continue;
 
-            // visibility
             if (property_exists($row,'visible') && $row->visible !== null) {
                 if ((int)$row->visible === 0) { array_splice($children, $idx, 1); $merged['plugins']['entries'][$pIdx]['entries'] = $children; continue; }
                 if ((int)$row->visible === 1) { $children[$idx]['permission'] = null; }
             }
-            // display/other
+
             if (!is_null($row->name_override))  $children[$idx]['name']  = $row->name_override;
             if (!is_null($row->label_override)) $children[$idx]['label'] = $row->label_override;
             if (!is_null($row->icon))           $children[$idx]['icon']  = $row->icon;
@@ -936,16 +1129,17 @@ protected function applyOverridesWithConsolidation(array $baseNative, $dbRowsCol
             continue;
         }
 
-        // kept parents → normal 2-level apply
-        $seg = $srcSeg;
-        if (!isset($merged[$seg]['entries']) || !is_array($merged[$seg]['entries'])) continue;
+        // Kept parents: find actual parent key by segment, then override the child
+        $pKey = $this->findParentKeyBySegment($merged, $srcSeg);
+        if ($pKey === null) continue;
+        if (empty($merged[$pKey]['entries']) || !is_array($merged[$pKey]['entries'])) continue;
 
-        $entries = array_values(array_filter($merged[$seg]['entries'], 'is_array'));
+        $entries = array_values(array_filter($merged[$pKey]['entries'], 'is_array'));
         $idx     = $this->findChildIndex($entries, $row->route, $row->name);
         if ($idx === null) continue;
 
         if (property_exists($row,'visible') && $row->visible !== null) {
-            if ((int)$row->visible === 0) { array_splice($entries, $idx, 1); $merged[$seg]['entries'] = $entries; continue; }
+            if ((int)$row->visible === 0) { array_splice($entries, $idx, 1); $merged[$pKey]['entries'] = $entries; continue; }
             if ((int)$row->visible === 1) { $entries[$idx]['permission'] = null; }
         }
         if (!is_null($row->name_override))  $entries[$idx]['name']  = $row->name_override;
@@ -954,11 +1148,12 @@ protected function applyOverridesWithConsolidation(array $baseNative, $dbRowsCol
         if (!is_null($row->route))          $entries[$idx]['route'] = $row->route;
         if (!is_null($row->permission))     $entries[$idx]['permission'] = $row->permission;
 
-        $merged[$seg]['entries'] = $entries;
+        $merged[$pKey]['entries'] = $entries;
     }
 
     return $merged;
 }
+
 
 
 
