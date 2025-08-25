@@ -61,7 +61,7 @@ class OsmmMenuController extends Controller
     // 4) Load DB rows (include overrides + visible)
     $dbRowsCol = DB::table('osmm_menu_items')
         ->select(
-            'id','parent','`order`','name',
+            'id','parent','order','name',
             'name_override','label_override',
             'icon','route_segment','route','permission',
             'visible',
@@ -423,7 +423,7 @@ class OsmmMenuController extends Controller
     // DB rows
     $dbRowsCol = DB::table('osmm_menu_items')
         ->select(
-            'id','parent','`order`','name',
+            'id','parent','order','name',
             'name_override','label_override',
             'icon','route_segment','route','permission',
             'visible',
