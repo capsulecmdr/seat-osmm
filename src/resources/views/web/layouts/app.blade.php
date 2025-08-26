@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="{{ setting('language') ?: 'en' }}">
     <!-- Testing -->
+    @if(osmm_setting('osmm_override_menu'))
+    <!-- OSMM Setting Found -->
+    @endif
   <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
