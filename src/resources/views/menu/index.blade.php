@@ -485,7 +485,7 @@
 </datalist>
 
 {{-- Styling --}}
-<style>
+{{-- <style>
   .osmm-sidebar a.osmm-link { cursor: pointer; }
   .osmm-sidebar .osmm-link.active,
   .osmm-overrides .list-group-item.active {
@@ -494,7 +494,7 @@
   }
   .osmm-details .table td, .osmm-details .table th { vertical-align: middle; }
   .osmm-details .w-35 { width: 35%; }
-</style>
+</style> --}}
 
 {{-- Script: details tables, edit form, dependent dropdowns --}}
 @push('javascript')
