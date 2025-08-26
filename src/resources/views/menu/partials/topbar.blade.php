@@ -42,22 +42,12 @@
     </ul>
 
 
-    <!-- War badge + clocks -->
-    <span class="badge bg-secondary war-inactive mr-sm" title="No Active War">
-      <img src="https://wiki.eveuniversity.org/images/thumb/3/3d/Wars.png/32px-Wars.png"
-           alt="War status" width="16" height="16" class="align-text-top">
-      Peace
-    </span>
-    <span class="navbar-text">
-      <span id="cc-time" class="mr-sm">Aug 22 2025, 21:46:47</span> |
-      <sub><span id="dt-time">DT in T- 13:13:12</span></sub>
-    </span>
-  </div>
+    
 
   <!-- Search -->
-  <form action="https://anvil.capsulecmdr.com/support/search" method="get" class="form-inline ml-3">
+  <form action="{{ route('seatcore::support.search') }}" method="get" class="form-inline ml-3">
     <div class="input-group input-group-sm">
-      <input type="text" name="q" class="form-control form-control-navbar" placeholder="Search...">
+      <input type="text" name="q" class="form-control form-control-navbar" placeholder="{{ trans('web::seat.search') }}...">
       <div class="input-group-append">
         <button type="submit" id="search-btn" class="btn btn-navbar">
           <i class="fas fa-search"></i>
@@ -68,27 +58,68 @@
 
   <!-- Right: User -->
   <ul class="navbar-nav ml-auto">
+    <li>
+      <!-- War badge + clocks -->
+    <span class="badge bg-secondary war-inactive mr-sm" title="No Active War">
+      <img src="https://wiki.eveuniversity.org/images/thumb/3/3d/Wars.png/32px-Wars.png"
+           alt="War status" width="16" height="16" class="align-text-top">
+      Peace
+    </span>
+    </li>
+    <!-- Impersonation information -->
+    @if(session('impersonation_origin', false))
+
+        <li class="nav-item dropdown">
+          <a href="{{ route('seatcore::configuration.users.impersonate.stop') }}"
+            class="nav-link" data-widget="dropdown" data-placement="bottom"
+            title="{{ trans('web::seat.stop_impersonation') }}">
+            <i class="fa fa-user-secret"></i>
+          </a>
+        </li>
+    @endif
+
+      <!-- Queue information -->
+      @can('global.queue_manager')
+        <li class="nav-item dropdown">
+          <a href="{{ route('horizon.index') }}" class="nav-link" data-widget="dropdown" data-placement="bottom"
+            title="{{ trans('web::seat.queued') }}" target="_blank">
+            <i class="fas fa-truck"></i>
+            <span class="badge badge-success navbar-badge" id="queue_count">0</span>
+          </a>
+        </li>
+        <li class="nav-item dropdown">
+          <a href="{{ route('horizon.index') }}" class="nav-link" data-widget="dropdown" data-placement="bottom"
+            title="{{ trans('web::seat.error') }}" target="_blank">
+            <i class="fas fa-exclamation"></i>
+            <span class="badge badge-danger navbar-badge" id="error_count">0</span>
+          </a>
+        </li>
+      @endcan
+
     <li class="nav-item dropdown">
       <a class="nav-link" id="characterMenu" data-toggle="dropdown" href="#" aria-expanded="false">
         {!! img('characters', 'portrait', auth()->user()->main_character_id, 64, ['class' => 'img-circle elevation-2', 'alt' => 'User Image'], false) !!}
       </a>
       <div class="dropdown-menu dropdown-menu-lg dropdown-menu-right">
-        <a href="https://anvil.capsulecmdr.com/profile/settings" class="dropdown-item">
-          <i class="fas fa-id-card"></i> Profile
-        </a>
-        <div class="dropdown-divider"></div>
-        <a href="#" class="dropdown-item" data-toggle="modal" data-target="#characterSwitchModal">
-          <i class="fas fa-exchange-alt"></i> Change Main Character
-        </a>
-        <div class="dropdown-divider"></div>
-        <a href="https://anvil.capsulecmdr.com/auth/eve" class="dropdown-item">
-          <i class="fas fa-link"></i> Link Character
-        </a>
-        <div class="dropdown-divider"></div>
-        <form action="https://anvil.capsulecmdr.com/auth/logout" method="post" class="px-3">
-          <input type="hidden" name="_token" value="TIDZ6Ynn9gnqEKfLsRowkNGV5ncjDWTXhmmZiZqg" autocomplete="off">
-          <button type="submit" class="btn btn-link dropdown-item p-0">
-            <i class="fas fa-sign-out-alt"></i> Sign Out
+        @if(auth()->user()->name != 'admin')
+          <a href="{{ route('seatcore::profile.view') }}" class="dropdown-item">
+            <i class="fas fa-id-card"></i> {{ trans('web::seat.profile') }}
+          </a>
+          <div class="dropdown-divider"></div>
+          <a href="#" class="dropdown-item" data-toggle="modal" data-target="#characterSwitchModal">
+            <i class="fas fa-exchange-alt"></i> {{ trans('web::seat.switch_character') }}
+          </a>
+          <div class="dropdown-divider"></div>
+          <a href="{{ route('seatcore::auth.eve') }}" class="dropdown-item">
+            <i class="fas fa-link"></i> {{ trans('web::seat.link_character') }}
+          </a>
+          <div class="dropdown-divider"></div>
+        @endif
+        <form action="{{ route('seatcore::auth.logout') }}" method="post">
+          {{ csrf_field() }}
+          <button type="submit" class="btn btn-link dropdown-item">
+            <i class="fas fa-sign-out-alt"></i>
+            {{ trans('web::seat.sign_out') }}
           </button>
         </form>
       </div>
