@@ -339,7 +339,6 @@
             <label class="mb-2 d-flex justify-content-between align-items-center">
               <span>Show custom links</span>
               <span class="badge badge-pill badge-secondary" id="osmm-menu-mode-label">
-                {{ $osmmMenuModeLabel ?? 'Off' }}
               </span>
             </label>
 

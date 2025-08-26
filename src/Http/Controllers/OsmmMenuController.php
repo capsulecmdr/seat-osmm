@@ -67,7 +67,6 @@ class OsmmMenuController extends Controller
         }
 
         $modeLabelMap = [0 => 'Off', 1 => 'Off', 2 => 'Sidebar', 3 => 'Topbar'];
-        $osmmMenuModeLabel = $modeLabelMap[$osmmMenuMode] ?? 'Off';
 
         $can = fn ($perm) => empty($perm) || (\auth()->check() && \auth()->user()->can($perm));
 
@@ -81,7 +80,6 @@ class OsmmMenuController extends Controller
             'can'            => $can,
             'menuCatalog'    => $menuCatalog,
             'osmm_menu_mode' => $osmmMenuMode,
-            'osmmMenuModeLabel' => $osmmMenuModeLabel,
         ]);
     }
 
