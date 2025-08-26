@@ -20,12 +20,8 @@ $content = (osmm_setting('osmm_branding_sidebar_html') ?? "");
 <nav class="main-header navbar navbar-expand navbar-dark navbar-gray" style="margin-left:0px !important">
   <!-- Brand -->
   <a class="navbar-brand d-flex align-items-center" href="/home">
-    <img class="brand-image" src="https://anvil.capsulecmdr.com/storage/blackanvilsocietyicon2.png"
-         alt="Black Anvil Society" style="height:25px">
+    {!! $content !!}
   </a>
-  <span class="navbar-text mr-3">
-    <b style="color:red">B</b>lack <b style="color:red">Anvil</b> <b style="color:red">S</b>ociety
-  </span>
 
   <!-- Left: Dynamic Menu -->
   <div class="collapse navbar-collapse" id="osmmNavbar">
