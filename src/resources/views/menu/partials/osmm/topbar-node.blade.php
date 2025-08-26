@@ -37,7 +37,7 @@
 
 @if($hasKids)
   <li class="nav-item dropdown">
-    <a href="#" class="nav-link dropdown-toggle osmm-link"
+    <a href="#" class="nav-link dropdown-toggle"
        data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">
       @if($icon)<i class="{{ $icon }}"></i>@endif
       <span class="ml-1">{{ $label }}</span>
@@ -110,14 +110,14 @@
               }
             @endphp
 
-            <a class="dropdown-item nav-link osmm-link" href="{{ $gcUrl }}" {!! $gcAttrs !!}>
+            <a class="dropdown-item" href="{{ $gcUrl }}" {!! $gcAttrs !!}>
               {{ $gcLabel }}
             </a>
           @endforeach
 
           <div class="dropdown-divider"></div>
         @else
-          <a class="dropdown-item nav-link osmm-link" href="{{ $cUrl }}" {!! $cAttrs !!}>
+          <a class="dropdown-item" href="{{ $cUrl }}" {!! $cAttrs !!}>
             @if($cIcon)<i class="{{ $cIcon }}"></i>@endif
             <span class="ml-1">{{ $cLabel }}</span>
           </a>
@@ -127,7 +127,7 @@
   </li>
 @else
   <li class="nav-item">
-    <a class="nav-link osmm-link" href="{{ $url }}" {!! $attrs !!}>
+    <a class="nav-link" href="{{ $url }}" {!! $attrs !!}>
       @if($icon)<i class="{{ $icon }}"></i>@endif
       <span class="ml-1">{{ $label }}</span>
     </a>
