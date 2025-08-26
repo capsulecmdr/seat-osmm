@@ -31,7 +31,10 @@
         </div>
         @endif
 
-        <!-- Sidebar Menu -->
+        @if($osmm_override_menu == 2)
+            @include('seat-osmm::menu.partials.topbar', ['menu' => $merged, 'can' => $can ?? null])
+        @elseif()
+<!-- Sidebar Menu -->
         <nav class="mt-2">
         <ul class="nav nav-pills nav-sidebar flex-column nav-child-indent" data-widget="treeview" role="menu">
 
@@ -216,6 +219,10 @@
         </ul>
         </nav>
         <!-- /.sidebar-menu -->
+        @endif
+
+
+        
 
     </div>
     <!-- /.sidebar -->
