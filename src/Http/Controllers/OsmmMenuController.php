@@ -501,7 +501,7 @@ protected function reorderToolsNonCustomOnly(array $entries, array $requests): a
     }
 
     /** Helper for views: returns merged array */
-    public function menu(): array
+public function menu(): array
 {
     // raw config
     $native = config('package.sidebar') ?? [];
@@ -525,6 +525,7 @@ protected function reorderToolsNonCustomOnly(array $entries, array $requests): a
         });
         $parent['entries'] = $entries;
     };
+
     $nativeSorted = $native;
     uksort($nativeSorted, function($aKey,$bKey) use ($nativeSorted,$labelOf,$numericPrefixWeight){
         $a = $nativeSorted[$aKey]; $b = $nativeSorted[$bKey];
@@ -542,6 +543,9 @@ protected function reorderToolsNonCustomOnly(array $entries, array $requests): a
     $base       = $this->buildBaseNative($nativeSorted);
     $baseNative = $base['menu'];
     $maps       = $base['maps'];
+
+    // ✅ Single injection of custom links here too
+    $this->injectCustomLinks($baseNative);
 
     // DB rows
     $dbRowsCol = DB::table('osmm_menu_items')
@@ -635,46 +639,51 @@ protected function reorderToolsNonCustomOnly(array $entries, array $requests): a
         if (empty($parent['entries']) || !is_array($parent['entries'])) continue;
 
         // default alpha
-        $entries = $parent['entries'];
-        $entries = array_values(array_filter($entries, 'is_array'));
-        usort($entries, function($a,$b){
-            $al = __($a['label'] ?? $a['name'] ?? '');
-            $bl = __($b['label'] ?? $b['name'] ?? '');
-            return strnatcasecmp(mb_strtolower($al), mb_strtolower($bl));
-        });
+        $sortChildrenAlpha($parent);
 
+        // ✅ Keep Tools custom block pinned at top
+        if ($pKey === 'tools') {
+            $parent['entries'] = $this->toolsKeepCustomBlockFirst($parent['entries'], $sortChildrenAlpha);
+        }
+
+        // apply child orders
         $seg = $segOfKeyBase[$pKey] ?? ($parent['route_segment'] ?? $pKey);
         $orders = $childOrdersBySeg[$seg] ?? [];
 
         if (!empty($orders)) {
-            $indexByRoute = []; $indexByName = [];
-            foreach ($entries as $idx => $e) {
-                if (!empty($e['route'])) $indexByRoute[$e['route']] = $idx;
-                if (!empty($e['name']))  $indexByName[$e['name']]   = $idx;
-            }
-            usort($orders, fn($a,$b) => $a['order'] <=> $b['order']);
-            foreach ($orders as $req) {
-                $keyIdx = null;
-                if (!empty($req['route']) && isset($indexByRoute[$req['route']])) $keyIdx = $indexByRoute[$req['route']];
-                elseif (!empty($req['name']) && isset($indexByName[$req['name']])) $keyIdx = $indexByName[$req['name']];
-                if ($keyIdx === null) continue;
-
-                $item = $entries[$keyIdx];
-                array_splice($entries, $keyIdx, 1);
-
-                $insertAt = max(0, min((int)$req['order'] - 1, count($entries)));
-                array_splice($entries, $insertAt, 0, [$item]);
-
-                $indexByRoute = $indexByName = [];
-                foreach ($entries as $i => $e) {
-                    if (!empty($e['route'])) $indexByRoute[$e['route']] = $i;
-                    if (!empty($e['name']))  $indexByName[$e['name']]   = $i;
+            if ($pKey === 'tools') {
+                $parent['entries'] = $this->reorderToolsNonCustomOnly($parent['entries'], $orders);
+            } else {
+                $entries = $parent['entries'];
+                $indexByRoute = []; $indexByName = [];
+                foreach ($entries as $idx => $e) {
+                    if (!empty($e['route'])) $indexByRoute[$e['route']] = $idx;
+                    if (!empty($e['name']))  $indexByName[$e['name']]   = $idx;
                 }
+                usort($orders, fn($a,$b) => $a['order'] <=> $b['order']);
+                foreach ($orders as $req) {
+                    $keyIdx = null;
+                    if (!empty($req['route']) && isset($indexByRoute[$req['route']])) $keyIdx = $indexByRoute[$req['route']];
+                    elseif (!empty($req['name']) && isset($indexByName[$req['name']])) $keyIdx = $indexByName[$req['name']];
+                    if ($keyIdx === null) continue;
+
+                    $item = $entries[$keyIdx];
+                    array_splice($entries, $keyIdx, 1);
+
+                    $insertAt = max(0, min((int)$req['order'] - 1, count($entries)));
+                    array_splice($entries, $insertAt, 0, [$item]);
+
+                    $indexByRoute = $indexByName = [];
+                    foreach ($entries as $i => $e) {
+                        if (!empty($e['route'])) $indexByRoute[$e['route']] = $i;
+                        if (!empty($e['name']))  $indexByName[$e['name']]   = $i;
+                    }
+                }
+                $parent['entries'] = $entries;
             }
         }
 
-        $parent['entries'] = $entries;
-
+        // plugins reorders stay as you had them…
         if ($pKey === 'plugins') {
             if (!empty($pluginsSubOrder)) {
                 $subSegKeys = [];
@@ -682,7 +691,6 @@ protected function reorderToolsNonCustomOnly(array $entries, array $requests): a
                     if (is_array($e) && isset($e['_osmm_subsegment'])) $subSegKeys[] = $e['_osmm_subsegment'];
                 }
                 $reorderedSubSegs = $reposition($subSegKeys, $pluginsSubOrder);
-
                 $bySeg = [];
                 foreach ($parent['entries'] as $e) {
                     $ss = $e['_osmm_subsegment'] ?? null;
@@ -692,7 +700,6 @@ protected function reorderToolsNonCustomOnly(array $entries, array $requests): a
                 foreach ($reorderedSubSegs as $ss) if (isset($bySeg[$ss])) $newSubEntries[] = $bySeg[$ss];
                 $parent['entries'] = $newSubEntries;
             }
-
             if (!empty($parent['entries'])) {
                 foreach ($parent['entries'] as &$sub) {
                     $ss = $sub['_osmm_subsegment'] ?? null;
@@ -734,6 +741,7 @@ protected function reorderToolsNonCustomOnly(array $entries, array $requests): a
 
     return $mergedInOrder;
 }
+
 
 
     /* ==================== CRUD for overrides ==================== */
@@ -957,7 +965,7 @@ protected function buildBaseNative(array $nativeSorted): array
     // Keep these segments as-is:
     $keepSegs  = ['home','alliances','characters','corporations','tools'];
     // Admin buckets come from:
-    $adminSegs = ['configuration','notifications','api-admin']; // NOTE: 'configuration' (not 'settings')
+    $adminSegs = ['configuration','notifications','api-admin']; // settings == configuration
 
     // Collect admin entries (flatten)
     $adminEntries = [];
@@ -1038,67 +1046,7 @@ protected function buildBaseNative(array $nativeSorted): array
         'entries'       => $pluginSubEntries,
     ];
 
-    /* ---------- Inject Custom Links into Tools (top) ---------- */
-    try {
-        $raw = function_exists('setting') ? setting('customlinks', true) : null;
-    } catch (\Throwable $e) {
-        $raw = null;
-    }
-    // Normalize to a collection
-    if (is_array($raw)) {
-        $raw = collect($raw);
-    } elseif (!($raw instanceof \Illuminate\Support\Collection)) {
-        $raw = collect();
-    }
-
-    $customLinks = [];
-    foreach ($raw as $cl) {
-        // support array or object forms
-        $name   = is_array($cl) ? ($cl['name'] ?? null) : ($cl->name ?? null);
-        $url    = is_array($cl) ? ($cl['url'] ?? null)  : ($cl->url ?? null);
-        $icon   = is_array($cl) ? ($cl['icon'] ?? null) : ($cl->icon ?? null);
-        $newTab = is_array($cl) ? ($cl['new_tab'] ?? false) : ($cl->new_tab ?? false);
-
-        if (!$name || !$url) continue;
-
-        $customLinks[] = [
-            'name'     => $name,
-            'label'    => $name,
-            'icon'     => $icon ?: 'fas fa-external-link-alt',
-            'url'      => $url,
-            'external' => true,
-            'target'   => $newTab ? '_blank' : null,
-        ];
-    }
-
-    if (!empty($customLinks)) {
-        // Find the actual array key for the 'tools' segment (could be '2tools', etc.)
-        $toolsKey = null;
-        foreach ($base as $k => $v) {
-            $seg = $v['route_segment'] ?? $k;
-            if ($seg === 'tools') { $toolsKey = $k; break; }
-        }
-
-        if ($toolsKey) {
-            $existing = array_values(array_filter($base[$toolsKey]['entries'] ?? [], 'is_array'));
-            $merged   = $customLinks;
-            if (!empty($existing)) {
-                $merged[] = ['divider' => true]; // only add divider if we actually have native tools items
-                $merged   = array_merge($merged, $existing);
-            }
-            $base[$toolsKey]['entries'] = $merged;
-        } else {
-            // No tools parent? Create one to host custom links (with divider ready for future native)
-            $base['tools'] = [
-                'name'          => 'Tools',
-                'label'         => 'Tools',
-                'icon'          => 'fas fa-wrench',
-                'route_segment' => 'tools',
-                'entries'       => array_merge($customLinks, [['divider'=>true]]),
-            ];
-        }
-    }
-    /* ---------- end custom links injection ---------- */
+    // ⛔️ NO custom-links injection here anymore
 
     return [
         'menu' => $base,
