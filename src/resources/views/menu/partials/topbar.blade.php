@@ -70,7 +70,7 @@
   <ul class="navbar-nav ml-auto">
     <li class="nav-item dropdown">
       <a class="nav-link" data-toggle="dropdown" href="#" aria-expanded="false">
-        {!! img('characters', 'portrait', auth()->user()->main_character_id, 64, ['class' => 'img-circle elevation-2', 'alt' => 'User Image'], false) !!}
+        {!! img('characters', 'portrait', auth()->user()->main_character_id, 25, ['class' => 'img-circle elevation-2', 'alt' => 'User Image'], false) !!}
       </a>
       <div class="dropdown-menu dropdown-menu-lg dropdown-menu-right">
         <a href="https://anvil.capsulecmdr.com/profile/settings" class="dropdown-item">
