@@ -2,6 +2,7 @@
   // Use your OSMM settings store, not SeAT's setting()
   $sidebarFlag = (int) (osmm_setting('osmm_override_sidebar') ?? 0);
   $content = (osmm_setting('osmm_branding_sidebar_html') ?? "");
+  $osmm_override_menu = (osmm_setting('osmm_override_menu') ?? 0);
 @endphp
 
 @if ($sidebarFlag === 1)
