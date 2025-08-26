@@ -5,6 +5,7 @@
   $osmm_override_menu = (osmm_setting('osmm_override_menu') ?? 0);
   $osmm = app(\CapsuleCmdr\SeatOsmm\Http\Controllers\OsmmMenuController::class);
   $menu = $osmm->menu();   // this returns the merged array
+  $user = $user ?? auth()->user();
 @endphp
 
 @if ($sidebarFlag === 1)
@@ -39,7 +40,7 @@
 
                 @php
                     // Ensure $user and $can are available
-                    $user = $user ?? auth()->user();
+                    
                     $can = $can ?? function ($perm) use ($user) {
                     return is_array($perm)
                         ? $user->canAny($perm)
