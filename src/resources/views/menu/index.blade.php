@@ -359,12 +359,12 @@
             </div>
 
             <small id="osmm-menu-help" class="form-text text-muted">
-              Choose where to surface your <em>Custom Links</em> block. This only changes display; it doesn’t edit or remove your link list.
+              Choose where to surface the <em>OSMM Menu</em>.
             </small>
           </div>
 
           <div class="d-flex justify-content-end">
-            <button type="submit" class="btn btn-outline-primary btn-sm">Save Settings</button>
+            <button type="submit" class="btn btn-outline-primary btn-sm">Save</button>
           </div>
         </form>
       </div>
