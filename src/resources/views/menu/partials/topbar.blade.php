@@ -13,7 +13,7 @@
   </nav>
 </div> --}}
 
-<nav class="main-header navbar navbar-expand navbar-dark navbar-gray">
+<nav class="main-header navbar navbar-expand navbar-dark navbar-gray" style="margin-left:0px !important">
   <!-- Brand -->
   <a class="navbar-brand d-flex align-items-center" href="/home">
     <img class="brand-image" src="https://anvil.capsulecmdr.com/storage/blackanvilsocietyicon2.png"
