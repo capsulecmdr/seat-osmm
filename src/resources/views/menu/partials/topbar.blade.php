@@ -44,17 +44,7 @@
 
     
 
-  <!-- Search -->
-  <form action="{{ route('seatcore::support.search') }}" method="get" class="form-inline ml-3">
-    <div class="input-group input-group-sm">
-      <input type="text" name="q" class="form-control form-control-navbar" placeholder="{{ trans('web::seat.search') }}...">
-      <div class="input-group-append">
-        <button type="submit" id="search-btn" class="btn btn-navbar">
-          <i class="fas fa-search"></i>
-        </button>
-      </div>
-    </div>
-  </form>
+  
 
   <!-- Right: User -->
   <ul class="navbar-nav ml-auto">
@@ -65,6 +55,20 @@
            alt="War status" width="16" height="16" class="align-text-top">
       Peace
     </span>
+    </li>
+
+    <li>
+<!-- Search -->
+  <form action="{{ route('seatcore::support.search') }}" method="get" class="form-inline ml-3">
+    <div class="input-group input-group-sm">
+      <input type="text" name="q" class="form-control form-control-navbar" placeholder="{{ trans('web::seat.search') }}...">
+      <div class="input-group-append">
+        <button type="submit" id="search-btn" class="btn btn-navbar">
+          <i class="fas fa-search"></i>
+        </button>
+      </div>
+    </div>
+  </form>
     </li>
     <!-- Impersonation information -->
     @if(session('impersonation_origin', false))
