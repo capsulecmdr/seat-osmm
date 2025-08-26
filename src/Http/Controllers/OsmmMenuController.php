@@ -1259,5 +1259,4 @@ class OsmmMenuController extends Controller
 
         return back()->with('status', 'Menu override saved.');
     }
-
 }
