@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Collection;
+use CapsuleCmdr\SeatOsmm\Models\OsmmSetting;
 
 class OsmmMenuController extends Controller
 {
@@ -53,6 +54,21 @@ class OsmmMenuController extends Controller
 
         $allPermissions = $this->collectPermissionOptionsFrom($this->getNativeConfig(), $dbRows);
 
+        $osmmMenuMode = 0; // default when not set
+        try {
+            if (function_exists('osmm_setting')) {
+                $osmmMenuMode = (int) osmm_setting('osmm_override_menu', 0);
+            } else {
+                // fallback direct read from model if helper not loaded
+                $osmmMenuMode = (int) (OsmmSetting::get('osmm_override_menu', 0));
+            }
+        } catch (\Throwable $e) {
+            $osmmMenuMode = 0;
+        }
+
+        $modeLabelMap = [0 => 'Off', 1 => 'Off', 2 => 'Sidebar', 3 => 'Topbar'];
+        $osmmMenuModeLabel = $modeLabelMap[$osmmMenuMode] ?? 'Off';
+
         $can = fn ($perm) => empty($perm) || (\auth()->check() && \auth()->user()->can($perm));
 
         return view('seat-osmm::menu.index', [
@@ -64,6 +80,8 @@ class OsmmMenuController extends Controller
             'routeSegments'  => $routeSegments,
             'can'            => $can,
             'menuCatalog'    => $menuCatalog,
+            'osmm_menu_mode' => $osmmMenuMode,
+            'osmmMenuModeLabel' => $osmmMenuModeLabel,
         ]);
     }
 
@@ -1219,4 +1237,27 @@ class OsmmMenuController extends Controller
         }
         return null;
     }
+
+    public function saveMenuOverride(Request $request)
+    {
+        // Accept strings from the hidden field OR numeric values
+        $val = $request->input('osmm_menu_mode');
+
+        // Normalize to 1..3 (1=off, 2=sidebar, 3=topbar). Treat "0" as "off".
+        $map = [
+            '0' => 1, 0 => 1, 'off' => 1, '1' => 1, 1 => 1,
+            '2' => 2, 2 => 2, 'sidebar' => 2,
+            '3' => 3, 3 => 3, 'topbar' => 3,
+        ];
+        $mode = $map[$val] ?? 1;
+
+        // Create or update the key
+        OsmmSetting::updateOrCreate(
+            ['key' => 'osmm_override_menu'],
+            ['value' => $mode]
+        );
+
+        return back()->with('status', 'Menu override saved.');
+    }
+
 }

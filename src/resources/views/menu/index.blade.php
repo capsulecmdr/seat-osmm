@@ -318,24 +318,39 @@
   {{-- CENTER: SETTINGS --}}
   <div class="col-md-4">
     <div class="card">
-      <div class="card-header"><strong>Settings</strong> <small class="text-muted ml-2">Custom Links Placement</small></div>
+      <div class="card-header">
+        <strong>Menu Master Override</strong>
+        <small class="text-muted ml-2">Use the native SeAT menu or OSMM menu options.</small>
+      </div>
+
       <div class="card-body">
-        <form id="form-osmm-settings" action="#" method="post" novalidate>
+        <form id="form-osmm-settings" action="{{ route('osmm.menu.save-mode') }}" method="post" novalidate>
           @csrf
-          <input type="hidden" name="custom_links_mode" id="custom-links-mode" value="sidebar">
+
+          @php
+            $modeNum = (int)($osmmMenuMode ?? 0);
+            $modeStrMap = [0 => 'off', 1 => 'off', 2 => 'sidebar', 3 => 'topbar'];
+            $modeStr = $modeStrMap[$modeNum] ?? 'off';
+          @endphp
+
+          <input type="hidden" name="osmm_menu_mode" id="osmm-menu-mode" value="{{ $modeStr }}">
 
           <div class="form-group mb-3">
             <label class="mb-2 d-flex justify-content-between align-items-center">
               <span>Show custom links</span>
-              <span class="badge badge-pill badge-secondary" id="custom-links-mode-label">Sidebar</span>
+              <span class="badge badge-pill badge-secondary" id="osmm-menu-mode-label">
+                {{ $osmmMenuModeLabel ?? 'Off' }}
+              </span>
             </label>
 
             <input
               type="range"
               class="custom-range"
-              id="custom-links-slider"
+              id="osmm-menu-slider"
               min="1" max="3" step="1"
-              value="2" aria-describedby="custom-links-help">
+              value="{{ $modeNum }}"
+              data-initial="{{ $modeNum }}"
+              aria-describedby="osmm-menu-help">
 
             <div class="d-flex justify-content-between small text-muted mt-1 px-1">
               <span>Off</span>
@@ -343,27 +358,19 @@
               <span>Topbar</span>
             </div>
 
-            <small id="custom-links-help" class="form-text text-muted">
+            <small id="osmm-menu-help" class="form-text text-muted">
               Choose where to surface your <em>Custom Links</em> block. This only changes display; it doesn’t edit or remove your link list.
             </small>
           </div>
 
-          {{-- (Optional future settings) --}}
-          {{-- <div class="form-group">
-               <label class="mb-0">Divider style</label>
-               <select class="form-control form-control-sm">
-                 <option value="default">Default</option>
-                 <option value="none">None</option>
-               </select>
-             </div> --}}
-
           <div class="d-flex justify-content-end">
-            <button type="submit" class="btn btn-outline-primary btn-sm" disabled>Save Settings</button>
+            <button type="submit" class="btn btn-outline-primary btn-sm">Save Settings</button>
           </div>
         </form>
       </div>
     </div>
   </div>
+
 
   {{-- RIGHT: CHILD OVERRIDE --}}
   <div class="col-md-4">
@@ -492,31 +499,34 @@
 {{-- Script: details tables, edit form, dependent dropdowns --}}
 @push('javascript')
 <script>
-@push('javascript')
-<script>
 (function(){
-  const slider = document.getElementById('custom-links-slider');
-  const label  = document.getElementById('custom-links-mode-label');
-  const hidden = document.getElementById('custom-links-mode');
+  const slider = document.getElementById('osmm-menu-slider');
+  const label  = document.getElementById('osmm-menu-mode-label');
+  const hidden = document.getElementById('osmm-menu-mode');
+  const form   = document.getElementById('form-osmm-settings');
 
-  if (!slider || !label || !hidden) return;
+  if (!slider || !label || !hidden || !form) return;
 
-  const map = {1:'off', 2:'sidebar', 3:'topbar'};
-  function title(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
+  // Accept 0 (treated as Off) so first render from server works even if not set yet
+  const map = {0:'off', 1:'off', 2:'sidebar', 3:'topbar'};
+  const title = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+  // Initialize from server-provided data-initial (or current value)
+  const init = parseInt(slider.getAttribute('data-initial') || slider.value || '0', 10);
+  slider.value = isNaN(init) ? 0 : init;
 
   function sync() {
-    const v = parseInt(slider.value, 10) || 2;
-    const mode = map[v] || 'sidebar';
+    const v = parseInt(slider.value, 10);
+    const mode = (v in map) ? map[v] : 'off';
     label.textContent = title(mode);
     hidden.value = mode;
   }
 
   slider.addEventListener('input',  sync);
   slider.addEventListener('change', sync);
+
   sync(); // initial
 })();
-</script>
-@endpush
 
 
 (function(){

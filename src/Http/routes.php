@@ -60,4 +60,6 @@ Route::get('/osmm/manifest.json', [BrandingController::class, 'manifest'])
         Route::post('/child/upsert',  [OsmmMenuController::class, 'upsertChild'])->name('child.upsert');
         Route::delete('/delete',      [OsmmMenuController::class, 'delete'])->name('delete');
         Route::post('/reset',         [OsmmMenuController::class, 'resetAll'])->name('reset');
+
+        Route::post('/menu-mode', [OsmmMenuController::class, 'saveMenuOverride'])->name('save-mode');
     });
