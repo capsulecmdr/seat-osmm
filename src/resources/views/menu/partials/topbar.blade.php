@@ -13,6 +13,10 @@
   </nav>
 </div> --}}
 
+@php
+$content = (osmm_setting('osmm_branding_sidebar_html') ?? "");
+@endphp
+
 <nav class="main-header navbar navbar-expand navbar-dark navbar-gray" style="margin-left:0px !important">
   <!-- Brand -->
   <a class="navbar-brand d-flex align-items-center" href="/home">
@@ -22,12 +26,6 @@
   <span class="navbar-text mr-3">
     <b style="color:red">B</b>lack <b style="color:red">Anvil</b> <b style="color:red">S</b>ociety
   </span>
-
-  <!-- Toggler -->
-  <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#osmmNavbar"
-          aria-controls="osmmNavbar" aria-expanded="false" aria-label="Toggle navigation">
-    <span class="navbar-toggler-icon"></span>
-  </button>
 
   <!-- Left: Dynamic Menu -->
   <div class="collapse navbar-collapse" id="osmmNavbar">
