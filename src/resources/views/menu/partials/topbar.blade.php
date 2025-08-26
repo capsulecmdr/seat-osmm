@@ -19,7 +19,7 @@ $content = (osmm_setting('osmm_branding_sidebar_html') ?? "");
 
 <nav class="main-header navbar navbar-expand navbar-dark navbar-gray" style="margin-left:0px !important">
   <!-- Brand -->
-  <a class="navbar-brand d-flex align-items-center" href="/home">
+  <a class="navbar-brand brand-link d-flex align-items-center" href="/home">
     {!! $content !!}
   </a>
 
