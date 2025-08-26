@@ -215,8 +215,8 @@
 
 {{-- OVERRIDE-ONLY FORMS --}}
 <div class="row mt-4">
-  {{-- PARENT OVERRIDE --}}
-  <div class="col-md-6">
+  {{-- LEFT: PARENT OVERRIDE --}}
+  <div class="col-md-4">
     <div class="card">
       <div class="card-header"><strong>Override: Parent (Top-level section)</strong></div>
       <div class="card-body">
@@ -315,8 +315,58 @@
     </div>
   </div>
 
-  {{-- CHILD OVERRIDE --}}
-  <div class="col-md-6">
+  {{-- CENTER: SETTINGS --}}
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-header"><strong>Settings</strong> <small class="text-muted ml-2">Custom Links Placement</small></div>
+      <div class="card-body">
+        <form id="form-osmm-settings" action="#" method="post" novalidate>
+          @csrf
+          <input type="hidden" name="custom_links_mode" id="custom-links-mode" value="sidebar">
+
+          <div class="form-group mb-3">
+            <label class="mb-2 d-flex justify-content-between align-items-center">
+              <span>Show custom links</span>
+              <span class="badge badge-pill badge-secondary" id="custom-links-mode-label">Sidebar</span>
+            </label>
+
+            <input
+              type="range"
+              class="custom-range"
+              id="custom-links-slider"
+              min="1" max="3" step="1"
+              value="2" aria-describedby="custom-links-help">
+
+            <div class="d-flex justify-content-between small text-muted mt-1 px-1">
+              <span>Off</span>
+              <span>Sidebar</span>
+              <span>Topbar</span>
+            </div>
+
+            <small id="custom-links-help" class="form-text text-muted">
+              Choose where to surface your <em>Custom Links</em> block. This only changes display; it doesn’t edit or remove your link list.
+            </small>
+          </div>
+
+          {{-- (Optional future settings) --}}
+          {{-- <div class="form-group">
+               <label class="mb-0">Divider style</label>
+               <select class="form-control form-control-sm">
+                 <option value="default">Default</option>
+                 <option value="none">None</option>
+               </select>
+             </div> --}}
+
+          <div class="d-flex justify-content-end">
+            <button type="submit" class="btn btn-outline-primary btn-sm" disabled>Save Settings</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  {{-- RIGHT: CHILD OVERRIDE --}}
+  <div class="col-md-4">
     <div class="card">
       <div class="card-header"><strong>Override: Child (Menu item)</strong></div>
       <div class="card-body">
@@ -419,6 +469,7 @@
   </div>
 </div>
 
+
 {{-- Shared datalist for route segments --}}
 <datalist id="route-segment-options">
   @foreach(($routeSegments ?? []) as $opt)
@@ -441,6 +492,33 @@
 {{-- Script: details tables, edit form, dependent dropdowns --}}
 @push('javascript')
 <script>
+@push('javascript')
+<script>
+(function(){
+  const slider = document.getElementById('custom-links-slider');
+  const label  = document.getElementById('custom-links-mode-label');
+  const hidden = document.getElementById('custom-links-mode');
+
+  if (!slider || !label || !hidden) return;
+
+  const map = {1:'off', 2:'sidebar', 3:'topbar'};
+  function title(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
+
+  function sync() {
+    const v = parseInt(slider.value, 10) || 2;
+    const mode = map[v] || 'sidebar';
+    label.textContent = title(mode);
+    hidden.value = mode;
+  }
+
+  slider.addEventListener('input',  sync);
+  slider.addEventListener('change', sync);
+  sync(); // initial
+})();
+</script>
+@endpush
+
+
 (function(){
   // ---------- helpers ----------
   const esc = (s) => (s === null || s === undefined) ? '' :
