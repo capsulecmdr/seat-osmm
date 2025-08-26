@@ -69,10 +69,8 @@
   <!-- Right: User -->
   <ul class="navbar-nav ml-auto">
     <li class="nav-item dropdown">
-      <a class="nav-link" data-toggle="dropdown" href="#" aria-expanded="false">
-        <div class="image">
+      <a class="nav-link" id="characterMenu" data-toggle="dropdown" href="#" aria-expanded="false">
         {!! img('characters', 'portrait', auth()->user()->main_character_id, 64, ['class' => 'img-circle elevation-2', 'alt' => 'User Image'], false) !!}
-        </div>
       </a>
       <div class="dropdown-menu dropdown-menu-lg dropdown-menu-right">
         <a href="https://anvil.capsulecmdr.com/profile/settings" class="dropdown-item">
@@ -97,3 +95,9 @@
     </li>
   </ul>
 </nav>
+<style>
+  #characterMenu img{
+    height:auto;
+    width: 2.1rem;
+  }
+</style>
