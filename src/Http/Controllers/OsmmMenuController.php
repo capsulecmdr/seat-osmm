@@ -79,7 +79,7 @@ class OsmmMenuController extends Controller
             'routeSegments'  => $routeSegments,
             'can'            => $can,
             'menuCatalog'    => $menuCatalog,
-            'osmm_menu_mode' => $osmmMenuMode,
+            'osmmMenuMode' => $osmmMenuMode,
         ]);
     }
 
