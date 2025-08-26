@@ -70,8 +70,7 @@
   <ul class="navbar-nav ml-auto">
     <li class="nav-item dropdown">
       <a class="nav-link" data-toggle="dropdown" href="#" aria-expanded="false">
-        <img src="//images.evetech.net/characters/2117189532/portrait?size=64"
-             class="img-circle elevation-2" alt="User Image" style="height:25px">
+        {!! img('characters', 'portrait', $user->main_character_id, 64, ['class' => 'img-circle elevation-2', 'alt' => 'User Image'], false) !!}
       </a>
       <div class="dropdown-menu dropdown-menu-lg dropdown-menu-right">
         <a href="https://anvil.capsulecmdr.com/profile/settings" class="dropdown-item">
