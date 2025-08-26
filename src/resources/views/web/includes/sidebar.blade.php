@@ -32,7 +32,29 @@
         @endif
 
         @if($osmm_override_menu == 2)
-            @include('seat-osmm::menu.partials.osmm.sidebar-node', ['item' => $item, 'can' => $can, 'level' => 0])
+              <nav class="mt-2">
+                <ul class="nav nav-pills nav-sidebar flex-column nav-child-indent" data-widget="treeview" role="menu">
+
+                @php
+                    // Ensure $user and $can are available
+                    $user = $user ?? auth()->user();
+                    $can = $can ?? function ($perm) use ($user) {
+                    return is_array($perm)
+                        ? $user->canAny($perm)
+                        : $user->can($perm);
+                    };
+                @endphp
+
+                @foreach(($menu ?? []) as $item)
+                    @include('seat-osmm::menu.partials.osmm.sidebar-node', [
+                    'item'  => $item,
+                    'can'   => $can,
+                    'level' => 0,
+                    ])
+                @endforeach
+
+                </ul>
+            </nav>
         @else
 <!-- Sidebar Menu -->
         <nav class="mt-2">
