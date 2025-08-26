@@ -258,13 +258,13 @@ public function index()
 }
 
 /**
- * Insert custom links (from setting('customlinks', true)) at the TOP of the Tools
- * section, followed by a divider, then the native Tools items.
- * Each custom link gets: name, url, icon, target (if new_tab), and a flag _osmm_custom.
+ * Normalize Tools: remove ANY pre-existing custom links and dividers,
+ * then insert a single custom block (unique by URL) at the very top,
+ * followed by exactly one divider, then the rest of the items.
  */
 protected function injectCustomLinks(array &$menu): void
 {
-    // We only touch the 'tools' parent
+    // Find "tools" parent in the consolidated/base menu
     $toolsKey = null;
     foreach ($menu as $k => $p) {
         $seg = $p['route_segment'] ?? $k;
@@ -272,25 +272,43 @@ protected function injectCustomLinks(array &$menu): void
     }
     if ($toolsKey === null) return;
 
-    $links = [];
+    // Get existing children safely
+    $entries = $menu[$toolsKey]['entries'] ?? [];
+    $entries = is_array($entries) ? array_values(array_filter($entries, 'is_array')) : [];
+
+    // 1) Strip any existing custom items and any dividers (we’ll re-add one)
+    $others = [];
+    foreach ($entries as $e) {
+        if (!empty($e['_osmm_custom'])) continue; // drop old custom items (anywhere)
+        if (!empty($e['divider']))      continue; // drop all dividers; we’ll add one
+        $others[] = $e;
+    }
+
+    // 2) Build fresh custom block from settings
+    $links = collect();
     try {
-        $links = function_exists('setting') ? (setting('customlinks', true) ?? collect()) : collect();
+        if (function_exists('setting')) {
+            $links = setting('customlinks', true) ?? collect();
+        }
     } catch (\Throwable $e) {
-        $links = collect();
+        // ignore
     }
     if (!($links instanceof \Illuminate\Support\Collection)) {
         $links = collect($links);
     }
-    if ($links->isEmpty()) return;
 
     $customItems = [];
+    $seen = [];
     foreach ($links as $l) {
-        $name    = $l->name  ?? $l['name']  ?? null;
-        $url     = $l->url   ?? $l['url']   ?? null;
-        $icon    = $l->icon  ?? $l['icon']  ?? 'fas fa-link';
-        $newTab  = $l->new_tab ?? $l['new_tab'] ?? false;
+        $name   = $l->name    ?? $l['name']    ?? null;
+        $url    = $l->url     ?? $l['url']     ?? null;
+        $icon   = $l->icon    ?? $l['icon']    ?? 'fas fa-link';
+        $newTab = $l->new_tab ?? $l['new_tab'] ?? false;
 
         if (!$name || !$url) continue;
+        $key = strtolower(trim($url));
+        if (isset($seen[$key])) continue;
+        $seen[$key] = true;
 
         $customItems[] = [
             '_osmm_custom' => true,
@@ -299,21 +317,22 @@ protected function injectCustomLinks(array &$menu): void
             'icon'         => $icon,
             'url'          => $url,
             'target'       => $newTab ? '_blank' : null,
-            // No route or permission; always visible unless later overridden
         ];
     }
-    if (empty($customItems)) return;
 
-    $current = $menu[$toolsKey]['entries'] ?? [];
-    $current = is_array($current) ? array_values(array_filter($current, 'is_array')) : [];
-
-    // Build: [custom..., divider, existing...]
-    $menu[$toolsKey]['entries'] = array_merge(
-        $customItems,
-        [['divider' => true]],
-        $current
-    );
+    // 3) Rebuild: custom..., divider, others...
+    if (!empty($customItems)) {
+        $menu[$toolsKey]['entries'] = array_merge(
+            $customItems,
+            [['divider' => true]],
+            $others
+        );
+    } else {
+        // No custom links configured — just keep the others (no divider)
+        $menu[$toolsKey]['entries'] = $others;
+    }
 }
+
 
 /**
  * Given Tools children, return array with:
