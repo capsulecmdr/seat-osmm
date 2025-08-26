@@ -32,7 +32,7 @@
         @endif
 
         @if($osmm_override_menu == 2)
-            @include('seat-osmm::menu.partials.topbar', ['menu' => $merged, 'can' => $can ?? null])
+            @include('seat-osmm::menu.partials.osmm.sidebar-node', ['item' => $item, 'can' => $can, 'level' => 0])
         @else
 <!-- Sidebar Menu -->
         <nav class="mt-2">
