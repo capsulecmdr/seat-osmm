@@ -41,11 +41,6 @@
       @endforeach
     </ul>
 
-
-    
-
-  
-
   <!-- Right: User -->
   <ul class="navbar-nav ml-auto">
     <li>
