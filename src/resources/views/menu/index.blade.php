@@ -333,11 +333,15 @@
             $modeStr = $modeStrMap[$modeNum] ?? 'off';
           @endphp
 
-          <input type="hidden" name="osmm_menu_mode" id="osmm-menu-mode" value="{{ $modeStr }}">
+          <script>
+              console.log("modeNum",{{$modeNum}});
+          </script>
+
+          <input type="hidden" name="osmm_menu_mode" id="osmm-menu-mode" value="{{ $modeNum }}">
 
           <div class="form-group mb-3">
             <label class="mb-2 d-flex justify-content-between align-items-center">
-              <span>Show custom links</span>
+              <span>Menu Override Level</span>
               <span class="badge badge-pill badge-secondary" id="osmm-menu-mode-label">
               </span>
             </label>
