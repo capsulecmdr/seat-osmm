@@ -55,7 +55,7 @@ $navbar_override = (osmm_setting('osmm_override_menu') ?? 0);
   <div class="wrapper">
 
   @if($navbar_override == 3)
-    @include('seat-osmm::menu.partials.osmm.topbar');
+    @include('seat-osmm::menu.partials.topbar', ['menu' => $merged, 'can' => $can ?? null])
   @else
    <!-- Main Header -->
   @include('web::includes.header')
