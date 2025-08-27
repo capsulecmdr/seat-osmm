@@ -4,7 +4,7 @@
   $content = (osmm_setting('osmm_branding_sidebar_html') ?? "");
   $osmm_override_menu = (osmm_setting('osmm_override_menu') ?? 0);
   $osmm = app(\CapsuleCmdr\SeatOsmm\Http\Controllers\OsmmMenuController::class);
-  $menu = $osmm->menu();   // this returns the merged array
+  
   $user = $user ?? auth()->user();
 @endphp
 
@@ -35,6 +35,9 @@
         @endif
 
         @if($osmm_override_menu == 2)
+                @php
+                $menu = $osmm->menu();   // this returns the merged array
+                @endphp
               <nav class="mt-2">
                 <ul class="nav nav-pills nav-sidebar flex-column nav-child-indent" data-widget="treeview" role="menu">
 
