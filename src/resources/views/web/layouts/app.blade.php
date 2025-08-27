@@ -56,14 +56,22 @@ $navbar_override = (osmm_setting('osmm_override_menu') ?? 0);
 
   @if($navbar_override == 3)
     @include('seat-osmm::menu.partials.topbar', ['menu' => $merged, 'can' => $can ?? null])
+    <style>
+      .content-wrapper{
+        margin-left:0px !importiant;
+      }
+    </style>
   @else
    <!-- Main Header -->
   @include('web::includes.header')
   @endif
  
+  @if($navbar_override != 3)
 
   <!-- Left side column. contains the logo and sidebar -->
   @include('web::includes.sidebar')
+
+  @endif
 
   <!-- Content Wrapper. Contains page content -->
     <div class="content-wrapper">
