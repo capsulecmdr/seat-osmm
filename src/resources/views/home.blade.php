@@ -4,10 +4,6 @@
 @section('page_title', 'Home')
 
 @section('content')
-  <script>
-    console.log(@json($publicInfo));
-    console.log(@json($blueprints));
-  </script>
   <style>
     .card-ribbon {
     position: relative;
@@ -62,63 +58,6 @@
     }
   </style>
   <div class="container-fluid">
-    <div class="row">
-
-    <!-- Image and text -->
-    <nav class="navbar navbar-expand-lg navbar-light bg-light w-100">
-      <a class="navbar-brand" href="/home"><i class="fa fa-home" aria-hidden="true"></i> Home</a>
-      <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarText"
-      aria-controls="navbarText" aria-expanded="false" aria-label="Toggle navigation">
-      <span class="navbar-toggler-icon"></span>
-      </button>
-      <div class="collapse navbar-collapse" id="navbarText">
-      <ul class="navbar-nav mr-auto">
-        <li class="nav-item dropdown">
-      <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-        File
-      </a>
-      <div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
-        <a class="dropdown-item" href="#">Profile</a>
-        <hr/>
-        <a class="dropdown-item" href="#">Access Management</a>
-        <a class="dropdown-item" href="#">Users</a>
-        <a class="dropdown-item" href="#">Schedule</a>
-        <a class="dropdown-item" href="#">single sign on</a>
-      </div>
-      </li>
-        @can('osmm.admin')
-      <li class="nav-item dropdown">
-      <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-        Edit
-      </a>
-      <div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
-        <a class="dropdown-item" href="{{ route('osmm.config.branding') }}">Branding</a>
-      </div>
-      </li>
-      @endcan
-      </ul>
-      {{-- War Status Badge --}}
-      <span class="badge {{ $inWar ? 'bg-danger war-active' : 'bg-secondary war-inactive' }} mr-sm"
-        title="{{ $inWar ? 'Active War' : 'No Active War' }}">
-        <img src="https://wiki.eveuniversity.org/images/thumb/3/3d/Wars.png/32px-Wars.png" alt="War status" width="16"
-        height="16" class="align-text-top">
-        {{ $inWar ? 'At War' : 'Peace' }}
-      </span>
-      <span class="navbar-text"><span id="cc-time" class="mr-sm"></span> | <sub><span
-          id="dt-time"></span></sub></span>
-
-
-      </div>
-    </nav>
-    </div>
-    <div class="row">
-    <nav aria-label="breadcrumb" class="w-100">
-      <ol class="breadcrumb">
-      <li class="breadcrumb-item active" aria-current="page">Home</li>
-      </ol>
-    </nav>
-    </div>
-
     <div class="row">
 
     {{-- MAIN --}}
