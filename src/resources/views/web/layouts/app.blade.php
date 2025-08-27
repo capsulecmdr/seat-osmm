@@ -56,10 +56,11 @@ $noMargin = ""
   <div class="wrapper">
 
   @if($navbar_override == 3)
+  @php
+    ['merged' => $merged] = app(\CapsuleCmdr\SeatOsmm\Http\Controllers\OsmmMenuController::class)->buildMergedMenu();
+    $noMargin = 'style="margin-left:0px"';
+  @endphp
     @include('seat-osmm::menu.partials.topbar', ['menu' => $merged, 'can' => $can ?? null])
-    @php
-      $noMargin = 'style="margin-left:0px"';
-    @endphp
   @else
    <!-- Main Header -->
   @include('web::includes.header')
