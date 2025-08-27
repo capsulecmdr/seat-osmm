@@ -389,7 +389,7 @@
   <script>
 
 
-    (function () {
+    //(function () {
     // function updateUtcTime() {
     //   const now = new Date();
     //   const options = {
