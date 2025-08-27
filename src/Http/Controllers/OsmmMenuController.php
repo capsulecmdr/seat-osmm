@@ -372,7 +372,7 @@ class OsmmMenuController extends Controller
     private function getNativeConfig(): array
     {
         $nativeConfig = config('package.sidebar') ?? [];
-        $nativeCleanConfig = removePluralKeys($nativeConfig);
+        $nativeCleanConfig = $this->removePluralKeys($nativeConfig);
         return $nativeCleanConfig;
     }
 
