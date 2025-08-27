@@ -109,6 +109,23 @@ class OsmmMenuController extends Controller
         return $merged;
     }
 
+    function removePluralKeys(array $items): array
+    {
+        foreach ($items as $key => &$value) {
+            // If the value is itself an array, recurse
+            if (is_array($value)) {
+                $value = removePluralKeys($value);
+            }
+        }
+
+        // Finally, unset the 'plural' key if it exists at this level
+        if (array_key_exists('plural', $items)) {
+            unset($items['plural']);
+        }
+
+        return $items;
+    }
+
     /* ==================== CRUD for overrides ==================== */
 
     public function upsertParent(Request $request)
@@ -354,7 +371,9 @@ class OsmmMenuController extends Controller
     /** Load native config. */
     private function getNativeConfig(): array
     {
-        return config('package.sidebar') ?? [];
+        $nativeConfig = config('package.sidebar') ?? [];
+        $nativeCleanConfig = removePluralKeys($nativeConfig);
+        return $nativeCleanConfig;
     }
 
     /** Sort native parents and children like SeAT. */
