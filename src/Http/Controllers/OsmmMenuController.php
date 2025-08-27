@@ -106,25 +106,7 @@ class OsmmMenuController extends Controller
     public function menu(): array
     {
         ['merged' => $merged] = $this->buildMergedMenu();
-        $merged = $this->removePluralKeys($merged);
         return $merged;
-    }
-
-    private function removePluralKeys(array $items): array
-    {
-        foreach ($items as $key => &$value) {
-            // If the value is itself an array, recurse
-            if (is_array($value)) {
-                $value = $this->removePluralKeys($value);
-            }
-        }
-
-        // Finally, unset the 'plural' key if it exists at this level
-        if (array_key_exists('plural', $items)) {
-            unset($items['plural']);
-        }
-
-        return $items;
     }
 
     /* ==================== CRUD for overrides ==================== */
@@ -373,8 +355,7 @@ class OsmmMenuController extends Controller
     private function getNativeConfig(): array
     {
         $nativeConfig = config('package.sidebar') ?? [];
-        $nativeCleanConfig = $this->removePluralKeys($nativeConfig);
-        return $nativeCleanConfig;
+        return $nativeConfig;
     }
 
     /** Sort native parents and children like SeAT. */
@@ -409,97 +390,170 @@ class OsmmMenuController extends Controller
      * @return array{menu: array, maps: array}
      */
     protected function buildBaseNative(array $nativeSorted): array
+{
+    // --- helpers ------------------------------------------------------------
+    $resolveLabel = function (array $node): string {
+        $label = $node['label'] ?? ($node['name'] ?? '');
+
+        if (!is_string($label)) {
+            return (string) $label;
+        }
+
+        // Pipe pluralization: "singular|plural"
+        if (strpos($label, '|') !== false) {
+            $count = array_key_exists('count', $node)
+                ? (int) $node['count']
+                : (!empty($node['plural']) ? 2 : 1);
+            return trans_choice($label, $count);
+        }
+
+        // Translation keys (with or without pluralization)
+        if (str_contains($label, '::') || str_contains($label, '.')) {
+            $count = array_key_exists('count', $node)
+                ? (int) $node['count']
+                : (!empty($node['plural']) ? 2 : 1);
+            // trans_choice works for both pluralized and non-pluralized keys
+            return trans_choice($label, $count);
+        }
+
+        return $label;
+    };
+
+    $normalizeNode = function (array $node) use (&$normalizeNode, $resolveLabel): array {
+        $node['label'] = $resolveLabel($node);
+        if (!empty($node['entries']) && is_array($node['entries'])) {
+            $node['entries'] = array_values(array_map(function ($child) use ($normalizeNode) {
+                return is_array($child) ? $normalizeNode($child) : $child;
+            }, array_filter($node['entries'], 'is_array')));
+        }
+        return $node;
+    };
+
+    // --- key -> segment map -------------------------------------------------
+    $segOfKey = [];
+    foreach ($nativeSorted as $k => $p) {
+        $segOfKey[$k] = $p['route_segment'] ?? $k;
+    }
+
+    // --- Collect admin entries (flatten) -----------------------------------
+    $adminEntries = [];
+
+    // settings = 'configuration'
+    $settingsKey = array_search('configuration', $segOfKey, true);
+    if ($settingsKey !== false && !empty($nativeSorted[$settingsKey]['entries'])) {
+        foreach ($nativeSorted[$settingsKey]['entries'] as $c) {
+            if (is_array($c)) $adminEntries[] = $normalizeNode($c);
+        }
+    }
+
+    // SeAT API = 'api-admin'
+    $seatApiKey = array_search('api-admin', $segOfKey, true);
+    if ($seatApiKey !== false) {
+        $seatApi = $nativeSorted[$seatApiKey];
+        $adminEntries[] = $normalizeNode([
+            'name'       => $seatApi['name'] ?? 'SeAT API',
+            'label'      => $seatApi['label'] ?? ($seatApi['name'] ?? 'SeAT API'),
+            'icon'       => $seatApi['icon'] ?? 'fas fa-exchange-alt',
+            'route'      => $seatApi['route'] ?? null,
+            'permission' => $seatApi['permission'] ?? null,
+        ]);
+    }
+
+    // notifications
+    $notifKey = array_search('notifications', $segOfKey, true);
+    if ($notifKey !== false && !empty($nativeSorted[$notifKey]['entries'])) {
+        foreach ($nativeSorted[$notifKey]['entries'] as $c) {
+            if (is_array($c)) $adminEntries[] = $normalizeNode($c);
+        }
+    }
+
+    // --- Build Plugins = all parents not in KEEP or ADMIN -------------------
+    $pluginSegs = [];
+    $pluginSubEntries = [];
+    foreach ($nativeSorted as $k => $p) {
+        $seg = $segOfKey[$k];
+        if (in_array($seg, self::KEEP_SEGS, true))  continue;
+        if (in_array($seg, self::ADMIN_SEGS, true)) continue;
+
+        $pluginSegs[] = $seg;
+
+        $sub = [
+            'name'             => $p['name'] ?? $k,
+            'label'            => $p['label'] ?? ($p['name'] ?? $k),
+            'icon'             => $p['icon'] ?? 'fas fa-puzzle-piece',
+            'route'            => $p['route'] ?? null,
+            'permission'       => $p['permission'] ?? null,
+            '_osmm_subsegment' => $seg,
+            'entries'          => [],
+        ];
+
+        if (!empty($p['entries']) && is_array($p['entries'])) {
+            $sub['entries'] = array_values(array_map(function ($child) use ($normalizeNode) {
+                return is_array($child) ? $normalizeNode($child) : $child;
+            }, array_filter($p['entries'], 'is_array')));
+        }
+
+        $pluginSubEntries[] = $normalizeNode($sub);
+    }
+
+    // --- Assemble base: kept parents first (native order) -------------------
+    $base = [];
+    foreach ($nativeSorted as $k => $p) {
+        $seg = $segOfKey[$k];
+        if (in_array($seg, self::KEEP_SEGS, true)) {
+            $base[$k] = $normalizeNode($p);
+        }
+    }
+
+    // --- Add Administration --------------------------------------------------
+    $base[self::SEG_ADMIN] = [
+        'name'          => 'Administration',
+        'label'         => 'Administration',
+        'icon'          => 'fas fa-cogs',
+        'route_segment' => self::SEG_ADMIN,
+        'permission'    => 'global.superuser',
+        'entries'       => $adminEntries,
+    ];
+
+    // --- Add Plugins ---------------------------------------------------------
+    $base[self::SEG_PLUGS] = [
+        'name'          => 'Plugins',
+        'label'         => 'Plugins',
+        'icon'          => 'fas fa-plug',
+        'route_segment' => self::SEG_PLUGS,
+        'permission'    => null,
+        'entries'       => $pluginSubEntries,
+    ];
+
+    return [
+        'menu' => $base,
+        'maps' => [
+            'admin_segments'  => self::ADMIN_SEGS,
+            'plugin_segments' => $pluginSegs,
+        ],
+    ];
+}
+
+
+    private function resolveLabel(array $p): string
     {
-        // key -> segment
-        $segOfKey = [];
-        foreach ($nativeSorted as $k => $p) $segOfKey[$k] = $p['route_segment'] ?? $k;
+        $label = $p['label'] ?? ($p['name'] ?? '');
 
-        // Collect admin entries (flatten)
-        $adminEntries = [];
-
-        // settings = 'configuration'
-        $settingsKey = array_search('configuration', $segOfKey, true);
-        if ($settingsKey !== false && !empty($nativeSorted[$settingsKey]['entries'])) {
-            foreach ($nativeSorted[$settingsKey]['entries'] as $c) if (is_array($c)) $adminEntries[] = $c;
+        // If it's a pipe string, use plural flag to pick singular/plural
+        if (is_string($label) && strpos($label, '|') !== false) {
+            $count = !empty($p['plural']) ? 2 : 1;   // 1 = singular, 2 = plural
+            return trans_choice($label, $count);
         }
 
-        // SeAT API = 'api-admin'
-        $seatApiKey = array_search('api-admin', $segOfKey, true);
-        if ($seatApiKey !== false) {
-            $seatApi = $nativeSorted[$seatApiKey];
-            $adminEntries[] = [
-                'name'       => $seatApi['name'] ?? 'SeAT API',
-                'label'      => $seatApi['label'] ?? ($seatApi['name'] ?? 'SeAT API'),
-                'icon'       => $seatApi['icon'] ?? 'fas fa-exchange-alt',
-                'route'      => $seatApi['route'] ?? null,
-                'permission' => $seatApi['permission'] ?? null,
-            ];
+        // If it looks like a translation key, resolve it
+        if (is_string($label) && (str_contains($label, '::') || str_contains($label, '.'))) {
+            // If caller provided a 'count', prefer it for languages with complex plurals
+            $count = array_key_exists('count', $p) ? (int) $p['count'] : (!empty($p['plural']) ? 2 : 1);
+            return trans_choice($label, $count); // safe even if not pluralized; falls back to __
         }
 
-        // notifications
-        $notifKey = array_search('notifications', $segOfKey, true);
-        if ($notifKey !== false && !empty($nativeSorted[$notifKey]['entries'])) {
-            foreach ($nativeSorted[$notifKey]['entries'] as $c) if (is_array($c)) $adminEntries[] = $c;
-        }
-
-        // Build Plugins = all parents not in KEEP or ADMIN
-        $pluginSegs = [];
-        $pluginSubEntries = [];
-        foreach ($nativeSorted as $k => $p) {
-            $seg = $segOfKey[$k];
-            if (in_array($seg, self::KEEP_SEGS, true))  continue;
-            if (in_array($seg, self::ADMIN_SEGS, true)) continue;
-
-            $pluginSegs[] = $seg;
-
-            $sub = [
-                'name'            => $p['name'] ?? $k,
-                'label'           => $p['label'] ?? ($p['name'] ?? $k),
-                'icon'            => $p['icon'] ?? 'fas fa-puzzle-piece',
-                'route'           => $p['route'] ?? null,
-                'permission'      => $p['permission'] ?? null,
-                '_osmm_subsegment'=> $seg,
-            ];
-            if (!empty($p['entries']) && is_array($p['entries'])) {
-                $sub['entries'] = array_values(array_filter($p['entries'], 'is_array'));
-            }
-            $pluginSubEntries[] = $sub;
-        }
-
-        // Assemble base: kept parents first (native order)
-        $base = [];
-        foreach ($nativeSorted as $k => $p) {
-            $seg = $segOfKey[$k];
-            if (in_array($seg, self::KEEP_SEGS, true)) $base[$k] = $p;
-        }
-
-        // Add Administration
-        $base[self::SEG_ADMIN] = [
-            'name'          => 'Administration',
-            'label'         => 'Administration',
-            'icon'          => 'fas fa-cogs',
-            'route_segment' => self::SEG_ADMIN,
-            'permission'    => 'global.superuser',
-            'entries'       => $adminEntries,
-        ];
-
-        // Add Plugins
-        $base[self::SEG_PLUGS] = [
-            'name'          => 'Plugins',
-            'label'         => 'Plugins',
-            'icon'          => 'fas fa-plug',
-            'route_segment' => self::SEG_PLUGS,
-            'permission'    => null,
-            'entries'       => $pluginSubEntries,
-        ];
-
-        return [
-            'menu' => $base,
-            'maps' => [
-                'admin_segments'  => self::ADMIN_SEGS,
-                'plugin_segments' => $pluginSegs,
-            ],
-        ];
+        // Plain text fallback
+        return (string) $label;
     }
 
     /** Inject a normalized custom-links block at the top of Tools, followed by a single divider. */
