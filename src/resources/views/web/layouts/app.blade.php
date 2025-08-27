@@ -1,9 +1,9 @@
+@php
+$navbar_override = (osmm_setting('osmm_override_menu') ?? 0);
+@endphp
+
 <!DOCTYPE html>
 <html lang="{{ setting('language') ?: 'en' }}">
-    <!-- Testing -->
-    @if(osmm_setting('osmm_override_menu'))
-    <!-- OSMM Setting Found -->
-    @endif
   <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -54,8 +54,13 @@
 
   <div class="wrapper">
 
-    <!-- Main Header -->
+  @if($navbar_override == 3)
+    @include('seat-osmm::menu.partials.osmm.topbar');
+  @else
+   <!-- Main Header -->
   @include('web::includes.header')
+  @endif
+ 
 
   <!-- Left side column. contains the logo and sidebar -->
   @include('web::includes.sidebar')
