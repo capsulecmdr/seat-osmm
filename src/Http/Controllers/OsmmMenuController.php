@@ -114,7 +114,7 @@ class OsmmMenuController extends Controller
         foreach ($items as $key => &$value) {
             // If the value is itself an array, recurse
             if (is_array($value)) {
-                $value = removePluralKeys($value);
+                $value = $this->removePluralKeys($value);
             }
         }
 
