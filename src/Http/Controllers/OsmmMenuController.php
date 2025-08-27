@@ -17,7 +17,7 @@ class OsmmMenuController extends Controller
     /* ==================== Constants ==================== */
     private const KEEP_SEGS  = ['home','alliances','characters','corporations','tools'];
     private const ADMIN_SEGS = ['configuration','notifications','api-admin']; // 'configuration' == settings
-    private const IGNORE_SEGS = ['user'];
+    private const IGNORE_SEGS = ['profile'];
     private const SEG_TOOLS  = 'tools';
     private const SEG_PLUGS  = 'plugins';
     private const SEG_ADMIN  = 'administration';
