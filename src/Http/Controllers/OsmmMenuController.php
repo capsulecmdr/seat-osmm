@@ -106,6 +106,7 @@ class OsmmMenuController extends Controller
     public function menu(): array
     {
         ['merged' => $merged] = $this->buildMergedMenu();
+        $merged = $this->removePluralKeys($merged);
         return $merged;
     }
 
