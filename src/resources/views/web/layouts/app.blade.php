@@ -1,5 +1,6 @@
 @php
 $navbar_override = (osmm_setting('osmm_override_menu') ?? 0);
+$noMargin = ""
 @endphp
 
 <!DOCTYPE html>
@@ -56,11 +57,9 @@ $navbar_override = (osmm_setting('osmm_override_menu') ?? 0);
 
   @if($navbar_override == 3)
     @include('seat-osmm::menu.partials.topbar', ['menu' => $merged, 'can' => $can ?? null])
-    <style>
-      .content-wrapper{
-        margin-left:0px !importiant;
-      }
-    </style>
+    @php
+      $noMargin = 'style="margin-left:0px"';
+    @endphp
   @else
    <!-- Main Header -->
   @include('web::includes.header')
@@ -74,7 +73,7 @@ $navbar_override = (osmm_setting('osmm_override_menu') ?? 0);
   @endif
 
   <!-- Content Wrapper. Contains page content -->
-    <div class="content-wrapper">
+    <div class="content-wrapper" {! $noMargin !}>
 
       <!-- Content Header (Page header) -->
       <section class="content-header">
