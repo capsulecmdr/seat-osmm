@@ -57,7 +57,7 @@ $noMargin = ""
 
   @if($navbar_override == 3)
   @php
-    ['merged' => $merged] = app(\CapsuleCmdr\SeatOsmm\Http\Controllers\OsmmMenuController::class)->buildMergedMenu();
+    $merged = app(\CapsuleCmdr\SeatOsmm\Http\Controllers\OsmmMenuController::class)->menu();
     $noMargin = 'style="margin-left:0px"';
   @endphp
     @include('seat-osmm::menu.partials.topbar', ['menu' => $merged, 'can' => $can ?? null])
