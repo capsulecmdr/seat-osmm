@@ -17,6 +17,7 @@ class OsmmMenuController extends Controller
     /* ==================== Constants ==================== */
     private const KEEP_SEGS  = ['home','alliances','characters','corporations','tools'];
     private const ADMIN_SEGS = ['configuration','notifications','api-admin']; // 'configuration' == settings
+    private const IGNORE_SEGS = ['user'];
     private const SEG_TOOLS  = 'tools';
     private const SEG_PLUGS  = 'plugins';
     private const SEG_ADMIN  = 'administration';
@@ -474,6 +475,7 @@ class OsmmMenuController extends Controller
         $seg = $segOfKey[$k];
         if (in_array($seg, self::KEEP_SEGS, true))  continue;
         if (in_array($seg, self::ADMIN_SEGS, true)) continue;
+        if (in_array($seg, self::IGNORE_SEGS, true)) continue;
 
         $pluginSegs[] = $seg;
 
