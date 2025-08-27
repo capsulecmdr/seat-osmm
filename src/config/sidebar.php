@@ -4,7 +4,7 @@ return [
     "osmm"=>[
         "name"=>"Server Manager",
         "icon"=>"fas fa-server",
-        "route_segment"=>"",
+        "route_segment"=>"osmm",
         "permission"=>"osmm.admin",
         "entries"=>[
             [
