@@ -73,7 +73,7 @@ $noMargin = ""
   @endif
 
   <!-- Content Wrapper. Contains page content -->
-    <div class="content-wrapper" {! $noMargin !}>
+    <div class="content-wrapper" {!! $noMargin !!}>
 
       <!-- Content Header (Page header) -->
       <section class="content-header">
