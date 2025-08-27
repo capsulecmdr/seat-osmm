@@ -389,36 +389,36 @@
   <script>
 
 
-    //(function () {
-    // function updateUtcTime() {
-    //   const now = new Date();
-    //   const options = {
-    //   month: 'short', day: 'numeric', year: 'numeric',
-    //   hour: '2-digit', minute: '2-digit', second: '2-digit',
-    //   hour12: false, timeZone: 'UTC'
-    //   };
-    //   const formatted = now.toLocaleString('en-US', options).replace(',', '');
-    //   document.getElementById('cc-time').textContent = formatted;
-    // }
-    // updateUtcTime();
-    // setInterval(updateUtcTime, 1000);
-    // })();
+    (function () {
+    function updateUtcTime() {
+      const now = new Date();
+      const options = {
+      month: 'short', day: 'numeric', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hour12: false, timeZone: 'UTC'
+      };
+      const formatted = now.toLocaleString('en-US', options).replace(',', '');
+      document.getElementById('cc-time').textContent = formatted;
+    }
+    //updateUtcTime();
+    //setInterval(updateUtcTime, 1000);
+    })();
 
-    // (function () {
-    // function updateCountdown() {
-    //   const now = new Date();
-    //   const target = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 11, 0, 0));
-    //   if (now.getUTCHours() >= 11) target.setUTCDate(target.getUTCDate() + 1);
-    //   const diff = target - now;
-    //   const hours = Math.floor(diff / (1000 * 60 * 60));
-    //   const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    //   const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-    //   document.getElementById('dt-time').textContent =
-    //   `DT in T- ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-    // }
-    // updateCountdown();
-    // setInterval(updateCountdown, 1000);
-    // })();
+    (function () {
+    function updateCountdown() {
+      const now = new Date();
+      const target = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 11, 0, 0));
+      if (now.getUTCHours() >= 11) target.setUTCDate(target.getUTCDate() + 1);
+      const diff = target - now;
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      document.getElementById('dt-time').textContent =
+      `DT in T- ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+    //updateCountdown();
+    //setInterval(updateCountdown, 1000);
+    })();
 
 
 
