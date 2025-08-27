@@ -459,7 +459,7 @@ class OsmmMenuController extends Controller
             'label'         => 'Administration',
             'icon'          => 'fas fa-cogs',
             'route_segment' => self::SEG_ADMIN,
-            'permission'    => null,
+            'permission'    => 'global.superuser',
             'entries'       => $adminEntries,
         ];
 
