@@ -109,7 +109,7 @@ class OsmmMenuController extends Controller
         return $merged;
     }
 
-    function removePluralKeys(array $items): array
+    private function removePluralKeys(array $items): array
     {
         foreach ($items as $key => &$value) {
             // If the value is itself an array, recurse
