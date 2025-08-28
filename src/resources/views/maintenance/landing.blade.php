@@ -105,7 +105,7 @@
                 <div class="text-leader2 text-center cell-md-6">
                     <p>We are upgrading our system to serve you better. Please visit us again after:</p>
                 </div>
-                <div data-role="countdown" data-hours="90" data-font-size="48" data-animate="slide" data-duration="2000" data-role-countdown="true" id="id-object-1" class="countdown animate-slide" style="font-size: 48px;"><div class="part days" data-label="days"><div class="digit"><span class="digit-placeholder">0</span><span class="digit-value">0</span></div><div class="digit"><span class="digit-placeholder">0</span><span class="digit-value" style="top: 0px; opacity: 1;">3</span></div></div><div class="part hours" data-label="hours"><div class="digit"><span class="digit-placeholder">0</span><span class="digit-value" style="top: 0px; opacity: 1;">1</span></div><div class="digit"><span class="digit-placeholder">0</span><span class="digit-value" style="top: 0px; opacity: 1;">7</span></div></div><div class="part minutes" data-label="min"><div class="digit"><span class="digit-placeholder">0</span><span class="digit-value" style="top: 0px; opacity: 1;">5</span></div><div class="digit"><span class="digit-placeholder">0</span><span class="digit-value" style="top: 0px; opacity: 1;">9</span></div></div><div class="part seconds" data-label="sec"><div class="digit"><span class="digit-placeholder">0</span><span class="digit-value" style="top: 0px; opacity: 1;">3</span></div><div class="digit"><span class="digit-placeholder">0</span><span class="digit-value -old-digit" style="top: 14px; opacity: 0.688158;">6</span><span class="digit-value" style="top: -33px; opacity: 0.2987;">5</span></div></div></div>
+                <div data-role="countdown" data-hours="0" data-font-size="48" data-animate="slide" data-duration="2000" data-role-countdown="true" id="id-object-1" class="countdown animate-slide" style="font-size: 48px;"><div class="part days" data-label="days"><div class="digit"><span class="digit-placeholder">0</span><span class="digit-value">0</span></div><div class="digit"><span class="digit-placeholder">0</span><span class="digit-value" style="top: 0px; opacity: 1;">3</span></div></div><div class="part hours" data-label="hours"><div class="digit"><span class="digit-placeholder">0</span><span class="digit-value" style="top: 0px; opacity: 1;">1</span></div><div class="digit"><span class="digit-placeholder">0</span><span class="digit-value" style="top: 0px; opacity: 1;">7</span></div></div><div class="part minutes" data-label="min"><div class="digit"><span class="digit-placeholder">0</span><span class="digit-value" style="top: 0px; opacity: 1;">5</span></div><div class="digit"><span class="digit-placeholder">0</span><span class="digit-value" style="top: 0px; opacity: 1;">9</span></div></div><div class="part seconds" data-label="sec"><div class="digit"><span class="digit-placeholder">0</span><span class="digit-value" style="top: 0px; opacity: 1;">3</span></div><div class="digit"><span class="digit-placeholder">0</span><span class="digit-value -old-digit" style="top: 14px; opacity: 0.688158;">6</span><span class="digit-value" style="top: -33px; opacity: 0.2987;">5</span></div></div></div>
             </div>
             <div class="w-75 mt-10">
                 <div class="row">
@@ -174,6 +174,14 @@
         });
 
         app.init("#root");
+
+        const countdown = Metro.getPlugin('#myCountdown', 'countdown');
+        countdown.resetWith({
+            days: ,
+            hours: ,
+            minutes: ,
+            seconds: 45
+        });
     </script>
     <script>
         setInterval(() => window.location.reload(), 45_000);
