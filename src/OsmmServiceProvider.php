@@ -88,6 +88,8 @@ class OsmmServiceProvider extends AbstractSeatPlugin
                 ->exists();
         });
 
+        app('router')->pushMiddlewareToGroup('web', \CapsuleCmdr\SeatOsmm\Http\Middleware\OsmmMaintenanceMiddleware::class);
+
     }
     private function addPublications(): void
     {
