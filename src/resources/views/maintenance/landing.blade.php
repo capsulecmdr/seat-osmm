@@ -173,8 +173,8 @@
         });
 
         app.init("#root");
-        
-        const countdown = Metro.getPlugin('#myCountdown', 'countdown');
+
+        const countdown = app.getPlugin('#myCountdown', 'countdown');
         countdown.resetWith({
             days: 0,
             hours: 0,
