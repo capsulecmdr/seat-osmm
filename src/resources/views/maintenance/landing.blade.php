@@ -106,38 +106,23 @@
                 <span class="mif-tools"></span>
             </div>
             <div class="row flex-justify-content-center">
-                <h2 class="text-center">This server is in maintenance mode!</h2>
+                <h2 class="text-center">
+                    @if(!empty($reason))
+                        {{ $reason }}
+                    @endif
+                </h2>
                 <div class="text-leader2 text-center cell-md-6">
-                    <p>We are upgrading our system to serve you better. Please visit us again after:</p>
+                    <p>
+                        @if(!empty($desc))
+                            {{ $desc }}
+                        @endif
+                    </p>
+                    <p class="text-muted">
+                        Checking for maintenance update in:
+                    </p>
                 </div>
                 <div id="id-object-1" data-role="countdown" data-days="0" data-hours="0" data-minutes="0"
                     data-seconds="45" data-font-size="48" data-animate="slide" data-duration="2000">
-                </div>
-                <div class="w-75 mt-10">
-                    <div class="row">
-                        <div class="cell-ld-4">
-                            
-                        </div>
-                        <div class="cell-ld-4">
-                            <div class="box">
-                                <div class="box-title">
-                                    @if(!empty($reason))
-                                        {{ $reason }}
-                                    @endif
-                                </div>
-                                <div>
-                                    <p>                                        
-                                        @if(!empty($desc))
-                                            {{ $desc }}
-                                        @endif
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="cell-ld-4">
-                            
-                        </div>
-                    </div>
                 </div>
 
                 <div class="cog" id="cog1">
