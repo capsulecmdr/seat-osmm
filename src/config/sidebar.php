@@ -19,6 +19,12 @@ return [
                 "route"=>"osmm.menu.index",
                 "permission"=>"osmm.admin",
             ],
+            [
+                'name' => 'Maintenance',
+                'icon' => 'fas fa-tools',
+                'route' => 'osmm.maint.config',
+                'permission' => 'osmm.maint_manage',
+            ],
         ],
     ]
 ];
