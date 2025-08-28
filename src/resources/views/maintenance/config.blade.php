@@ -110,14 +110,17 @@
                 <input type="datetime-local" name="ends_at" class="form-control">
               </div>
             </div>
-            <div class="form-row">
-              <div class="form-group col-md-4 form-check">
-                <input type="checkbox" class="form-check-input" name="show_banner" id="show_banner" checked>
-                <label for="show_banner" class="form-check-label">Show as banner</label>
-              </div>
-              <div class="form-group col-md-4 form-check">
-                <input type="checkbox" class="form-check-input" name="send_to_discord" id="send_to_discord">
-                <label for="send_to_discord" class="form-check-label">Send to Discord</label>
+            <div class="form-row"><input type="hidden" name="show_banner" value="0">
+              <input type="hidden" name="send_to_discord" value="0">
+              <div class="form-group form-check">
+                <input
+                  type="checkbox"
+                  class="form-check-input"
+                  id="send_to_discord"
+                  name="send_to_discord"
+                  value="1"
+                  {{ old('send_to_discord', 0) ? 'checked' : '' }}>
+                <label class="form-check-label" for="send_to_discord">Send to Discord</label>
               </div>
             </div>
             <button class="btn btn-success btn-sm">Save Announcement</button>

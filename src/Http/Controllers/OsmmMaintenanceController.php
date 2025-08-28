@@ -83,26 +83,26 @@ class OsmmMaintenanceController extends Controller
     public function upsertAnnouncement(Request $r)
     {
         $data = $r->validate([
-            'id'         => 'nullable|integer|exists:osmm_announcements,id',
-            'title'      => 'required|string|max:200',
-            'content'    => 'required|string',
-            'status'     => 'required|in:new,active,expired',
-            'show_banner'=> 'sometimes|boolean',
-            'send_to_discord' => 'sometimes|boolean',
-            'starts_at'  => 'nullable|date',
-            'ends_at'    => 'nullable|date|after_or_equal:starts_at',
+            'id'              => 'nullable|integer|exists:osmm_announcements,id',
+            'title'           => 'required|string|max:200',
+            'content'         => 'required|string',
+            'status'          => 'required|in:new,active,expired',
+            'show_banner'     => 'required|boolean',
+            'send_to_discord' => 'required|boolean',
+            'starts_at'       => 'nullable|date',
+            'ends_at'         => 'nullable|date|after_or_equal:starts_at',
         ]);
 
         $ann = Ann::updateOrCreate(
             ['id' => $data['id'] ?? null],
             [
-                'title' => $data['title'],
-                'content' => $data['content'],
-                'status' => $data['status'],
-                'show_banner' => (bool)($data['show_banner'] ?? true),
-                'send_to_discord' => (bool)($data['send_to_discord'] ?? false),
-                'starts_at' => $data['starts_at'] ?? null,
-                'ends_at' => $data['ends_at'] ?? null,
+                'title'           => $data['title'],
+                'content'         => $data['content'],
+                'status'          => $data['status'],
+                'show_banner'     => (bool) $data['show_banner'],
+                'send_to_discord' => (bool) $data['send_to_discord'],
+                'starts_at'       => $data['starts_at'] ?? null,
+                'ends_at'         => $data['ends_at'] ?? null,
             ]
         );
 
