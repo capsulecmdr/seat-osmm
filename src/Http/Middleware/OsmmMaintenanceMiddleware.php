@@ -10,27 +10,14 @@ class OsmmMaintenanceMiddleware
 {
     public function handle(Request $request, Closure $next)
     {
-        // 0) Always allow the landing page itself
-        if ($request->routeIs('osmm.maint.landing')) {
+        // IMPORTANT: If this middleware is GLOBAL, we can't rely on route names here.
+        // Allow the maintenance page itself (by path) to avoid loops.
+        if ($request->is('maintenance') || $request->is('maintenance/*')) {
             return $next($request);
         }
 
-        // 1) Read setting (stored as '1'/'0' strings)
-        $enabled = (int) (osmm_setting('osmm_maintenance_enabled', '0'));
-
-        // 2) Not enabled? Proceed.
-        if ($enabled !== 1) {
-            return $next($request);
-        }
-
-        // 3) Bypass for permitted users
-        $user = $request->user();
-        if ($user && $user->can('osmm.maint_bypass')) {
-            return $next($request);
-        }
-
-        // 4) Allow ONLY static assets so the landing page renders nicely
-        //    (be conservative—avoid broad globs like 'web/*')
+        // Allow only static assets & robots so the landing page can load cleanly.
+        // (Keep this list conservative.)
         if ($request->is(
             'web/css/*', 'web/js/*', 'web/img/*',
             'vendor/*', 'images/*', 'storage/*',
@@ -39,13 +26,26 @@ class OsmmMaintenanceMiddleware
             return $next($request);
         }
 
-        // 5) (Optional) log one line to confirm interception
-        Log::info('OSMM Maintenance redirect', [
-            'path'   => $request->path(),
-            'userId' => optional($user)->id,
-        ]);
+        // Allow auth endpoints so people can still log in/out if needed.
+        // if ($request->is('login*', 'logout*', 'password/*', 'auth/*', 'sso/*')) {
+        //     return $next($request);
+        // }
 
-        // 6) Redirect everything else
-        return redirect()->route('osmm.maint.landing');
+        // Read the setting (we saved it as text '1' / '0')
+        $enabled = (int) (osmm_setting('osmm_maintenance_enabled', '0'));
+        if ($enabled !== 1) {
+            return $next($request);
+        }
+
+        // Bypass for allowed users
+        $user = $request->user();
+        if ($user && $user->can('osmm.maint_bypass')) {
+            return $next($request);
+        }
+
+        Log::info('OSMM Maintenance redirect', ['path' => $request->path(), 'uid' => optional($user)->id]);
+
+        // Redirect everything else to the landing page
+        return redirect('/maintenance');
     }
 }
