@@ -86,7 +86,7 @@
     </style>
 </head>
 
-<body class="h-vh-100 d-flex flex-column flex-justify-center flex-align-center" style="background-color:#f8f8f8;">
+<body class="h-vh-100 w-vw-100 d-flex flex-column flex-justify-center flex-align-center" style="background-color:#f8f8f8;">
     <div id="root" class="h-100 w-100 d-flex flex-center flex-column">
         <div class="h-100 w-100 d-flex flex-column flex-center no-overflow">
             <div class="display4">
