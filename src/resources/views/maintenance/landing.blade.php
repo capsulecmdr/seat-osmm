@@ -124,6 +124,19 @@
                 <div id="id-object-1" data-role="countdown" data-days="0" data-hours="0" data-minutes="0"
                     data-seconds="45" data-font-size="48" data-animate="slide" data-duration="2000">
                 </div>
+                <div class="w-75 mt-10">
+                    <div class="row">
+                        <div class="cell-ld-4">
+                            
+                        </div>
+                        <div class="cell-ld-4">
+                            
+                        </div>
+                        <div class="cell-ld-4">
+                            
+                        </div>
+                    </div>
+                </div>
 
                 <div class="cog" id="cog1">
                     <span class="mif-cog ani-spin d-block"></span>
@@ -146,12 +159,9 @@
         <script>
             document.addEventListener('DOMContentLoaded', function () {
                 try {
-                    console.log("debug", "");
                     const cd = Metro.getPlugin('#id-object-1', 'countdown');
-                    console.log("debug", cd);
                     if (cd) cd.resetWith({ days: 0, hours: 0, minutes: 5, seconds: 0 });
                 } catch (e) { console.warn(e); }
-                console.log("debug", "");
             });
         </script>
         <script>setInterval(() => window.location.reload(), 45_000);</script>
