@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="https://cdn.metroui.org.ua/current/metro.css">
     <link rel="stylesheet" href="https://cdn.metroui.org.ua/current/icons.css">
     <style>
+
         .navview-content {
             overflow: hidden!important;
         }
@@ -85,9 +86,9 @@
     </style>
 </head>
 
-<body class="h-vh-100 d-flex flex-column flex-justify-center flex-align-center">
-    <div id="root" class="h-100 d-flex flex-center flex-column">
-        <div class="h-100 d-flex flex-column flex-center no-overflow">
+<body class="h-vh-100 d-flex flex-column flex-justify-center flex-align-center" style="background-color:#f8f8f8;">
+    <div id="root" class="h-100 w-100 d-flex flex-center flex-column">
+        <div class="h-100 w-100 d-flex flex-column flex-center no-overflow">
             <div class="display4">
                 <span class="mif-tools"></span>
             </div>
