@@ -1,8 +1,16 @@
-{{-- @extends('web::layouts.app')
+@php
+  $enabled = (int) (osmm_setting('osmm_maintenance_enabled', '0'));
+  $target  = \Route::has('osmm.home')
+      ? route('osmm.home')
+      : (\Route::has('seatcore::home') ? route('seatcore::home') : url('/'));
+@endphp
 
-@section('title', 'Maintenance')
-
-@section('content') --}}
+@if ($enabled !== 1)
+  <script>window.location.replace(@json($target));</script>
+  <noscript>
+    <meta http-equiv="refresh" content="0;url={{ $target }}">
+  </noscript>
+@endif
 
 <!doctype html>
 <html lang="en">
@@ -86,14 +94,14 @@
     </style>
 </head>
 
-<body class="h-vh-100 w-vw-100 d-flex flex-column flex-justify-center flex-align-center" style="background-color:#f8f8f8;">
+<body class="h-vh-100 w-vw-100 d-flex flex-column flex-justify-center flex-align-center" style="background-color:#f8f8f8;overflow:hidden;">
     <div id="root" class="h-100 w-100 d-flex flex-center flex-column">
         <div class="h-100 w-100 d-flex flex-column flex-center no-overflow">
             <div class="display4">
                 <span class="mif-tools"></span>
             </div>
             <div class="row flex-justify-content-center">
-                <h2 class="text-center">This server is maintenance!</h2>
+                <h2 class="text-center">This server is in maintenance mode!</h2>
                 <div class="text-leader2 text-center cell-md-6">
                     <p>We are upgrading our system to serve you better. Please visit us again after:</p>
                 </div>
@@ -150,7 +158,6 @@
                 <span class="mif-cog ani-spin-reverse d-block"></span>
             </div>
         </div>
-        <script type="text/javascript">window.PAGE_TITLE = 'Under Construction'</script>
     </div>
     <script src="https://cdn.metroui.org.ua/current/metro.js"></script>
     <script src="https://cdn.metroui.org.ua/current/js/app.js" type="module"></script>
@@ -168,10 +175,9 @@
 
         app.init("#root");
     </script>
+    <script>
+        setInterval(() => window.location.reload(), 45_000);
+    </script>
 </body>
 
 </html>
-
-
-
-{{-- @endsection --}}
