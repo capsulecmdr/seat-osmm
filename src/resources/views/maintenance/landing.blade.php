@@ -92,15 +92,16 @@
 
 <body class="h-vh-100 d-flex flex-column flex-justify-center flex-align-center">
     <div id="root" class="h-100 d-flex flex-center flex-column">
-        <div class="h-100 d-flex flex-column flex-center">
+        <div class="h-100 d-flex flex-column flex-center no-overflow">
             <div class="display4">
-                <span class="mif-under-construction"></span>
+                <span class="mif-tools"></span>
             </div>
-            <h2 class="text-center">This page is under construction!</h2>
             <div class="row flex-justify-content-center">
+                <h2 class="text-center">This server is maintenance!</h2>
                 <div class="text-leader2 text-center cell-md-6">
-                    Please visit it again later.
+                    <p>We are upgrading our system to serve you better. Please visit us again after:</p>
                 </div>
+                <div data-role="countdown" data-hours="90" data-font-size="48" data-animate="slide" data-duration="2000" data-role-countdown="true" id="id-object-1" class="countdown animate-slide" style="font-size: 48px;"><div class="part days" data-label="days"><div class="digit"><span class="digit-placeholder">0</span><span class="digit-value">0</span></div><div class="digit"><span class="digit-placeholder">0</span><span class="digit-value" style="top: 0px; opacity: 1;">3</span></div></div><div class="part hours" data-label="hours"><div class="digit"><span class="digit-placeholder">0</span><span class="digit-value" style="top: 0px; opacity: 1;">1</span></div><div class="digit"><span class="digit-placeholder">0</span><span class="digit-value" style="top: 0px; opacity: 1;">7</span></div></div><div class="part minutes" data-label="min"><div class="digit"><span class="digit-placeholder">0</span><span class="digit-value" style="top: 0px; opacity: 1;">5</span></div><div class="digit"><span class="digit-placeholder">0</span><span class="digit-value" style="top: 0px; opacity: 1;">9</span></div></div><div class="part seconds" data-label="sec"><div class="digit"><span class="digit-placeholder">0</span><span class="digit-value" style="top: 0px; opacity: 1;">3</span></div><div class="digit"><span class="digit-placeholder">0</span><span class="digit-value -old-digit" style="top: 14px; opacity: 0.688158;">6</span><span class="digit-value" style="top: -33px; opacity: 0.2987;">5</span></div></div></div>
             </div>
             <div class="w-75 mt-10">
                 <div class="row">
@@ -136,9 +137,7 @@
                     </div>
                 </div>
             </div>
-            <div class="mt-10">
-                <a href="/" class="button alert"><span class="mif-arrow-left mr-2"></span> Back to Home</a>
-            </div>
+
             <div class="cog" id="cog1">
                 <span class="mif-cog ani-spin d-block"></span>
             </div>
