@@ -110,6 +110,9 @@ class OsmmServiceProvider extends AbstractSeatPlugin
         //     __DIR__.'/resources/assets/css' => public_path('web/css'),
         //     __DIR__.'/resources/assets/js' => public_path('web/js'),
         // ]);
+        $this->publishes([
+            __DIR__.'/resources/assets' => public_path('vendor/capsulecmdr/seat-osmm'),
+        ], ['public', 'osmm-assets', 'seat']);
     }
 
     private function add_routes(): void

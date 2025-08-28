@@ -159,15 +159,14 @@
             </div>
         </div>
     </div>
-    <script src="https://cdn.metroui.org.ua/current/metro.js"></script>
-    <script src="https://cdn.metroui.org.ua/current/js/app.js" type="module"></script>
+    <script src="{{ asset('vendor/capsulecmdr/seat-osmm/js/metro.js') }}" defer></script>
     <script>
         const countdown = Metro.getPlugin('#myCountdown', 'countdown');
         countdown.resetWith({
             days: ,
             hours: ,
             minutes: ,
-            seconds: 45,
+            seconds: 45
         });
     </script>
     <script>
