@@ -161,21 +161,14 @@
     </div>
     <script src="{{ asset('vendor/capsulecmdr/seat-osmm/js/metro.js') }}" defer></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
-        try {
-            // Grab the countdown plugin by the correct id
-            const cd = Metro.getPlugin('#id-object-1', 'countdown');
-            if (cd) {
-            cd.resetWith({ days: 0, hours: 0, minutes: 0, seconds: 45 });
-            }
-        } catch (e) {
-            console.warn('Countdown init failed:', e);
-        }
-        });
+    document.addEventListener('DOMContentLoaded', function () {
+    try {
+        const cd = Metro.getPlugin('#id-object-1', 'countdown');
+        if (cd) cd.resetWith({ days:0, hours:0, minutes:0, seconds:45 });
+    } catch (e) { console.warn(e); }
+    });
     </script>
-    <script>
-        setInterval(() => window.location.reload(), 45_000);
-    </script>
+    <script>setInterval(() => window.location.reload(), 45_000);</script>
 </body>
 
 </html>
