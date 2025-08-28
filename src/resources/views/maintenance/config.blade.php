@@ -17,6 +17,29 @@
                 {{ $settings['maintenance_enabled'] ? 'Enabled' : 'Disabled' }}
               </label>
             </div>
+
+            <div class="form-group">
+              <label for="maintReason">Maintenance reason (short)</label>
+              <input
+                type="text"
+                id="maintReason"
+                name="reason"
+                class="form-control"
+                maxlength="200"
+                placeholder="e.g., Database upgrades"
+                value="{{ old('reason', $settings['maintenance_reason'] ?? '') }}">
+            </div>
+
+            <div class="form-group">
+              <label for="maintDesc">Maintenance description (details)</label>
+              <textarea
+                id="maintDesc"
+                name="description"
+                class="form-control"
+                rows="4"
+                placeholder="Optional details, expected timeline, known impacts...">{{ old('description', $settings['maintenance_description'] ?? '') }}</textarea>
+            </div>
+
             <button class="btn btn-primary btn-sm">Save</button>
           </form>
         </div>

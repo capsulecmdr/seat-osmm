@@ -12,11 +12,16 @@ class OsmmMaintenanceController extends Controller
     public function landing()
     {
         // Show latest visible announcement (if any), otherwise generic message
-        $announcement = Ann::bannerable()->get()
-                          ->tap(fn($c) => $c->each->refreshComputedStatus())
-                          ->first(fn($a) => $a->is_visible);
-
-        return view('seat-osmm::maintenance.landing', compact('announcement'));
+        // $announcement = Ann::bannerable()->get()
+        //                   ->tap(fn($c) => $c->each->refreshComputedStatus())
+        //                   ->first(fn($a) => $a->is_visible);
+        
+        $reason = (string) osmm_setting('osmm_maintenance_reason', '');
+        $desc   = (string) osmm_setting('osmm_maintenance_description', '');
+        return response()
+        ->view('seat-osmm::maintenance.landing', compact('reason','desc'))
+        ->header('Cache-Control','no-store, no-cache, must-revalidate, max-age=0')
+        ->header('Pragma','no-cache');
     }
 
     public function config()
@@ -27,6 +32,8 @@ class OsmmMaintenanceController extends Controller
 
         $settings = [
             'maintenance_enabled'   => (int) (osmm_setting('osmm_maintenance_enabled', 0)),
+            'maintenance_reason'    => (string) (osmm_setting('osmm_maintenance_reason', 'CONCORD Maintenance Advisory')),
+            'maintenance_description'=> (string) (osmm_setting('osmm_maintenance_description', 'Server entering reinforced mode. Secure assets and enjoy a Quafe while engineering refits some rigs.')),
             'webhook_enabled'       => (int) (osmm_setting('osmm_discord_webhook_enabled', 0)),
             'webhook_url'           => (string) (osmm_setting('osmm_discord_webhook_url', '')),
             'webhook_username'      => (string) (osmm_setting('osmm_discord_webhook_username', '')),
@@ -40,6 +47,19 @@ class OsmmMaintenanceController extends Controller
     {
         $val = (int) $r->boolean('enabled');
         \CapsuleCmdr\SeatOsmm\Models\OsmmSetting::put('osmm_maintenance_enabled', $val, 'text', 1);
+
+        $data = $r->validate([
+            'enabled'     => 'sometimes|boolean',
+            'reason'      => 'nullable|string|max:200',
+            'description' => 'nullable|string|max:4000',
+        ]);
+
+        $val = (int) ($data['enabled'] ?? 0);
+        \CapsuleCmdr\SeatOsmm\Models\OsmmSetting::put('osmm_maintenance_enabled', $val ? '1' : '0', 'text', 1);
+        \CapsuleCmdr\SeatOsmm\Models\OsmmSetting::put('osmm_maintenance_reason', $data['reason'] ?? '', 'text', 1);
+        \CapsuleCmdr\SeatOsmm\Models\OsmmSetting::put('osmm_maintenance_description', $data['description'] ?? '', 'text', 1);
+     
+
         return back()->with('status', 'Maintenance mode '.($val ? 'enabled' : 'disabled').'.');
     }
 

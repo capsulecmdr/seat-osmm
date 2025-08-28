@@ -1,15 +1,15 @@
 @php
-  $enabled = (int) (osmm_setting('osmm_maintenance_enabled', '0'));
-  $target  = \Route::has('osmm.home')
-      ? route('osmm.home')
-      : (\Route::has('seatcore::home') ? route('seatcore::home') : url('/'));
+    $enabled = (int) (osmm_setting('osmm_maintenance_enabled', '0'));
+    $target = \Route::has('osmm.home')
+        ? route('osmm.home')
+        : (\Route::has('seatcore::home') ? route('seatcore::home') : url('/'));
 @endphp
 
 @if ($enabled !== 1)
-  <script>window.location.replace(@json($target));</script>
-  <noscript>
-    <meta http-equiv="refresh" content="0;url={{ $target }}">
-  </noscript>
+    <script>window.location.replace(@json($target));</script>
+    <noscript>
+        <meta http-equiv="refresh" content="0;url={{ $target }}">
+    </noscript>
 @endif
 
 <!doctype html>
@@ -22,10 +22,10 @@
     <link rel="stylesheet" href="https://cdn.metroui.org.ua/current/metro.css">
     <link rel="stylesheet" href="https://cdn.metroui.org.ua/current/icons.css">
     <style>
-
         .navview-content {
-            overflow: hidden!important;
+            overflow: hidden !important;
         }
+
         .cog {
             position: absolute;
             z-index: -1;
@@ -45,56 +45,61 @@
 
         }
 
-        #cog3, #cog4 {
+        #cog3,
+        #cog4 {
             top: 20px;
             right: 80px;
             font-size: 144px;
         }
+
         #cog4 {
             top: auto;
             bottom: 20px;
             left: 100px;
             right: auto;
         }
+
         #cog5 {
             font-size: 80px;
             right: 120px;
             bottom: 200px;
         }
 
-        #cog1, #cog2 {
+        #cog1,
+        #cog2 {
             span {
-                animation-duration: 5s!important;
+                animation-duration: 5s !important;
             }
         }
 
         #cog3 {
             span {
-                animation-duration: 7s!important;
+                animation-duration: 7s !important;
             }
         }
 
         #cog4 {
             span {
-                animation-duration: 15s!important;
+                animation-duration: 15s !important;
             }
         }
 
         #cog4 {
             span {
-                animation-duration: 10s!important;
+                animation-duration: 10s !important;
             }
         }
 
         .dark-side {
             .cog {
-                color: #212225!important;
+                color: #212225 !important;
             }
         }
     </style>
 </head>
 
-<body class="h-vh-100 w-vw-100 d-flex flex-column flex-justify-center flex-align-center" style="background-color:#f8f8f8;overflow:hidden;">
+<body class="h-vh-100 w-vw-100 d-flex flex-column flex-justify-center flex-align-center"
+    style="background-color:#f8f8f8;overflow:hidden;">
     <div id="root" class="h-100 w-100 d-flex flex-center flex-column">
         <div class="h-100 w-100 d-flex flex-column flex-center no-overflow">
             <div class="display4">
@@ -105,82 +110,66 @@
                 <div class="text-leader2 text-center cell-md-6">
                     <p>We are upgrading our system to serve you better. Please visit us again after:</p>
                 </div>
-               <div
-  id="id-object-1"
-  data-role="countdown"
-  data-days="0"
-  data-hours="0"
-  data-minutes="0"
-  data-seconds="45"
-  data-font-size="48"
-  data-animate="slide"
-  data-duration="2000">
-</div>
-            <div class="w-75 mt-10">
-                <div class="row">
-                    <div class="cell-ld-4">
-                        <div class="box">
-                            <div class="box-title">Title 1</div>
-                            <div>
-                                <p>
-                                    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam in dui mauris.
-                                </p>
+                <div id="id-object-1" data-role="countdown" data-days="0" data-hours="0" data-minutes="0"
+                    data-seconds="45" data-font-size="48" data-animate="slide" data-duration="2000">
+                </div>
+                <div class="w-75 mt-10">
+                    <div class="row">
+                        <div class="cell-ld-4">
+                            
+                        </div>
+                        <div class="cell-ld-4">
+                            <div class="box">
+                                <div class="box-title">
+                                    @if(!empty($reason))
+                                        {{ $reason }}
+                                    @endif
+                                </div>
+                                <div>
+                                    <p>                                        
+                                        @if(!empty($desc))
+                                            {{ $desc }}
+                                        @endif
+                                    </p>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <div class="cell-ld-4">
-                        <div class="box">
-                            <div class="box-title">Title 2</div>
-                            <div>
-                                <p>
-                                    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam in dui mauris.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="cell-ld-4">
-                        <div class="box">
-                            <div class="box-title">Title 3</div>
-                            <div>
-                                <p>
-                                    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam in dui mauris.
-                                </p>
-                            </div>
+                        <div class="cell-ld-4">
+                            
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <div class="cog" id="cog1">
-                <span class="mif-cog ani-spin d-block"></span>
-            </div>
-            <div class="cog" id="cog2">
-                <span class="mif-cog ani-spin-reverse d-block"></span>
-            </div>
-            <div class="cog" id="cog3">
-                <span class="mif-cog ani-spin d-block"></span>
-            </div>
-            <div class="cog" id="cog4">
-                <span class="mif-cog ani-spin-reverse d-block"></span>
-            </div>
-            <div class="cog" id="cog5">
-                <span class="mif-cog ani-spin-reverse d-block"></span>
+                <div class="cog" id="cog1">
+                    <span class="mif-cog ani-spin d-block"></span>
+                </div>
+                <div class="cog" id="cog2">
+                    <span class="mif-cog ani-spin-reverse d-block"></span>
+                </div>
+                <div class="cog" id="cog3">
+                    <span class="mif-cog ani-spin d-block"></span>
+                </div>
+                <div class="cog" id="cog4">
+                    <span class="mif-cog ani-spin-reverse d-block"></span>
+                </div>
+                <div class="cog" id="cog5">
+                    <span class="mif-cog ani-spin-reverse d-block"></span>
+                </div>
             </div>
         </div>
-    </div>
-    <script src="{{ asset('vendor/capsulecmdr/seat-osmm/js/metro.js') }}" defer></script>
-    <script>
-    document.addEventListener('DOMContentLoaded', function () {
-    try {
-        console.log("debug","");
-        const cd = Metro.getPlugin('#id-object-1', 'countdown');
-        console.log("debug", cd);
-        if (cd) cd.resetWith({ days:0, hours:0, minutes:0, seconds:45 });
-    } catch (e) { console.warn(e); }
-    console.log("debug","");
-    });
-    </script>
-    <script>setInterval(() => window.location.reload(), 45_000);</script>
+        <script src="{{ asset('vendor/capsulecmdr/seat-osmm/js/metro.js') }}" defer></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                try {
+                    console.log("debug", "");
+                    const cd = Metro.getPlugin('#id-object-1', 'countdown');
+                    console.log("debug", cd);
+                    if (cd) cd.resetWith({ days: 0, hours: 0, minutes: 5, seconds: 0 });
+                } catch (e) { console.warn(e); }
+                console.log("debug", "");
+            });
+        </script>
+        <script>setInterval(() => window.location.reload(), 45_000);</script>
 </body>
 
 </html>
