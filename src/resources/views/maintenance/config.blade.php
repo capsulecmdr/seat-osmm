@@ -27,7 +27,7 @@
                 class="form-control"
                 maxlength="200"
                 placeholder="e.g., Database upgrades"
-                value="{{ old('reason', $settings['maintenance_reason'] ?? '') }}">
+                value="{{ old('reason', $settings['maintenance_reason'] ?? 'SeAT Maintenance Advisory') }}">
             </div>
 
             <div class="form-group">
@@ -37,7 +37,7 @@
                 name="description"
                 class="form-control"
                 rows="4"
-                placeholder="Optional details, expected timeline, known impacts...">{{ old('description', $settings['maintenance_description'] ?? '') }}</textarea>
+                placeholder="Optional details, expected timeline, known impacts...">{{ old('description', $settings['maintenance_description'] ?? 'Server entering reinforced mode. Secure assets and enjoy a Quafe while engineering refits some rigs.') }}</textarea>
             </div>
 
             <button class="btn btn-primary btn-sm">Save</button>
