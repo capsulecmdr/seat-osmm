@@ -4,36 +4,48 @@ namespace CapsuleCmdr\SeatOsmm\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class OsmmMaintenanceMiddleware
 {
     public function handle(Request $request, Closure $next)
     {
-        $enabled = (int) (osmm_setting('osmm_maintenance_enabled', 0));
+        // 0) Always allow the landing page itself
+        if ($request->routeIs('osmm.maint.landing')) {
+            return $next($request);
+        }
 
-        \Log::info('OSMM Maint MW hit', [
-            'enabled' => $enabled,
-            'user_id' => optional($request->user())->id,
-            'bypass'  => $request->user()?->can('osmm.maint_bypass') ?? false,
-            'path'    => $request->path(),
-        ]);
+        // 1) Read setting (stored as '1'/'0' strings)
+        $enabled = (int) (osmm_setting('osmm_maintenance_enabled', '0'));
 
-        // Skip if not enabled
-        if ($enabled !== 1) return $next($request);
+        // 2) Not enabled? Proceed.
+        if ($enabled !== 1) {
+            return $next($request);
+        }
 
-        // Allow bypass if user has permission
+        // 3) Bypass for permitted users
         $user = $request->user();
         if ($user && $user->can('osmm.maint_bypass')) {
             return $next($request);
         }
 
-        // Allow the maintenance landing itself, auth, and static assets
-        if ($request->routeIs('osmm.maint.landing') ||
-            $request->is('login*','logout*','assets*','vendor*','web/css/*','web/js/*','web/img/*','images/*')) {
+        // 4) Allow ONLY static assets so the landing page renders nicely
+        //    (be conservative—avoid broad globs like 'web/*')
+        if ($request->is(
+            'web/css/*', 'web/js/*', 'web/img/*',
+            'vendor/*', 'images/*', 'storage/*',
+            'favicon*', 'robots.txt'
+        )) {
             return $next($request);
         }
 
-        // Redirect everything else
+        // 5) (Optional) log one line to confirm interception
+        Log::info('OSMM Maintenance redirect', [
+            'path'   => $request->path(),
+            'userId' => optional($user)->id,
+        ]);
+
+        // 6) Redirect everything else
         return redirect()->route('osmm.maint.landing');
     }
 }
