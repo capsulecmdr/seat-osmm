@@ -162,19 +162,6 @@
     <script src="https://cdn.metroui.org.ua/current/metro.js"></script>
     <script src="https://cdn.metroui.org.ua/current/js/app.js" type="module"></script>
     <script>
-        var app = new Model({
-            counter: 0,
-            status() {
-                return this.counter === 0
-                    ? "Zero"
-                    : this.counter > 0
-                        ? "Positive"
-                        : "Negative";
-            }
-        });
-
-        app.init("#root");
-
         const countdown = Metro.getPlugin('#myCountdown', 'countdown');
         countdown.resetWith({
             days: ,
