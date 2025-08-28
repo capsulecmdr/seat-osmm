@@ -18,7 +18,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Metro UI Demo</title>
+    <title>Maintenance</title>
     <link rel="stylesheet" href="https://cdn.metroui.org.ua/current/metro.css">
     <link rel="stylesheet" href="https://cdn.metroui.org.ua/current/icons.css">
     <style>
