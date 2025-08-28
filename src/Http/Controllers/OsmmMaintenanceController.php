@@ -39,7 +39,7 @@ class OsmmMaintenanceController extends Controller
     public function toggleMaintenance(Request $r)
     {
         $val = (int) $r->boolean('enabled');
-        \CapsuleCmdr\SeatOsmm\Models\OsmmSetting::put('osmm_maintenance_enabled', $val, 'bool', 1);
+        \CapsuleCmdr\SeatOsmm\Models\OsmmSetting::put('osmm_maintenance_enabled', $val, 'text', 1);
         return back()->with('status', 'Maintenance mode '.($val ? 'enabled' : 'disabled').'.');
     }
 
@@ -52,7 +52,7 @@ class OsmmMaintenanceController extends Controller
             'avatar'    => 'nullable|url'
         ]);
 
-        \CapsuleCmdr\SeatOsmm\Models\OsmmSetting::put('osmm_discord_webhook_enabled', (int)($data['enabled'] ?? 0), 'bool', 1);
+        \CapsuleCmdr\SeatOsmm\Models\OsmmSetting::put('osmm_discord_webhook_enabled', (int)($data['enabled'] ?? 0), 'text', 1);
         \CapsuleCmdr\SeatOsmm\Models\OsmmSetting::put('osmm_discord_webhook_url', $data['url'] ?? '', 'text', 1);
         \CapsuleCmdr\SeatOsmm\Models\OsmmSetting::put('osmm_discord_webhook_username', $data['username'] ?? '', 'text', 1);
         \CapsuleCmdr\SeatOsmm\Models\OsmmSetting::put('osmm_discord_webhook_avatar', $data['avatar'] ?? '', 'text', 1);
