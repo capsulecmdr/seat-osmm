@@ -21,8 +21,7 @@ class OsmmMaintenanceController extends Controller
 
     public function config()
     {
-        $this->authorize('osmm.maint_manage');
-
+        
         $announcements = Ann::whereNotIn('status', ['expired'])
             ->orderByDesc('created_at')->paginate(10);
 
@@ -39,7 +38,6 @@ class OsmmMaintenanceController extends Controller
 
     public function toggleMaintenance(Request $r)
     {
-        $this->authorize('osmm.maint_manage');
         $val = (int) $r->boolean('enabled');
         \CapsuleCmdr\SeatOsmm\Models\OsmmSetting::put('osmm_maintenance_enabled', $val, 'bool', 1);
         return back()->with('status', 'Maintenance mode '.($val ? 'enabled' : 'disabled').'.');
@@ -47,8 +45,6 @@ class OsmmMaintenanceController extends Controller
 
     public function saveWebhook(Request $r)
     {
-        $this->authorize('osmm.maint_manage');
-
         $data = $r->validate([
             'enabled'   => 'sometimes|boolean',
             'url'       => 'nullable|url',
@@ -66,8 +62,6 @@ class OsmmMaintenanceController extends Controller
 
     public function upsertAnnouncement(Request $r)
     {
-        $this->authorize('osmm.maint_manage');
-
         $data = $r->validate([
             'id'         => 'nullable|integer|exists:osmm_announcements,id',
             'title'      => 'required|string|max:200',
@@ -105,7 +99,6 @@ class OsmmMaintenanceController extends Controller
 
     public function expireAnnouncement(Ann $announcement)
     {
-        $this->authorize('osmm.maint_manage');
         $announcement->update(['status' => 'expired']);
         return back()->with('status', 'Announcement expired.');
     }
