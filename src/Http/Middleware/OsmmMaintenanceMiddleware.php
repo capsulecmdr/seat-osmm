@@ -31,13 +31,13 @@ class OsmmMaintenanceMiddleware
 
         // 4) Allow ONLY static assets so the landing page renders nicely
         //    (be conservative—avoid broad globs like 'web/*')
-        if ($request->is(
-            'web/css/*', 'web/js/*', 'web/img/*',
-            'vendor/*', 'images/*', 'storage/*',
-            'favicon*', 'robots.txt'
-        )) {
-            return $next($request);
-        }
+        // if ($request->is(
+        //     'web/css/*', 'web/js/*', 'web/img/*',
+        //     'vendor/*', 'images/*', 'storage/*',
+        //     'favicon*', 'robots.txt'
+        // )) {
+        //     return $next($request);
+        // }
 
         // 5) (Optional) log one line to confirm interception
         Log::info('OSMM Maintenance redirect', [
