@@ -163,9 +163,12 @@
     <script>
     document.addEventListener('DOMContentLoaded', function () {
     try {
+        console.log("debug","");
         const cd = Metro.getPlugin('#id-object-1', 'countdown');
+        console.log("debug","");
         if (cd) cd.resetWith({ days:0, hours:0, minutes:0, seconds:45 });
     } catch (e) { console.warn(e); }
+    console.log("debug","");
     });
     </script>
     <script>setInterval(() => window.location.reload(), 45_000);</script>
