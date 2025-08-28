@@ -11,6 +11,13 @@ class OsmmMaintenanceMiddleware
     {
         $enabled = (int) (osmm_setting('osmm_maintenance_enabled', 0));
 
+        \Log::info('OSMM Maint MW hit', [
+            'enabled' => $enabled,
+            'user_id' => optional($request->user())->id,
+            'bypass'  => $request->user()?->can('osmm.maint_bypass') ?? false,
+            'path'    => $request->path(),
+        ]);
+
         // Skip if not enabled
         if ($enabled !== 1) return $next($request);
 
