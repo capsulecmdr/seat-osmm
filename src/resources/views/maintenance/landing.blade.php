@@ -163,9 +163,9 @@
     <script>
         const countdown = Metro.getPlugin('#myCountdown', 'countdown');
         countdown.resetWith({
-            days: ,
-            hours: ,
-            minutes: ,
+            days: 0,
+            hours: 0,
+            minutes: 0,
             seconds: 45
         });
     </script>
