@@ -124,7 +124,7 @@
                 <div id="id-object-1" data-role="countdown" data-days="0" data-hours="0" data-minutes="5"
                     data-seconds="0" data-font-size="48" data-animate="slide" data-duration="2000">
                 </div>
-                <div class="w-75 mt-10">
+                <div class="w-75 mt-10" style="height:350px;">
                     <div class="row">
                         <div class="cell-ld-4">
                             
