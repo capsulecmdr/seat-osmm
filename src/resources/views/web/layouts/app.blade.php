@@ -52,7 +52,7 @@ $noMargin = ""
     <![endif]-->
   </head>
   <body class="hold-transition text-sm sidebar-mini {{ setting('sidebar') }}">
-
+    @include('seat-osmm::includes.announcement-banner')
   <div class="wrapper">
 
   @if($navbar_override == 3)
