@@ -11,6 +11,7 @@ use CapsuleCmdr\SeatOsmm\Support\Esi\SeatRelationTokenStorage;
 use Illuminate\Support\Facades\Gate;
 use CapsuleCmdr\SeatOsmm\Http\Middleware\OsmmMaintenanceMiddleware;
 use Illuminate\Routing\Router;
+use Illuminate\Contracts\Http\Kernel;
 
 class OsmmServiceProvider extends AbstractSeatPlugin
 {
