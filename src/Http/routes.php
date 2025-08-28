@@ -8,6 +8,7 @@ use CapsuleCmdr\SeatOsmm\Http\Controllers\OsmmCalendarController;
 use CapsuleCmdr\SeatOsmm\Http\Controllers\TodoController;
 use CapsuleCmdr\SeatOsmm\Http\Controllers\Config\BrandingController;
 use CapsuleCmdr\SeatOsmm\Http\Controllers\OsmmMenuController;
+use CapsuleCmdr\SeatOsmm\Http\Controllers\OsmmMaintenanceController as C;
 
 Log::info('[OSMM] routes.php loaded');
 
