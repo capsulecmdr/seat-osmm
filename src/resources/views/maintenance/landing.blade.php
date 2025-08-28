@@ -121,8 +121,8 @@
                         Checking for maintenance update in:
                     </p>
                 </div>
-                <div id="id-object-1" data-role="countdown" data-days="0" data-hours="0" data-minutes="0"
-                    data-seconds="45" data-font-size="48" data-animate="slide" data-duration="2000">
+                <div id="id-object-1" data-role="countdown" data-days="0" data-hours="0" data-minutes="5"
+                    data-seconds="0" data-font-size="48" data-animate="slide" data-duration="2000">
                 </div>
                 <div class="w-75 mt-10">
                     <div class="row">
@@ -164,7 +164,7 @@
                 } catch (e) { console.warn(e); }
             });
         </script>
-        <script>setInterval(() => window.location.reload(), 45_000);</script>
+        <script>setInterval(() => window.location.reload(), 300_000);</script>
 </body>
 
 </html>
