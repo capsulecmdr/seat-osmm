@@ -167,7 +167,7 @@
             days: ,
             hours: ,
             minutes: ,
-            seconds: 45
+            seconds: 45,
         });
     </script>
     <script>
