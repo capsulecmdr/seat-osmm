@@ -22,7 +22,7 @@ class OsmmMaintenanceMiddleware
 
         // Allow the maintenance landing itself, auth, and static assets
         if ($request->routeIs('osmm.maint.landing') ||
-            $request->is('login*','logout*','assets*','vendor*','web/*','images/*')) {
+            $request->is('login*','logout*','assets*','vendor*','web/css','web/js','web/ing','images/*')) {
             return $next($request);
         }
 
