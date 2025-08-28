@@ -32,7 +32,7 @@ class OsmmMaintenanceController extends Controller
 
         $settings = [
             'maintenance_enabled'   => (int) (osmm_setting('osmm_maintenance_enabled', 0)),
-            'maintenance_reason'    => (string) (osmm_setting('osmm_maintenance_reason', 'CONCORD Maintenance Advisory')),
+            'maintenance_reason'    => (string) (osmm_setting('osmm_maintenance_reason', 'SeAT Maintenance Advisory')),
             'maintenance_description'=> (string) (osmm_setting('osmm_maintenance_description', 'Server entering reinforced mode. Secure assets and enjoy a Quafe while engineering refits some rigs.')),
             'webhook_enabled'       => (int) (osmm_setting('osmm_discord_webhook_enabled', 0)),
             'webhook_url'           => (string) (osmm_setting('osmm_discord_webhook_url', '')),
