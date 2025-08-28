@@ -15,9 +15,8 @@
     <link rel="stylesheet" href="https://cdn.metroui.org.ua/current/icons.css">
     <style>
         .navview-content {
-            overflow: hidden !important;
+            overflow: hidden!important;
         }
-
         .cog {
             position: absolute;
             z-index: -1;
@@ -37,54 +36,50 @@
 
         }
 
-        #cog3,
-        #cog4 {
+        #cog3, #cog4 {
             top: 20px;
             right: 80px;
             font-size: 144px;
         }
-
         #cog4 {
             top: auto;
             bottom: 20px;
             left: 100px;
             right: auto;
         }
-
         #cog5 {
             font-size: 80px;
             right: 120px;
             bottom: 200px;
         }
 
-        #cog1,
-        #cog2 {
+        #cog1, #cog2 {
             span {
-                animation-duration: 5s !important;
+                animation-duration: 5s!important;
             }
         }
 
         #cog3 {
             span {
-                animation-duration: 7s !important;
+                animation-duration: 7s!important;
             }
         }
 
         #cog4 {
             span {
-                animation-duration: 15s !important;
+                animation-duration: 15s!important;
             }
         }
 
         #cog4 {
             span {
-                animation-duration: 10s !important;
+                animation-duration: 10s!important;
             }
         }
 
         .dark-side {
             .cog {
-                color: #212225 !important;
+                color: #212225!important;
             }
         }
     </style>
@@ -157,6 +152,7 @@
         <script type="text/javascript">window.PAGE_TITLE = 'Under Construction'</script>
     </div>
     <script src="https://cdn.metroui.org.ua/current/metro.js"></script>
+    <script src="https://cdn.metroui.org.ua/current/js/app.js" type="module"></script>
     <script>
         var app = new Model({
             counter: 0,
