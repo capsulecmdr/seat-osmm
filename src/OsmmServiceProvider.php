@@ -9,6 +9,7 @@ use CapsuleCmdr\SeatOsmm\Http\Controllers\HomeOverrideController;
 use CapsuleCmdr\SeatOsmm\Support\Esi\EsiTokenStorage;
 use CapsuleCmdr\SeatOsmm\Support\Esi\SeatRelationTokenStorage;
 use Illuminate\Support\Facades\Gate;
+use CapsuleCmdr\SeatOsmm\Http\Middleware\OsmmMaintenanceMiddleware;
 
 class OsmmServiceProvider extends AbstractSeatPlugin
 {
@@ -88,7 +89,7 @@ class OsmmServiceProvider extends AbstractSeatPlugin
                 ->exists();
         });
 
-        app('router')->pushMiddlewareToGroup('web', \CapsuleCmdr\SeatOsmm\Http\Middleware\OsmmMaintenanceMiddleware::class);
+        app('router')->pushMiddlewareToGroup('web', OsmmMaintenanceMiddleware::class);
 
     }
     private function addPublications(): void

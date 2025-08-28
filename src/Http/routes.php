@@ -65,17 +65,15 @@ Route::get('/osmm/manifest.json', [BrandingController::class, 'manifest'])
         Route::post('/menu-mode', [OsmmMenuController::class, 'saveMenuOverride'])->name('save-mode');
     });
 
-// Public landing (allowed during maintenance)
-Route::get('/maintenance', [C::class,'landing'])->name('osmm.maint.landing');
+// Landing page must be in the web group
+Route::middleware(['web'])->get('/maintenance', [C::class, 'landing'])
+    ->name('osmm.maint.landing');
 
-// Admin config
-Route::middleware(['web','auth']) // and whatever SeAT uses
-    ->prefix('osmm/maintenance')
-    ->name('osmm.maint.')
-    ->group(function () {
-        Route::get('/config', [C::class,'config'])->name('config')->middleware('can:osmm.maint_manage');
-        Route::post('/toggle', [C::class,'toggleMaintenance'])->name('toggle')->middleware('can:osmm.maint_manage');
-        Route::post('/webhook', [C::class,'saveWebhook'])->name('webhook')->middleware('can:osmm.maint_manage');
-        Route::post('/announcement', [C::class,'upsertAnnouncement'])->name('announcement.upsert')->middleware('can:osmm.maint_manage');
-        Route::post('/announcement/{announcement}/expire', [C::class,'expireAnnouncement'])->name('announcement.expire')->middleware('can:osmm.maint_manage');
-    });
+// Admin/config routes (already web+auth+can guarded)
+Route::middleware(['web','auth'])->prefix('osmm/maintenance')->name('osmm.maint.')->group(function () {
+    Route::get('/config', [C::class,'config'])->name('config')->middleware('can:osmm.maint_manage');
+    Route::post('/toggle', [C::class,'toggleMaintenance'])->name('toggle')->middleware('can:osmm.maint_manage');
+    Route::post('/webhook', [C::class,'saveWebhook'])->name('webhook')->middleware('can:osmm.maint_manage');
+    Route::post('/announcement', [C::class,'upsertAnnouncement'])->name('announcement.upsert')->middleware('can:osmm.maint_manage');
+    Route::post('/announcement/{announcement}/expire', [C::class,'expireAnnouncement'])->name('announcement.expire')->middleware('can:osmm.maint_manage');
+});
