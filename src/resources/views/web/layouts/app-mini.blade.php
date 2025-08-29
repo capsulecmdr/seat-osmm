@@ -212,7 +212,6 @@
             </div>
         </div>
     @endif
-    @include('seat-osmm::includes.announcement-banner')
 
     <!-- Covenant Protocols: Left Typer Rail -->
     <aside class="covenant-rail" aria-hidden="true">
