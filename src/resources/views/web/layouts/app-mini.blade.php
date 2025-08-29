@@ -218,7 +218,7 @@
     <aside class="covenant-rail" aria-hidden="true">
         <ul>
             <li>
-                <h4 class="typer">// Initiating: COVENANT PROTOCOLS //</h4>
+                <h4 class="typer" data-text="// Initiating: COVENANT PROTOCOLS //"></h4>
             </li>
             <li><span class="typer"
                     data-text="VEIL OF SILENCE — All transmissions are captured. Disclosure prohibited. to Breach is to be sanctioned."></span>
