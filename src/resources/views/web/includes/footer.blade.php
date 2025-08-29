@@ -5,7 +5,12 @@
 @endphp
 
 @if ($footerFlag === 1)
-  <footer class="main-footer">
+  @if(osmm_setting('osmm_override_menu') == 3)
+    <footer class="main-footer" style="margin-left:0px;">
+  @else
+    <footer class="main-footer">
+  @endif
+  
     {{-- Your custom footer --}}
     <!-- To the right -->
     <div class="float-right d-none d-sm d-sm-inline">
