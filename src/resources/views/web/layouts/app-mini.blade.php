@@ -132,9 +132,7 @@
             <img src="https://anvil.capsulecmdr.com/storage/blackanvilsocietyicon2.png">
         </div>
         <div class="mt-10 w-50">
-            <div style="background-color:#fff; text-align:center;" class="box w-100">
-                {!! $signin_message !!}
-            </div>
+            {!! $signin_message !!}
         </div>
     </div>
 
