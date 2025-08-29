@@ -290,6 +290,7 @@
             runSequence();
 
             function enablebtn() {
+                console.log('okay');
                 alert('okay');
             }
         });
