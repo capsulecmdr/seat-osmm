@@ -122,33 +122,51 @@ class OsmmMaintenanceController extends Controller
         $announcement->update(['status' => 'expired']);
         return back()->with('status', 'Announcement expired.');
     }
-
-    protected function notifyDiscord(Ann $a): void
+    protected function notifyDiscord(Ann $a): bool
     {
+        $url = (string) osmm_setting('osmm_discord_webhook_url', '');
+        if ($url === '') {
+            Log::warning('OSMM Discord: missing webhook URL');
+            return false;
+        }
+
+        $username = osmm_setting('osmm_discord_webhook_username', 'Maintenance Bot') ?: 'Maintenance Bot';
+        $avatar   = osmm_setting('osmm_discord_webhook_avatar', '') ?: null;
+
+        // Minimal 'content' + rich embed (Discord accepts either/both)
+        $payload = [
+            'username'   => $username,
+            'avatar_url' => $avatar,
+            'content'    => '**' . $a->title . '**',   // so something posts even if embeds are blocked
+            'embeds'     => [[
+                'title'       => $a->title,
+                'description' => strip_tags($a->content),
+                'color'       => 15158332,
+                'timestamp'   => now('UTC')->toIso8601String(),
+                'fields'      => array_values(array_filter([
+                    $a->starts_at ? ['name' => 'Starts', 'value' => $a->starts_at->toDayDateTimeString().' UTC', 'inline' => true] : null,
+                    $a->ends_at   ? ['name' => 'Ends',   'value' => $a->ends_at->toDayDateTimeString().' UTC', 'inline' => true] : null,
+                    ['name' => 'Status', 'value' => ucfirst($a->status), 'inline' => true],
+                ])),
+            ]],
+        ];
+
         try {
-            $url = osmm_setting('osmm_discord_webhook_url', '');
-            if (!$url) return;
-
-            $payload = [
-                'username' => osmm_setting('osmm_discord_webhook_username', 'Maintenance Bot'),
-                'avatar_url' => osmm_setting('osmm_discord_webhook_avatar', ''),
-                'embeds' => [[
-                    'title' => $a->title,
-                    'description' => strip_tags($a->content),
-                    'color' => 15158332, // red-ish
-                    'timestamp' => now()->toIso8601String(),
-                    'fields' => array_values(array_filter([
-                        $a->starts_at ? ['name'=>'Starts','value'=>$a->starts_at->toIso8601String(),'inline'=>true] : null,
-                        $a->ends_at   ? ['name'=>'Ends','value'=>$a->ends_at->toIso8601String(),'inline'=>true] : null,
-                        ['name'=>'Status','value'=>ucfirst($a->status),'inline'=>true],
-                    ])),
-                ]],
-            ];
-
-            \Http::withHeaders(['Content-Type'=>'application/json'])
+            $resp = Http::timeout(10)
+                ->asJson()
                 ->post($url, $payload);
+
+            Log::info('OSMM Discord webhook', [
+                'status' => $resp->status(),
+                // Body can help with 401/404/429 messages
+                'body'   => str($resp->body())->limit(300)->toString(),
+            ]);
+
+            return $resp->successful();
         } catch (\Throwable $e) {
-            Log::warning('OSMM Discord webhook failed: '.$e->getMessage());
+            Log::warning('OSMM Discord webhook exception: '.$e->getMessage());
+            return false;
         }
     }
+
 }
