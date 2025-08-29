@@ -102,6 +102,50 @@
             flex-direction: row;
             flex-wrap: nowrap;
         }
+        /* Left-side covenant rail (fixed, non-intrusive) */
+        .covenant-rail{
+        position: fixed;
+        left: 24px;
+        top: 12vh;
+        width: 320px;                   /* narrow rail */
+        z-index: 10;
+        pointer-events: none;            /* do not intercept clicks */
+        user-select: none;               /* non-selectable text */
+        color: #cfd3da;                  /* cold, muted gray */
+        opacity: 0.88;
+        text-shadow: 0 1px 2px rgba(0,0,0,.55); /* readability on dark BG */
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
+        }
+
+        .covenant-rail ul{
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        }
+
+        .covenant-rail li{
+        margin: 0 0 12px 0;
+        line-height: 1.25;
+        font-size: 14px;
+        letter-spacing: .2px;
+        /* subtle divider glow */
+        border-left: 2px solid rgba(207,211,218,.25);
+        padding-left: 10px;
+        }
+
+        .covenant-rail .typed-dim{ opacity: .6; }  /* fade older lines slightly */
+        .covenant-rail .typed-older{ opacity: .35; } /* oldest lines even dimmer */
+
+        /* Make sure nothing in the login card overlaps the rail spacing on very small screens */
+        @media (max-width: 768px){
+        .covenant-rail{
+            left: 12px;
+            width: 260px;
+            top: 10vh;
+            font-size: 13px;
+        }
+        }
+
     </style>
 </head>
 
@@ -122,6 +166,29 @@
     @endif
     @include('seat-osmm::includes.announcement-banner')
 
+    <!-- Covenant Protocols: Left Typer Rail -->
+    <aside class="covenant-rail" aria-hidden="true">
+    <ul>
+        <li><span class="typer" data-role="typer" data-loop="false" data-typing-speed="40"
+        data-strings='["VEIL OF SILENCE — All transmissions are captured. Disclosure prohibited. Breach = sanction."]'></span></li>
+
+        <li><span class="typer" data-role="typer" data-loop="false" data-typing-speed="40"
+        data-strings='["IRON WITNESS — All activity is monitored. All actions logged. Observation is permanent."]'></span></li>
+
+        <li><span class="typer" data-role="typer" data-loop="false" data-typing-speed="40"
+        data-strings='["CHAIN OF SUBMISSION — Engagement constitutes consent. Consent binds. Binding is enforceable."]'></span></li>
+
+        <li><span class="typer" data-role="typer" data-loop="false" data-typing-speed="40"
+        data-strings='["ANVIL OF TRUTH — Integrity is absolute. Falsehood is destroyed. Only verified truth remains."]'></span></li>
+
+        <li><span class="typer" data-role="typer" data-loop="false" data-typing-speed="40"
+        data-strings='["SHADOW LEDGER — Records are immutable. Violations are indelible. Nothing is forgotten."]'></span></li>
+
+        <li><span class="typer" data-role="typer" data-loop="false" data-typing-speed="40"
+        data-strings='["SANCTION ETERNAL — Breach triggers enforcement. Enforcement is automatic. The Forge does not forgive."]'></span></li>
+    </ul>
+    </aside>
+
     <div class="d-flex flex-column flex-align-items-center w-100 mt-10">
         <div class="avatar">
             <img src="https://anvil.capsulecmdr.com/storage/blackanvilsociety.jpg" style="border-radius:50%;">
@@ -139,8 +206,51 @@
     </div>
     <script src="{{ asset('vendor/capsulecmdr/seat-osmm/js/metro.js') }}" defer></script>
     <script>
-        
-    </script>
+        // Sequentially start each Metro Typer in the rail and softly fade previous lines
+        document.addEventListener('DOMContentLoaded', function(){
+            const items = Array.from(document.querySelectorAll('.covenant-rail .typer'));
+            const stepMs = 2400;       // delay between starting each line
+            const fadeOlderAt = 2;     // after 2 lines, older ones dim further
+
+            // helper to fade older lines as new ones start
+            function updateFades(activeIdx){
+            const lis = Array.from(document.querySelectorAll('.covenant-rail li'));
+            lis.forEach((li, idx) => {
+                li.classList.remove('typed-dim','typed-older');
+                if (idx < activeIdx){
+                // most recent completed line gets light dim, earlier get heavier dim
+                li.classList.add(idx <= activeIdx - fadeOlderAt ? 'typed-older' : 'typed-dim');
+                }
+            });
+            }
+
+            // Start each typer with a small stagger
+            items.forEach((el, i) => {
+            setTimeout(() => {
+                updateFades(i);
+                // Try Metro's Typer if present
+                try{
+                const plugin = window.Metro && Metro.getPlugin ? Metro.getPlugin(el, 'typer') : null;
+                if (plugin && plugin.start){ plugin.start(); return; }
+                }catch(e){/* fall through to vanilla */}
+
+                // Vanilla fallback if Metro Typer isn't available for any reason
+                vanillaType(el, JSON.parse(el.getAttribute('data-strings'))[0] || '', 40);
+            }, i * stepMs);
+            });
+
+            // tiny vanilla typer fallback (if needed)
+            function vanillaType(el, text, speed){
+            el.textContent = '';
+            let i = 0;
+            const t = setInterval(() => {
+                el.textContent += text.charAt(i++);
+                if (i >= text.length) clearInterval(t);
+            }, speed || 40);
+            }
+        });
+        </script>
+
 </body>
 
 </html>
