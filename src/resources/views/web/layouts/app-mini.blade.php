@@ -1,7 +1,8 @@
 @php
     $custom_signin_message = setting('custom_signin_message', true);
 
-    $signin_message = sprintf('<div style="background-color:#fff; text-align:center;" class="box w-100">%s
+    $signin_message = sprintf('<div style="background-color:#fff; text-align:center;" class="box w-100">
+        %s
     </div>
     <div class="box-body text-center">
         <a href="%s">
