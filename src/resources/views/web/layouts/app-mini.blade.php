@@ -108,13 +108,18 @@
         left: 24px;
         top: 12vh;
         width: 320px;                   /* narrow rail */
-        z-index: 10;
+        z-index: 3000;
         pointer-events: none;            /* do not intercept clicks */
         user-select: none;               /* non-selectable text */
         color: #cfd3da;                  /* cold, muted gray */
         opacity: 0.88;
         text-shadow: 0 1px 2px rgba(0,0,0,.55); /* readability on dark BG */
         font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
+        background: rgba(10,14,18,0.28);
+        backdrop-filter: blur(6px) saturate(110%);
+        -webkit-backdrop-filter: blur(6px) saturate(110%);
+        opacity: 0.92;
+        text-shadow: 0 1px 2px rgba(0,0,0,.55);
         }
 
         .covenant-rail ul{
