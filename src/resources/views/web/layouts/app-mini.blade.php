@@ -260,25 +260,26 @@
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             const lines = Array.from(document.querySelectorAll('.covenant-rail .typer'));
-            const typingSpeed = 40;       // ms per char
-            const delayBetween = 500;     // ms between pillars
+            const typingSpeed = 40;
+            const delayBetween = 500;
 
             function typeLine(el, text, done, { delayAfter = true } = {}) {
                 el.textContent = '';
                 let i = 0;
                 const timer = setInterval(() => {
-                    el.textContent += text.charAt(i++);
-                    if (i >= text.length) {
-                        clearInterval(timer);
-                        delayAfter ? setTimeout(done, delayBetween) : done();
-                    }
+                el.textContent += text.charAt(i++);
+                if (i >= text.length) {
+                    clearInterval(timer);
+                    delayAfter ? setTimeout(done, delayBetween) : done();
+                }
                 }, typingSpeed);
             }
 
             function runSequence(idx = 0) {
                 if (idx >= lines.length) {
-                    if (typeof window.enablebtn === 'function') { try { window.enablebtn(); } catch (e) { console.log('nope') } }
-                    return;
+                // call the local function, not window.enablebtn
+                if (typeof enablebtn === 'function') enablebtn();
+                return;
                 }
                 const el = lines[idx];
                 const text = el.dataset.text || '';
@@ -286,14 +287,14 @@
                 typeLine(el, text, () => runSequence(idx + 1), { delayAfter: !isLast });
             }
 
-
             runSequence();
 
             function enablebtn() {
                 console.log('okay');
                 alert('okay');
             }
-        });
+            });
+
     </script>
 
 
