@@ -150,6 +150,16 @@
             font-size: 13px;
         }
         }
+        .alert[role="alert"] .container{
+        display: flex;
+        justify-content: center;   /* center horizontally */
+        align-items: center;       /* center vertically if multi-line */
+        }
+        .alert[role="alert"] .mr-3{  /* neutralize the left-biased wrapper */
+        margin-right: 0 !important;
+        text-align: center;
+        width: 100%;
+        }
 
     </style>
 </head>
@@ -160,14 +170,14 @@
         $reason = osmm_setting('osmm_maintenance_reason');
         $description = osmm_setting('osmm_maintenance_description');
       @endphp
-      <div class="alert alert-danger mb-0 rounded-0 w-100" role="alert" style="position:sticky; top:0; z-index: 1050;">
-        <div class="container d-flex justify-content-between align-items-center">
-          <div class="mr-3">
+      <div class="alert alert-danger mb-0 rounded-0 w-100" role="alert" style="position:sticky; top:0; z-index:1050;">
+        <div class="container d-flex justify-content-center align-items-center">
+            <div class="text-center">
             <strong>{!! $reason !!}</strong>
             <span class="ml-2">{!! $description !!}</span>
-          </div>
+            </div>
         </div>
-      </div>
+        </div>
     @endif
     @include('seat-osmm::includes.announcement-banner')
 
