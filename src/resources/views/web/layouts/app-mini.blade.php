@@ -1,40 +1,64 @@
 @php
-    $custom_signin_message = setting('custom_signin_message', true);
-
-    $signin_message = sprintf(
-    '<div style="background-color:#fff; text-align:center;" class="box w-100">
-        %s
-     </div>
-     <div class="box-body text-center">
-         <a href="%s">
-             <img src="%s" alt="LOG IN with EVE Online">
-         </a>
-     </div>',
-        trans('web::seat.login_welcome'),
+    // Build the login button once
+    $buttonHtml = sprintf(
+        '<div class="box-body text-center">
+            <a href="%s">
+                <img src="%s" alt="LOG IN with EVE Online">
+            </a>
+        </div>',
         route('seatcore::auth.eve'),
         asset('web/img/evesso.png')
     );
 
-    if (! empty($custom_signin_message)) {
-        $auth_profiles = setting('sso_scopes', true);
-        $signin_message = $custom_signin_message;
+    // Base welcome (escape % for sprintf safety)
+    $welcome = str_replace('%', '%%', trans('web::seat.login_welcome'));
+
+    $custom = setting('custom_signin_message', true);
+    $messageCore = '';
+
+    if (!empty($custom)) {
+        // Start with custom
+        $messageCore = $custom;
+
+        // Replace [[profile]] markers with proper login buttons
+        $auth_profiles = setting('sso_scopes', true) ?? [];
+        $hadMarker = false;
 
         foreach ($auth_profiles as $profile) {
-            $pattern = sprintf('/[[]{2}(%s)[]]{2}/', $profile->name);
+            $name = $profile->name ?? 'default';
+            $pattern = '/\[\[(' . preg_quote($name, '/') . ')\]\]/';
 
-            $signin_message = preg_replace_callback($pattern, function ($matches) {
-                return sprintf('<div class="box-body text-center">
-                    <a href="%s">
-                        <img src="%s" alt="LOG IN with EVE Online">
-                    </a>
-                </div>',
-                    route('seatcore::auth.eve.profile', $matches[1]),
+            $messageCore = preg_replace_callback($pattern, function ($m) {
+                return sprintf(
+                    '<div class="box-body text-center">
+                        <a href="%s">
+                            <img src="%s" alt="LOG IN with EVE Online">
+                        </a>
+                    </div>',
+                    route('seatcore::auth.eve.profile', $m[1]),
                     asset('web/img/evesso.png')
                 );
-            }, $signin_message);
+            }, $messageCore, -1, $count);
+
+            if ($count > 0) $hadMarker = true;
         }
+
+        // If no [[profile]] marker was present, append the default login button
+        if (!$hadMarker) {
+            $messageCore .= $buttonHtml;
+        }
+    } else {
+        // Default: welcome + default login button
+        $messageCore = $welcome . $buttonHtml;
     }
+
+    // NOW wrap the final message so your outer div always appears
+    $signin_message = sprintf(
+        '<div style="background-color:#fff; text-align:center;" class="box w-100">%s</div>',
+        $messageCore
+    );
 @endphp
+
 <!doctype html>
 <html lang="en">
 
