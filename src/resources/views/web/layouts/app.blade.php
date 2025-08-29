@@ -60,8 +60,8 @@ $noMargin = ""
       <div class="alert alert-danger mb-0 rounded-0" role="alert" style="position:sticky; top:0; z-index: 1050;">
         <div class="container d-flex justify-content-between align-items-center">
           <div class="mr-3">
-            <strong>Maintenance Mode</strong>
-            <span class="ml-2">Enabled</span>
+            <strong>{!! $reason !!}</strong>
+            <span class="ml-2">{!! $description !!}</span>
           </div>
         </div>
       </div>
