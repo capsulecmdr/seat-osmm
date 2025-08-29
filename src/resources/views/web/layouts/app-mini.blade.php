@@ -197,7 +197,7 @@
 </head>
 
 <body class="h-vh-100 w-vw-100 d-flex flex-column flex-justify-center flex-align-center"
-    style="background-image: url('{{ asset('vendor/capsulecmdr/seat-osmm/img/bg_spacestation.png') }}');">
+    style="background-image: url('{{ asset('vendor/capsulecmdr/seat-osmm/img/bg_spacestation.png') }}');background-size: 100% auto; background-position: center; background-repeat: no-repeat;">
     @if(osmm_setting('osmm_maintenance_enabled') == 1)
         @php
             $reason = osmm_setting('osmm_maintenance_reason');
