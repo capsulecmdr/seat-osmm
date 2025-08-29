@@ -16,7 +16,7 @@
     $signin_message = sprintf(
         '<div style="background-color:#ffffffaa; text-align:center;" class="box w-100">%s</div>
          <div class="box-body text-center mt-10">
-            <a href="%s">
+            <a href="%s" class="blur-link" disabled>
                 <img src="%s" alt="LOG IN with EVE Online">
             </a>
          </div>',
@@ -161,6 +161,18 @@
         width: 100%;
         }
 
+        .blur-link {
+  display: inline-block;     /* so overflow can crop the blur edge */
+  overflow: hidden;
+}
+
+.blur-link > img {
+  filter: blur(6px);
+  -webkit-filter: blur(6px); /* Safari fallback */
+  transition: filter .25s ease;
+  will-change: filter;
+}
+
     </style>
 </head>
 
@@ -185,9 +197,9 @@
     <aside class="covenant-rail" aria-hidden="true">
         <ul>
             <li><h4>// Initiating: COVENANT PROTOCOLS //</h4></li>
-            <li><span class="typer" data-text="VEIL OF SILENCE — All transmissions are captured. Disclosure prohibited. Breach = sanction."></span></li>
+            <li><span class="typer" data-text="VEIL OF SILENCE — All transmissions are captured. Disclosure prohibited. to Breach is to be sanctioned."></span></li>
             <li><span class="typer" data-text="IRON WITNESS — All activity is monitored. All actions logged. Observation is permanent."></span></li>
-            <li><span class="typer" data-text="CHAIN OF SUBMISSION — Engagement constitutes consent. Consent binds. Binding is enforceable."></span></li>
+            <li><span class="typer" data-text="CHAIN OF SUBMISSION — Engagement constitutes consent. Consent is binding. Binding is endures."></span></li>
             <li><span class="typer" data-text="ANVIL OF TRUTH — Integrity is absolute. Falsehood is destroyed. Only verified truth remains."></span></li>
             <li><span class="typer" data-text="SHADOW LEDGER — Records are immutable. Violations are indelible. Nothing is forgotten."></span></li>
             <li><span class="typer" data-text="SANCTION ETERNAL — Breach triggers enforcement. Enforcement is automatic. The Forge does not forgive."></span></li>
@@ -211,32 +223,44 @@
     </div>
     <script src="{{ asset('vendor/capsulecmdr/seat-osmm/js/metro.js') }}" defer></script>
     <script>
+<script>
 document.addEventListener('DOMContentLoaded', function(){
   const lines = Array.from(document.querySelectorAll('.covenant-rail .typer'));
   const typingSpeed = 40;       // ms per char
   const delayBetween = 500;     // ms between pillars
 
-  function typeLine(el, text, done){
-    el.textContent = '';
-    let i = 0;
-    const timer = setInterval(() => {
-      el.textContent += text.charAt(i++);
-      if (i >= text.length) {
-        clearInterval(timer);
-        setTimeout(done, delayBetween);
-      }
-    }, typingSpeed);
-  }
+  function typeLine(el, text, done, { delayAfter = true } = {}){
+  el.textContent = '';
+  let i = 0;
+  const timer = setInterval(() => {
+    el.textContent += text.charAt(i++);
+    if (i >= text.length) {
+      clearInterval(timer);
+      delayAfter ? setTimeout(done, delayBetween) : done();
+    }
+  }, typingSpeed);
+}
 
-  function runSequence(idx=0){
-    if(idx >= lines.length) return;
-    const el = lines[idx];
-    const text = el.dataset.text;
-    typeLine(el, text, () => runSequence(idx+1));
+function runSequence(idx = 0){
+  if (idx >= lines.length) {
+    if (typeof window.enablebtn === 'function') { try { window.enablebtn(); } catch(e) {} }
+    return;
   }
+  const el = lines[idx];
+  const text = el.dataset.text || '';
+  const isLast = idx === lines.length - 1;
+  typeLine(el, text, () => runSequence(idx + 1), { delayAfter: !isLast });
+}
+
 
   runSequence();
+
+function enablebtn(){
+    document.getElementById
+}
 });
+</script>
+
 </script>
 
 
