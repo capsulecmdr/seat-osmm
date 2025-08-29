@@ -52,6 +52,16 @@ $noMargin = ""
     <![endif]-->
   </head>
   <body class="hold-transition text-sm sidebar-mini {{ setting('sidebar') }}">
+    @if(osmm_setting('osmm_maintenance_enabled') == 1)
+      <div class="alert alert-danger mb-0 rounded-0" role="alert" style="position:sticky; top:0; z-index: 1050;">
+        <div class="container d-flex justify-content-between align-items-center">
+          <div class="mr-3">
+            <strong>Maintenance Mode</strong>
+            <span class="ml-2">Enabled</span>
+          </div>
+        </div>
+      </div>
+    @endif
     @include('seat-osmm::includes.announcement-banner')
   <div class="wrapper">
 
