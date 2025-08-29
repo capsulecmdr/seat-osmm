@@ -168,25 +168,14 @@
 
     <!-- Covenant Protocols: Left Typer Rail -->
     <aside class="covenant-rail" aria-hidden="true">
-    <ul>
-        <li><span class="typer" data-role="typer" data-loop="false" data-typing-speed="40"
-        data-strings='["VEIL OF SILENCE — All transmissions are captured. Disclosure prohibited. Breach = sanction."]'></span></li>
-
-        <li><span class="typer" data-role="typer" data-loop="false" data-typing-speed="40"
-        data-strings='["IRON WITNESS — All activity is monitored. All actions logged. Observation is permanent."]'></span></li>
-
-        <li><span class="typer" data-role="typer" data-loop="false" data-typing-speed="40"
-        data-strings='["CHAIN OF SUBMISSION — Engagement constitutes consent. Consent binds. Binding is enforceable."]'></span></li>
-
-        <li><span class="typer" data-role="typer" data-loop="false" data-typing-speed="40"
-        data-strings='["ANVIL OF TRUTH — Integrity is absolute. Falsehood is destroyed. Only verified truth remains."]'></span></li>
-
-        <li><span class="typer" data-role="typer" data-loop="false" data-typing-speed="40"
-        data-strings='["SHADOW LEDGER — Records are immutable. Violations are indelible. Nothing is forgotten."]'></span></li>
-
-        <li><span class="typer" data-role="typer" data-loop="false" data-typing-speed="40"
-        data-strings='["SANCTION ETERNAL — Breach triggers enforcement. Enforcement is automatic. The Forge does not forgive."]'></span></li>
-    </ul>
+        <ul>
+            <li><span class="typer" data-text="VEIL OF SILENCE — All transmissions are captured. Disclosure prohibited. Breach = sanction."></span></li>
+            <li><span class="typer" data-text="IRON WITNESS — All activity is monitored. All actions logged. Observation is permanent."></span></li>
+            <li><span class="typer" data-text="CHAIN OF SUBMISSION — Engagement constitutes consent. Consent binds. Binding is enforceable."></span></li>
+            <li><span class="typer" data-text="ANVIL OF TRUTH — Integrity is absolute. Falsehood is destroyed. Only verified truth remains."></span></li>
+            <li><span class="typer" data-text="SHADOW LEDGER — Records are immutable. Violations are indelible. Nothing is forgotten."></span></li>
+            <li><span class="typer" data-text="SANCTION ETERNAL — Breach triggers enforcement. Enforcement is automatic. The Forge does not forgive."></span></li>
+        </ul>
     </aside>
 
     <div class="d-flex flex-column flex-align-items-center w-100 mt-10">
@@ -206,50 +195,34 @@
     </div>
     <script src="{{ asset('vendor/capsulecmdr/seat-osmm/js/metro.js') }}" defer></script>
     <script>
-        // Sequentially start each Metro Typer in the rail and softly fade previous lines
-        document.addEventListener('DOMContentLoaded', function(){
-            const items = Array.from(document.querySelectorAll('.covenant-rail .typer'));
-            const stepMs = 2400;       // delay between starting each line
-            const fadeOlderAt = 2;     // after 2 lines, older ones dim further
+document.addEventListener('DOMContentLoaded', function(){
+  const lines = Array.from(document.querySelectorAll('.covenant-rail .typer'));
+  const typingSpeed = 40;       // ms per char
+  const delayBetween = 500;     // ms between pillars
 
-            // helper to fade older lines as new ones start
-            function updateFades(activeIdx){
-            const lis = Array.from(document.querySelectorAll('.covenant-rail li'));
-            lis.forEach((li, idx) => {
-                li.classList.remove('typed-dim','typed-older');
-                if (idx < activeIdx){
-                // most recent completed line gets light dim, earlier get heavier dim
-                li.classList.add(idx <= activeIdx - fadeOlderAt ? 'typed-older' : 'typed-dim');
-                }
-            });
-            }
+  function typeLine(el, text, done){
+    el.textContent = '';
+    let i = 0;
+    const timer = setInterval(() => {
+      el.textContent += text.charAt(i++);
+      if (i >= text.length) {
+        clearInterval(timer);
+        setTimeout(done, delayBetween);
+      }
+    }, typingSpeed);
+  }
 
-            // Start each typer with a small stagger
-            items.forEach((el, i) => {
-            setTimeout(() => {
-                updateFades(i);
-                // Try Metro's Typer if present
-                try{
-                const plugin = window.Metro && Metro.getPlugin ? Metro.getPlugin(el, 'typer') : null;
-                if (plugin && plugin.start){ plugin.start(); return; }
-                }catch(e){/* fall through to vanilla */}
+  function runSequence(idx=0){
+    if(idx >= lines.length) return;
+    const el = lines[idx];
+    const text = el.dataset.text;
+    typeLine(el, text, () => runSequence(idx+1));
+  }
 
-                // Vanilla fallback if Metro Typer isn't available for any reason
-                vanillaType(el, JSON.parse(el.getAttribute('data-strings'))[0] || '', 40);
-            }, i * stepMs);
-            });
+  runSequence();
+});
+</script>
 
-            // tiny vanilla typer fallback (if needed)
-            function vanillaType(el, text, speed){
-            el.textContent = '';
-            let i = 0;
-            const t = setInterval(() => {
-                el.textContent += text.charAt(i++);
-                if (i >= text.length) clearInterval(t);
-            }, speed || 40);
-            }
-        });
-        </script>
 
 </body>
 
