@@ -256,7 +256,7 @@ function runSequence(idx = 0){
   runSequence();
 
 function enablebtn(){
-    document.getElementById
+    alert('okay');
 }
 });
 </script>
