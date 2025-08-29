@@ -1,14 +1,15 @@
 @php
     $custom_signin_message = setting('custom_signin_message', true);
 
-    $signin_message = sprintf('<div style="background-color:#fff; text-align:center;" class="box w-100">
-        %s ----
-    </div>
-    <div class="box-body text-center">
-        <a href="%s">
-            <img src="%s" alt="LOG IN with EVE Online">
-        </a>
-    </div>',
+    $signin_message = sprintf(
+    '<div style="background-color:#fff; text-align:center;" class="box w-100">
+        %s
+     </div>
+     <div class="box-body text-center">
+         <a href="%s">
+             <img src="%s" alt="LOG IN with EVE Online">
+         </a>
+     </div>',
         trans('web::seat.login_welcome'),
         route('seatcore::auth.eve'),
         asset('web/img/evesso.png')
