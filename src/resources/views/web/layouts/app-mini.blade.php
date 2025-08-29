@@ -174,6 +174,7 @@
     <!-- Covenant Protocols: Left Typer Rail -->
     <aside class="covenant-rail" aria-hidden="true">
         <ul>
+            <li><h4>// Initiating: COVENANT PROTOCOLS //</h4></li>
             <li><span class="typer" data-text="VEIL OF SILENCE — All transmissions are captured. Disclosure prohibited. Breach = sanction."></span></li>
             <li><span class="typer" data-text="IRON WITNESS — All activity is monitored. All actions logged. Observation is permanent."></span></li>
             <li><span class="typer" data-text="CHAIN OF SUBMISSION — Engagement constitutes consent. Consent binds. Binding is enforceable."></span></li>
