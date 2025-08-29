@@ -290,8 +290,8 @@
             runSequence();
 
             function enablebtn() {
-                document.getElementById('LoginBtn').removeAttribute('aria-disabled');
-                document.getElementById('LoginBtn').classList.remove('is-disabled');
+                document.getElementById('LoginBtn').removeAttribute('disabled');
+                document.getElementById('LoginBtn').classList.remove('blur-link');
             }
             });
 
