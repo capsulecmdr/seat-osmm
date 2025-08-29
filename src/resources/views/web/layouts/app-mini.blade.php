@@ -4,7 +4,8 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Maintenance</title>
+    @include('web::includes.favicon')
+    <title>SeAT | @yield('title', 'Eve Online API Tool')</title>
     <link rel="stylesheet" href="https://cdn.metroui.org.ua/current/metro.css">
     <link rel="stylesheet" href="https://cdn.metroui.org.ua/current/icons.css">
     <style>
@@ -75,7 +76,21 @@
 </head>
 
 <body class="h-vh-100 w-vw-100 d-flex flex-column flex-justify-center flex-align-center">
-
+    @if(osmm_setting('osmm_maintenance_enabled') == 1)
+      @php
+        $reason = osmm_setting('osmm_maintenance_reason');
+        $description = osmm_setting('osmm_maintenance_description');
+      @endphp
+      <div class="alert alert-danger mb-0 rounded-0" role="alert" style="position:sticky; top:0; z-index: 1050;">
+        <div class="container d-flex justify-content-between align-items-center">
+          <div class="mr-3">
+            <strong>{!! $reason !!}</strong>
+            <span class="ml-2">{!! $description !!}</span>
+          </div>
+        </div>
+      </div>
+    @endif
+    @include('seat-osmm::includes.announcement-banner')
 
     <div class="d-flex flex-column flex-align-items-center">
         <div class="avatar">
