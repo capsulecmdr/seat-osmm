@@ -162,9 +162,8 @@
       @endphp
       <div class="alert alert-danger mb-0 rounded-0 w-100" role="alert" style="position:sticky; top:0; z-index: 1050;">
         <div class="container d-flex justify-content-between align-items-center">
-          <div class="mr-3">
+          <div class="mr-3" style=>
             <strong>{!! $reason !!}</strong>
-            <br/>
             <span class="ml-2">{!! $description !!}</span>
           </div>
         </div>
