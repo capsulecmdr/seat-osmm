@@ -14,7 +14,7 @@
 
     // Build final message with wrapper + single button outside
     $signin_message = sprintf(
-        '<div style="background-color:#fff; text-align:center;" class="box w-100">%s</div>
+        '<div style="background-color:#ffffffaa; text-align:center;" class="box w-100">%s</div>
          <div class="box-body text-center mt-10">
             <a href="%s">
                 <img src="%s" alt="LOG IN with EVE Online">
@@ -124,7 +124,7 @@
 
     <div class="d-flex flex-column flex-align-items-center w-100">
         <div class="avatar">
-            <img src="https://anvil.capsulecmdr.com/storage/blackanvilsocietyicon2.png">
+            <img src="https://anvil.capsulecmdr.com/storage/blackanvilsociety.jpg">
         </div>
         <div class="mt-10 w-50">
             {!! $signin_message !!}
