@@ -111,17 +111,27 @@
               </div>
             </div>
             <div class="form-row"><input type="hidden" name="show_banner" value="0">
-              <input type="hidden" name="send_to_discord" value="0">
               <div class="form-group form-check">
                 <input
                   type="checkbox"
                   class="form-check-input"
-                  id="send_to_discord"
-                  name="send_to_discord"
+                  id="show_banner"
+                  name="show_banner"
                   value="1"
-                  {{ old('send_to_discord', 0) ? 'checked' : '' }}>
-                <label class="form-check-label" for="send_to_discord">Send to Discord</label>
+                  {{ old('show_banner', 1) ? 'checked' : '' }}>
+                <label class="form-check-label" for="show_banner">Show as banner</label>
               </div>
+              <input type="hidden" name="send_to_discord" value="0">
+                <div class="form-group form-check">
+                  <input
+                    type="checkbox"
+                    class="form-check-input"
+                    id="send_to_discord"
+                    name="send_to_discord"
+                    value="0"
+                    {{ old('send_to_discord', 0) ? 'checked' : '' }}>
+                  <label class="form-check-label" for="send_to_discord">Send to Discord</label>
+                </div>
             </div>
             <button class="btn btn-success btn-sm">Save Announcement</button>
           </form>
