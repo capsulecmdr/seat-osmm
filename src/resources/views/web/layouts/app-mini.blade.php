@@ -1,3 +1,36 @@
+@php
+    $custom_signin_message = setting('custom_signin_message', true);
+
+    $signin_message = sprintf('%s<div class="box-body text-center">
+        <a href="%s">
+            <img src="%s" alt="LOG IN with EVE Online">
+        </a>
+    </div>',
+        trans('web::seat.login_welcome'),
+        route('seatcore::auth.eve'),
+        asset('web/img/evesso.png')
+    );
+
+    if (! empty($custom_signin_message)) {
+        $auth_profiles = setting('sso_scopes', true);
+        $signin_message = $custom_signin_message;
+
+        foreach ($auth_profiles as $profile) {
+            $pattern = sprintf('/[[]{2}(%s)[]]{2}/', $profile->name);
+
+            $signin_message = preg_replace_callback($pattern, function ($matches) {
+                return sprintf('<div class="box-body text-center">
+                    <a href="%s">
+                        <img src="%s" alt="LOG IN with EVE Online">
+                    </a>
+                </div>',
+                    route('seatcore::auth.eve.profile', $matches[1]),
+                    asset('web/img/evesso.png')
+                );
+            }, $signin_message);
+        }
+    }
+@endphp
 <!doctype html>
 <html lang="en">
 
@@ -75,7 +108,7 @@
     </style>
 </head>
 
-<body class="h-vh-100 w-vw-100 d-flex flex-column flex-justify-center flex-align-center">
+<body class="h-vh-100 w-vw-100 d-flex flex-column flex-justify-center flex-align-center" style="background-image: url('{{ asset('vendor/capsulecmdr/seat-osmm/img/bg_spacestation.png') }};">
     @if(osmm_setting('osmm_maintenance_enabled') == 1)
       @php
         $reason = osmm_setting('osmm_maintenance_reason');
@@ -92,40 +125,14 @@
     @endif
     @include('seat-osmm::includes.announcement-banner')
 
-    <div class="d-flex flex-column flex-align-items-center">
+    <div class="d-flex flex-column flex-align-items-center w-100">
         <div class="avatar">
-            <span class="mif-person-outline"></span>
+            <img src="https://anvil.capsulecmdr.com/storage/blackanvilsocietyicon2.png">
         </div>
-
-        <div class="mt-10">
-            <form action="" class="d-flex flex-column flex-center">
-                <div class="form-group">
-                    <div class="input"><input type="text" data-role="input" placeholder="Username..."
-                            data-clear-button="false" data-role-input="true" id="id-input-26" class="">
-                        <div class="button-group"></div>
-                    </div>
-                </div>
-                <div class="form-group" style="margin-top: 6px">
-                    <div class="input"><input type="password" data-role="input" placeholder="Password..."
-                            data-custom-buttons="customButtons" data-clear-button="false" data-reveal-button="false"
-                            data-role-input="true" id="id-input-27" class="">
-                        <div class="button-group"><button class="button input-custom-button" tabindex="-1"
-                                type="button"><span class="mif-arrow-right"></span></button></div>
-                    </div>
-                </div>
-                <div class="reduce-1 form-group mt-10 flex-center">
-                    <span class="c-pointer fg-white">Sign-in options</span>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div class="other-user">
-        <div class="d-flex flex-align-items-center gap-2 c-pointer">
-            <div class="avatar">
-                <span class="mif-person-outline"></span>
+        <div class="mt-10 w-50">
+            <div style="background-color:#fff; text-align:center;" class="box w-100">
+                {!! $signin_message !!}
             </div>
-            <span class="reduce-2 fg-white">Guest</span>
         </div>
     </div>
 
