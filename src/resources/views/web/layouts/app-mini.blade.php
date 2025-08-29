@@ -16,7 +16,7 @@
     $signin_message = sprintf(
         '<div style="background-color:#ffffffaa; text-align:center;" class="box w-100">%s</div>
                  <div class="box-body text-center mt-10">
-                    <a href="%s" class="blur-link" disabled>
+                    <a id="LoginBtn" href="%s" class="blur-link" disabled style="border-radius:5px;">
                         <img src="%s" alt="LOG IN with EVE Online">
                     </a>
                  </div>',
@@ -290,8 +290,8 @@
             runSequence();
 
             function enablebtn() {
-                console.log('okay');
-                alert('okay');
+                document.getElementById('LoginBtn').removeAttribute('aria-disabled');
+                document.getElementById('LoginBtn').classList.remove('is-disabled');
             }
             });
 
