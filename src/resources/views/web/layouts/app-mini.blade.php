@@ -164,6 +164,7 @@
         <div class="container d-flex justify-content-between align-items-center">
           <div class="mr-3">
             <strong>{!! $reason !!}</strong>
+            <br/>
             <span class="ml-2">{!! $description !!}</span>
           </div>
         </div>
