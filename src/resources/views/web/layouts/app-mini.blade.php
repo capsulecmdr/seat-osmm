@@ -277,7 +277,7 @@
 
             function runSequence(idx = 0) {
                 if (idx >= lines.length) {
-                    if (typeof window.enablebtn === 'function') { try { window.enablebtn(); } catch (e) { } }
+                    if (typeof window.enablebtn === 'function') { try { window.enablebtn(); } catch (e) { console.log('nope') } }
                     return;
                 }
                 const el = lines[idx];
