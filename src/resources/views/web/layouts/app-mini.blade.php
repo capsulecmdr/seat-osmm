@@ -124,7 +124,7 @@
 
     <div class="d-flex flex-column flex-align-items-center w-100">
         <div class="avatar">
-            <img src="https://anvil.capsulecmdr.com/storage/blackanvilsociety.jpg">
+            <img src="https://anvil.capsulecmdr.com/storage/blackanvilsociety.jpg" style="border-radius:50%;">
         </div>
         <div class="mt-10 w-50">
             {!! $signin_message !!}
