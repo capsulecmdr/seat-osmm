@@ -111,7 +111,7 @@
         $reason = osmm_setting('osmm_maintenance_reason');
         $description = osmm_setting('osmm_maintenance_description');
       @endphp
-      <div class="alert alert-danger mb-0 rounded-0" role="alert" style="position:sticky; top:0; z-index: 1050;">
+      <div class="alert alert-danger mb-0 rounded-0 w-100" role="alert" style="position:sticky; top:0; z-index: 1050;">
         <div class="container d-flex justify-content-between align-items-center">
           <div class="mr-3">
             <strong>{!! $reason !!}</strong>
@@ -122,7 +122,7 @@
     @endif
     @include('seat-osmm::includes.announcement-banner')
 
-    <div class="d-flex flex-column flex-align-items-center w-100">
+    <div class="d-flex flex-column flex-align-items-center w-100 mt-10">
         <div class="avatar">
             <img src="https://anvil.capsulecmdr.com/storage/blackanvilsociety.jpg" style="border-radius:50%;">
         </div>
