@@ -1,33 +1,14 @@
 @php
-    // Build the login button once
-    $buttonHtml = sprintf(
-        '<div class="box-body text-center">
-            <a href="%s">
-                <img src="%s" alt="LOG IN with EVE Online">
-            </a>
-        </div>',
-        route('seatcore::auth.eve'),
-        asset('web/img/evesso.png')
-    );
-
-    // Base welcome (escape % for sprintf safety)
-    $welcome = str_replace('%', '%%', trans('web::seat.login_welcome'));
-
     $custom = setting('custom_signin_message', true);
-    $messageCore = '';
 
+    // Build core message
     if (!empty($custom)) {
-        // Start with custom
         $messageCore = $custom;
 
         // Replace [[profile]] markers with proper login buttons
         $auth_profiles = setting('sso_scopes', true) ?? [];
-        $hadMarker = false;
-
         foreach ($auth_profiles as $profile) {
-            $name = $profile->name ?? 'default';
-            $pattern = '/\[\[(' . preg_quote($name, '/') . ')\]\]/';
-
+            $pattern = '/\[\[(' . preg_quote($profile->name, '/') . ')\]\]/';
             $messageCore = preg_replace_callback($pattern, function ($m) {
                 return sprintf(
                     '<div class="box-body text-center">
@@ -38,26 +19,26 @@
                     route('seatcore::auth.eve.profile', $m[1]),
                     asset('web/img/evesso.png')
                 );
-            }, $messageCore, -1, $count);
-
-            if ($count > 0) $hadMarker = true;
-        }
-
-        // If no [[profile]] marker was present, append the default login button
-        if (!$hadMarker) {
-            $messageCore .= $buttonHtml;
+            }, $messageCore);
         }
     } else {
-        // Default: welcome + default login button
-        $messageCore = $welcome . $buttonHtml;
+        $messageCore = trans('web::seat.login_welcome');
     }
 
-    // NOW wrap the final message so your outer div always appears
+    // Build final message with wrapper + button outside
     $signin_message = sprintf(
-        '<div style="background-color:#fff; text-align:center;" class="box w-100">%s</div>',
-        $messageCore
+        '<div style="background-color:#fff; text-align:center;" class="box w-100">%s</div>
+         <div class="box-body text-center">
+            <a href="%s">
+                <img src="%s" alt="LOG IN with EVE Online">
+            </a>
+         </div>',
+        $messageCore,
+        route('seatcore::auth.eve'),
+        asset('web/img/evesso.png')
     );
 @endphp
+
 
 <!doctype html>
 <html lang="en">
