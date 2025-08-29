@@ -5,27 +5,14 @@
     if (!empty($custom)) {
         $messageCore = $custom;
 
-        // Replace [[profile]] markers with proper login buttons
-        $auth_profiles = setting('sso_scopes', true) ?? [];
-        foreach ($auth_profiles as $profile) {
-            $pattern = '/\[\[(' . preg_quote($profile->name, '/') . ')\]\]/';
-            $messageCore = preg_replace_callback($pattern, function ($m) {
-                return sprintf(
-                    '<div class="box-body text-center">
-                        <a href="%s">
-                            <img src="%s" alt="LOG IN with EVE Online">
-                        </a>
-                    </div>',
-                    route('seatcore::auth.eve.profile', $m[1]),
-                    asset('web/img/evesso.png')
-                );
-            }, $messageCore);
-        }
+        // Strip out any [[profile]] placeholders so they don't inject buttons inside the box
+        $messageCore = preg_replace('/\[\[(.*?)\]\]/', '', $messageCore);
+
     } else {
         $messageCore = trans('web::seat.login_welcome');
     }
 
-    // Build final message with wrapper + button outside
+    // Build final message with wrapper + single button outside
     $signin_message = sprintf(
         '<div style="background-color:#fff; text-align:center;" class="box w-100">%s</div>
          <div class="box-body text-center">
@@ -38,6 +25,7 @@
         asset('web/img/evesso.png')
     );
 @endphp
+
 
 
 <!doctype html>
