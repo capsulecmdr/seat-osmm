@@ -91,9 +91,27 @@ class OsmmServiceProvider extends AbstractSeatPlugin
                 ->exists();
         });
 
+        Gate::define('osmm.maint_bypass', function ($user) {
+            if (method_exists($user, 'hasPermission') && $user->hasPermission('osmm.maint_bypass')) {
+                return true;
+            }
+            return $user->squads()
+                ->whereHas('permissions', fn($q) => $q->where('name', 'osmm.maint_bypass'))
+                ->exists();
+        });
+
+        Gate::define('osmm.maint_manage', function ($user) {
+            if (method_exists($user, 'hasPermission') && $user->hasPermission('osmm.maint_manage')) {
+                return true;
+            }
+            return $user->squads()
+                ->whereHas('permissions', fn($q) => $q->where('name', 'osmm.maint_manage'))
+                ->exists();
+        });
+
         // Push as GLOBAL middleware so we know it runs
-        $kernel = $this->app->make(Kernel::class);
-        $kernel->pushMiddleware(OsmmMaintenanceMiddleware::class);
+        // $kernel = $this->app->make(Kernel::class);
+        // $kernel->pushMiddleware(OsmmMaintenanceMiddleware::class);
 
         \Log::info('OSMM: pushed maintenance middleware globally');
 
