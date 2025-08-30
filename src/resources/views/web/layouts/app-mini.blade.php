@@ -1,6 +1,6 @@
 @php
     // Pull custom sign-in message (string, not boolean)
-    $custom = (string) (setting('custom_signin_message') ?? '');
+    $custom = (string) (setting('custom_signin_message',true) ?? '');
 
     // Build core message (strip [[...]] placeholders so they don't inject controls)
     if ($custom !== '') {
