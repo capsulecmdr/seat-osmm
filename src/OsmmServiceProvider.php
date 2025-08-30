@@ -149,7 +149,7 @@ class OsmmServiceProvider extends AbstractSeatPlugin
 
     private function add_translations(): void
     {
-        // $this->loadTranslationsFrom(__DIR__.'/resources/lang', 'osmm');
+        $this->loadTranslationsFrom(__DIR__.'/resources/lang', 'osmm');
     }
 
     private function add_views(): void
