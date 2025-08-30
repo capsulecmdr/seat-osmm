@@ -203,14 +203,7 @@
             $reason = osmm_setting('osmm_maintenance_reason');
             $description = osmm_setting('osmm_maintenance_description');
           @endphp
-        <div class="alert alert-danger mb-0 rounded-0 w-100" role="alert" style="position:sticky; top:0; z-index:1050;">
-            <div class="container d-flex justify-content-center align-items-center">
-                <div class="text-center">
-                    <strong>{!! $reason !!}</strong>
-                    <span class="ml-2">{!! $description !!}</span>
-                </div>
-            </div>
-        </div>
+        
     @endif
 
     <!-- Covenant Protocols: Left Typer Rail -->
