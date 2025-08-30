@@ -198,13 +198,7 @@
 
 <body class="h-vh-100 w-vw-100 d-flex flex-column flex-justify-center flex-align-center"
     style="background-image: url('{{ asset('vendor/capsulecmdr/seat-osmm/img/bg_spacestation.png') }}');background-size: 100% auto; background-position: center; background-repeat: no-repeat;">
-    @if(osmm_setting('osmm_maintenance_enabled') == 1)
-        @php
-            $reason = osmm_setting('osmm_maintenance_reason');
-            $description = osmm_setting('osmm_maintenance_description');
-          @endphp
-        
-    @endif
+    
 
     <!-- Covenant Protocols: Left Typer Rail -->
     <aside class="covenant-rail" aria-hidden="true">
@@ -243,10 +237,18 @@
     </div>
 
     <div class="system-options">
+        @if(osmm_setting('osmm_maintenance_enabled') == 1)
+            @php
+                $reason = osmm_setting('osmm_maintenance_reason');
+                $description = osmm_setting('osmm_maintenance_description');
+            @endphp
+            <button class="outline no-border reduce-2" disabled>{!! $reason . ": " . $description !!}</button>
+            <button class="square outline no-border" disabled style="color:#EEE; background-color:#ff000099"><span class="mif-network"></span></button>
+        {{-- @endif
         <button class="outline no-border reduce-2">ENG</button>
         <button class="square outline no-border"><span class="mif-network"></span></button>
         <button class="square outline no-border"><span class="mif-keyboard"></span></button>
-        <button class="square outline no-border"><span class="mif-power"></span></button>
+        <button class="square outline no-border"><span class="mif-power"></span></button> --}}
     </div>
     <script src="{{ asset('vendor/capsulecmdr/seat-osmm/js/metro.js') }}" defer></script>
     <script>
