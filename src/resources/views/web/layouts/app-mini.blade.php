@@ -241,8 +241,9 @@
             @php
                 $reason = osmm_setting('osmm_maintenance_reason');
                 $description = osmm_setting('osmm_maintenance_description');
+                $label = $reason . ": " . $description;
             @endphp
-            <button class="outline no-border reduce-2" disabled>{!! $reason . ": " . $description !!}</button>
+            <button class="outline no-border reduce-2" disabled>{!! $label !!}</button>
             <button class="square outline no-border" disabled style="color:#EEE; background-color:#ff000099"><span class="mif-network"></span></button>
         {{-- @endif
         <button class="outline no-border reduce-2">ENG</button>
