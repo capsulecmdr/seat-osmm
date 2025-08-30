@@ -14,9 +14,9 @@
 
     // Build final message with wrapper + single button outside
     $signin_message = sprintf(
-        '<div style="background-color:#ffffffaa; text-align:center;" class="box w-100">%s</div>
+        '<div id="signInMessageDiv" style="background-color:#ffffffaa; text-align:center;" class="box w-100 d-none">%s</div>
                  <div class="box-body text-center mt-10">
-                    <a id="LoginBtn" href="%s" class="blur-link" disabled style="border-radius:5px;">
+                    <a id="LoginBtn" href="%s" class="blur-link d-none" disabled style="border-radius:5px;">
                         <img src="%s" alt="LOG IN with EVE Online">
                     </a>
                  </div>',
@@ -283,7 +283,9 @@
 
             function enablebtn() {
                 document.getElementById('LoginBtn').removeAttribute('disabled');
-                document.getElementById('LoginBtn').classList.remove('blur-link');
+                document.getElementById('LoginBtn').classList.remove('blur-link');                
+                document.getElementById('LoginBtn').classList.remove('d-none');
+                document.getElementById('signInMessageDiv').classList.remove('d-none');
             }
             });
 
