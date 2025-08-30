@@ -245,9 +245,10 @@
             @endphp
             <button class="outline no-border reduce-2" disabled>{!! $label !!}</button>
             <button class="square outline no-border" disabled style="color:#EEE; background-color:#ff000099"><span class="mif-network"></span></button>
+        @else
+        <button class="square outline no-border"><span class="mif-network"></span></button>
         @endif
-        {{-- @endif
-        <button class="outline no-border reduce-2">ENG</button>
+        {{-- <button class="outline no-border reduce-2">ENG</button>
         <button class="square outline no-border"><span class="mif-network"></span></button>
         <button class="square outline no-border"><span class="mif-keyboard"></span></button>
         <button class="square outline no-border"><span class="mif-power"></span></button> --}}
