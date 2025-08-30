@@ -20,7 +20,6 @@ class OsmmServiceProvider extends AbstractSeatPlugin
     {
         $this->add_routes();
         $this->add_views();
-        $this->add_translations();
         
         $this->addPublications();
         
@@ -36,38 +35,6 @@ class OsmmServiceProvider extends AbstractSeatPlugin
                 ->middleware(['web', 'auth'])
                 ->name('osmm.home'); // optional
         });
-
-        $widgets = [];
-
-        // Helper to push widgets into config array
-        $addWidgets = function ($row, $count) use (&$widgets) {
-            for ($i = 1; $i <= $count; $i++) {
-                $widgets[] = [
-                    'row'   => $row,
-                    'order' => $i,
-                    'html'  => view('seat-osmm::partials.test-widget', [
-                        'title' => "Test Widget R{$row}-#{$i}",
-                        'text'  => "This is test widget #{$i} in row {$row}.",
-                    ])->render(),
-                ];
-            }
-        };
-
-        // Row 1 - 8 widgets
-        $addWidgets(1, 8);
-
-        // Row 2 - 5 widgets
-        $addWidgets(2, 5);
-
-        // Row 3 - 4 widgets
-        $addWidgets(3, 4);
-
-        // Row 4 - 3 widgets
-        $addWidgets(4, 3);
-
-        config([
-            'osmm.home_elements' => $widgets
-        ]);
 
 
         #overrides
@@ -167,6 +134,9 @@ class OsmmServiceProvider extends AbstractSeatPlugin
 
         //merge sidebar
         $this->mergeConfigFrom(__DIR__.'/config/sidebar.php','package.sidebar');
+
+        
+        $this->add_translations();
 
         //register permissions
         $this->registerPermissions(__DIR__ . '/config/Permissions/permissions.php','osmm');
