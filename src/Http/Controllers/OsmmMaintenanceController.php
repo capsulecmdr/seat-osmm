@@ -194,26 +194,30 @@ class OsmmMaintenanceController extends Controller
 
     protected function notifyDiscordMaintenance(bool $enabled, string $reason = '', string $description = ''): bool
     {
-        if ((int) osmm_setting('osmm_discord_webhook_enabled', 0) !== 1) {
-            Log::info('OSMM Discord: webhook disabled, skipping');
-            return false;
-        }
+        if ((int) osmm_setting('osmm_discord_webhook_enabled', 0) !== 1) return false;
 
         $url = (string) osmm_setting('osmm_discord_webhook_url', '');
-        if ($url === '') {
-            Log::warning('OSMM Discord: missing webhook URL');
-            return false;
-        }
+        if ($url === '') return false;
 
-        $username = (string) (osmm_setting('osmm_discord_webhook_username', 'Maintenance Bot') ?: 'Maintenance Bot');
-        $avatar   = (string) (osmm_setting('osmm_discord_webhook_avatar', '') ?: '');
+        $username = osmm_setting('osmm_discord_webhook_username', 'Maintenance Bot') ?: 'Maintenance Bot';
+        $avatar   = osmm_setting('osmm_discord_webhook_avatar', '') ?: null;
+
+        // Optional: set these OSMM settings if you want pings/threads
+        $mention  = (string) osmm_setting('osmm_discord_mention', '');        // e.g. "<@&ROLE_ID>" or "@everyone"
+        $threadId = (string) osmm_setting('osmm_discord_thread_id', '');      // if posting to a thread
+
+        $title = $enabled ? 'Maintenance ENABLED' : 'Maintenance DISABLED';
+        $content = trim(($mention ? $mention.' ' : '') . '**'.$title.'** at '.now('UTC')->toIso8601String().' UTC');
 
         $payload = [
             'username'   => $username,
-            'avatar_url' => $avatar ?: null,
-            'content'    => '**Maintenance ' . ($enabled ? 'ENABLED' : 'DISABLED') . '**',
+            'avatar_url' => $avatar,
+            'content'    => $content,  // ensures something shows even if embeds are hidden
+            'allowed_mentions' => [
+                'parse' => ['users','roles','everyone'], // safe with explicit mention tokens only
+            ],
             'embeds'     => [[
-                'title'       => $enabled ? 'Maintenance ENABLED' : 'Maintenance DISABLED',
+                'title'       => $title,
                 'description' => $description !== '' ? $description : '—',
                 'color'       => $enabled ? 3066993 : 8359053,
                 'timestamp'   => now('UTC')->toIso8601String(),
@@ -224,18 +228,14 @@ class OsmmMaintenanceController extends Controller
             ]],
         ];
 
-        try {
-            $resp = Http::timeout(10)->asJson()->post($url, $payload);
-            Log::info('OSMM Discord maintenance webhook', [
-                'status' => $resp->status(),
-                'body'   => str($resp->body())->limit(300)->toString(),
-            ]);
-            return $resp->successful();
-        } catch (\Throwable $e) {
-            Log::warning('OSMM Discord maintenance webhook exception: '.$e->getMessage());
-            return false;
-        }
+        $req = Http::timeout(10)->asJson();
+        if ($threadId !== '') $req = $req->withQueryParameters(['thread_id' => $threadId]);
+
+        $resp = $req->post($url, $payload);
+        \Log::info('OSMM Discord maintenance webhook', ['status' => $resp->status(), 'body' => str($resp->body())->limit(200)->toString()]);
+        return $resp->successful();
     }
+
 
 
 
