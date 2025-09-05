@@ -6,6 +6,7 @@ use CapsuleCmdr\SeatOsmm\Models\OsmmAnnouncement as Ann;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Http;
 
 class OsmmMaintenanceController extends Controller
 {
@@ -44,24 +45,35 @@ class OsmmMaintenanceController extends Controller
     }
 
     public function toggleMaintenance(Request $r)
-    {
-        $val = (int) $r->boolean('enabled');
-        \CapsuleCmdr\SeatOsmm\Models\OsmmSetting::put('osmm_maintenance_enabled', $val, 'text', 1);
+{
+    // Previous state (before changes)
+    $wasEnabled = (int) (osmm_setting('osmm_maintenance_enabled', 0)) === 1;
 
-        $data = $r->validate([
-            'enabled'     => 'sometimes|boolean',
-            'reason'      => 'nullable|string|max:200',
-            'description' => 'nullable|string|max:4000',
-        ]);
+    // Validate inputs
+    $data = $r->validate([
+        'enabled'     => 'sometimes|boolean',
+        'reason'      => 'nullable|string|max:200',
+        'description' => 'nullable|string|max:4000',
+    ]);
 
-        $val = (int) ($data['enabled'] ?? 0);
-        \CapsuleCmdr\SeatOsmm\Models\OsmmSetting::put('osmm_maintenance_enabled', $val ? '1' : '0', 'text', 1);
-        \CapsuleCmdr\SeatOsmm\Models\OsmmSetting::put('osmm_maintenance_reason', $data['reason'] ?? '', 'text', 1);
-        \CapsuleCmdr\SeatOsmm\Models\OsmmSetting::put('osmm_maintenance_description', $data['description'] ?? '', 'text', 1);
-     
+    // Normalize values
+    $nowEnabled  = (bool) ($data['enabled'] ?? false);
+    $reason      = (string) ($data['reason'] ?? '');
+    $description = (string) ($data['description'] ?? '');
 
-        return back()->with('status', 'Maintenance mode '.($val ? 'enabled' : 'disabled').'.');
+    // Persist settings (single source of truth)
+    \CapsuleCmdr\SeatOsmm\Models\OsmmSetting::put('osmm_maintenance_enabled', $nowEnabled ? '1' : '0', 'text', 1);
+    \CapsuleCmdr\SeatOsmm\Models\OsmmSetting::put('osmm_maintenance_reason', $reason, 'text', 1);
+    \CapsuleCmdr\SeatOsmm\Models\OsmmSetting::put('osmm_maintenance_description', $description, 'text', 1);
+
+    // Notify Discord only when the state actually changes
+    if ($nowEnabled !== $wasEnabled) {
+        $this->notifyDiscordMaintenance($nowEnabled, $reason, $description);
     }
+
+    return back()->with('status', 'Maintenance mode ' . ($nowEnabled ? 'enabled' : 'disabled') . '.');
+}
+
 
     public function saveWebhook(Request $r)
     {
@@ -168,5 +180,57 @@ class OsmmMaintenanceController extends Controller
             return false;
         }
     }
+
+    protected function notifyDiscordMaintenance(bool $enabled, string $reason = '', string $description = ''): bool
+{
+    // Respect your webhook enable toggle
+    if ((int) osmm_setting('osmm_discord_webhook_enabled', 0) !== 1) {
+        Log::info('OSMM Discord: webhook disabled, skipping maintenance notify');
+        return false;
+    }
+
+    $url = (string) osmm_setting('osmm_discord_webhook_url', '');
+    if ($url === '') {
+        Log::warning('OSMM Discord: missing webhook URL');
+        return false;
+    }
+
+    $username = (string) (osmm_setting('osmm_discord_webhook_username', 'Maintenance Bot') ?: 'Maintenance Bot');
+    $avatar   = (string) (osmm_setting('osmm_discord_webhook_avatar', '') ?: '');
+
+    // Colors: green when enabled, grey when disabled
+    $color = $enabled ? 3066993 : 8359053; // Discord int colors
+
+    $title = $enabled ? 'Maintenance ENABLED' : 'Maintenance DISABLED';
+
+    $payload = [
+        'username'   => $username,
+        'avatar_url' => $avatar ?: null,
+        'content'    => '**' . $title . '**', // visible even if embeds are off
+        'embeds'     => [[
+            'title'       => $title,
+            'description' => $description !== '' ? $description : '—',
+            'color'       => $color,
+            'timestamp'   => now('UTC')->toIso8601String(),
+            'fields'      => array_values(array_filter([
+                $reason !== '' ? ['name' => 'Reason', 'value' => $reason, 'inline' => false] : null,
+                ['name' => 'Status', 'value' => $enabled ? 'Enabled' : 'Disabled', 'inline' => true],
+            ])),
+        ]],
+    ];
+
+    try {
+        $resp = Http::timeout(10)->asJson()->post($url, $payload);
+        Log::info('OSMM Discord maintenance webhook', [
+            'status' => $resp->status(),
+            'body'   => str($resp->body())->limit(300)->toString(),
+        ]);
+        return $resp->successful();
+    } catch (\Throwable $e) {
+        Log::warning('OSMM Discord maintenance webhook exception: '.$e->getMessage());
+        return false;
+    }
+}
+
 
 }
