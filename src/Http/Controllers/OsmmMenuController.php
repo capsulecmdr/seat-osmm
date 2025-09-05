@@ -11,6 +11,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Collection;
 use CapsuleCmdr\SeatOsmm\Models\OsmmSetting;
+use Illuminate\Support\Facades\Gate;
 
 class OsmmMenuController extends Controller
 {
@@ -88,6 +89,9 @@ class OsmmMenuController extends Controller
     public function jsonMerged()
     {
         ['merged' => $merged] = $this->buildMergedMenu();
+        if (!$request->boolean('raw')) {
+            $merged = $this->pruneByAuth($merged, auth()->user());
+        }
         return response()->json($merged);
     }
 
@@ -107,7 +111,7 @@ class OsmmMenuController extends Controller
     public function menu(): array
     {
         ['merged' => $merged] = $this->buildMergedMenu();
-        return $merged;
+        return $this->pruneByAuth($merged, auth()->user());
     }
 
     /* ==================== CRUD for overrides ==================== */
@@ -1333,4 +1337,56 @@ class OsmmMenuController extends Controller
 
         return back()->with('status', 'Menu override saved.');
     }
+
+    /** Return true if this node is visible to $user based on its permission(s). */
+private function entryVisible(array $e, $user): bool
+{
+    // Single permission
+    if (!empty($e['permission']) && is_string($e['permission'])) {
+        return $user ? Gate::forUser($user)->allows($e['permission']) : false;
+    }
+
+    // Any-of list
+    if (!empty($e['permissions']) && is_array($e['permissions'])) {
+        if (!$user) return false;
+        foreach ($e['permissions'] as $perm) {
+            if (Gate::forUser($user)->allows($perm)) return true;
+        }
+        return false;
+    }
+
+    // No permission => public
+    return true;
+}
+
+/** Recursively prune items the current user cannot see. Groups disappear if empty. */
+private function pruneByAuth(array $nodes, $user): array
+{
+    $out = [];
+
+    foreach ($nodes as $key => $node) {
+        $children = $node['entries'] ?? [];
+        if (is_array($children) && !empty($children)) {
+            $children = $this->pruneByAuth($children, $user);
+        }
+
+        $node['entries'] = $children;
+
+        $selfVisible = $this->entryVisible($node, $user);
+        $isGroup     = array_key_exists('entries', $node);  // “section”/parent
+        $hasKids     = !empty($children);
+
+        // Keep rules:
+        // - Group parents only if user can see the parent AND it has visible children
+        // - Leaf items only if user can see them
+        if (($isGroup && $selfVisible && $hasKids) || (!$isGroup && $selfVisible)) {
+            // If parent itself isn't allowed but has kids (rare), strip its route to make it a pure group
+            if (!$selfVisible && isset($node['route'])) unset($node['route']);
+            $out[$key] = $node;
+        }
+    }
+
+    return $out;
+}
+
 }
