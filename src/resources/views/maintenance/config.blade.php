@@ -10,38 +10,48 @@
         <div class="card-header"><strong>Maintenance Mode</strong></div>
         <div class="card-body">
           <form method="post" action="{{ route('osmm.maint.toggle') }}">
-            @csrf
-            <div class="custom-control custom-switch mb-3">
-              <input type="checkbox" class="custom-control-input" id="maintSwitch" name="enabled" value="1" {{ $settings['maintenance_enabled'] ? 'checked' : '' }}>
-              <label class="custom-control-label" for="maintSwitch">
-                {{ $settings['maintenance_enabled'] ? 'Enabled' : 'Disabled' }}
-              </label>
-            </div>
+    @csrf
 
-            <div class="form-group">
-              <label for="maintReason">Maintenance reason (short)</label>
-              <input
-                type="text"
-                id="maintReason"
-                name="reason"
-                class="form-control"
-                maxlength="200"
-                placeholder="e.g., Database upgrades"
-                value="{{ old('reason', $settings['maintenance_reason'] ?? 'SeAT Maintenance Advisory') }}">
-            </div>
+    {{-- Hidden ensures "enabled" always gets a value --}}
+    <input type="hidden" name="enabled" value="0">
 
-            <div class="form-group">
-              <label for="maintDesc">Maintenance description (details)</label>
-              <textarea
-                id="maintDesc"
-                name="description"
-                class="form-control"
-                rows="4"
-                placeholder="Optional details, expected timeline, known impacts...">{{ old('description', $settings['maintenance_description'] ?? 'Server entering reinforced mode. Secure assets and enjoy a Quafe while engineering refits some rigs.') }}</textarea>
-            </div>
+    <div class="custom-control custom-switch mb-3">
+        <input type="checkbox"
+               class="custom-control-input"
+               id="maintSwitch"
+               name="enabled"
+               value="1"
+               {{ $settings['maintenance_enabled'] ? 'checked' : '' }}>
+        <label class="custom-control-label" for="maintSwitch">
+            {{ $settings['maintenance_enabled'] ? 'Enabled' : 'Disabled' }}
+        </label>
+    </div>
 
-            <button class="btn btn-primary btn-sm">Save</button>
-          </form>
+    <div class="form-group">
+        <label for="maintReason">Maintenance reason (short)</label>
+        <input
+            type="text"
+            id="maintReason"
+            name="reason"
+            class="form-control"
+            maxlength="200"
+            placeholder="e.g., Database upgrades"
+            value="{{ old('reason', $settings['maintenance_reason'] ?? 'SeAT Maintenance Advisory') }}">
+    </div>
+
+    <div class="form-group">
+        <label for="maintDesc">Maintenance description (details)</label>
+        <textarea
+            id="maintDesc"
+            name="description"
+            class="form-control"
+            rows="4"
+            placeholder="Optional details, expected timeline, known impacts...">{{ old('description', $settings['maintenance_description'] ?? 'Server entering reinforced mode. Secure assets and enjoy a Quafe while engineering refits some rigs.') }}</textarea>
+    </div>
+
+    <button class="btn btn-primary btn-sm">Save</button>
+</form>
+
         </div>
       </div>
 
