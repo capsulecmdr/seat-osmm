@@ -1338,8 +1338,6 @@ class OsmmMenuController extends Controller
         return back()->with('status', 'Menu override saved.');
     }
 
-    use Illuminate\Support\Facades\Gate;
-
 /** Centralized permission check: honors roles, direct grants, Gate. */
 private function userHasPermission($user, string $perm): bool
 {
