@@ -46,7 +46,7 @@ class OsmmMaintenanceController extends Controller
 
     public function toggleMaintenance(Request $r)
     {
-        Log::info('Normal flow message');
+        Log::debug('Normal flow message');
         // Previous state before changes
         $wasEnabled = (int) (osmm_setting('osmm_maintenance_enabled', 0)) === 1;
 
