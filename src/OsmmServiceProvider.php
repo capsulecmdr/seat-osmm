@@ -80,8 +80,6 @@ class OsmmServiceProvider extends AbstractSeatPlugin
         // $kernel = $this->app->make(Kernel::class);
         // $kernel->pushMiddleware(OsmmMaintenanceMiddleware::class);
 
-        \Log::info('OSMM: pushed maintenance middleware globally');
-
     }
     private function addPublications(): void
     {
