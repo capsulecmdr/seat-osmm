@@ -86,9 +86,12 @@ class OsmmMenuController extends Controller
     }
 
     /** API: merged menu as JSON for app consumption */
-    public function jsonMerged()
+    public function jsonMerged(Request $request)
     {
         ['merged' => $merged] = $this->buildMergedMenu();
+        if (!$request->boolean('raw')) {
+            $merged = $this->pruneByAuth($merged, auth()->user());
+        }
         return response()->json($merged);
     }
 
@@ -1335,55 +1338,80 @@ class OsmmMenuController extends Controller
         return back()->with('status', 'Menu override saved.');
     }
 
-    /** Return true if this node is visible to $user based on its permission(s). */
+    use Illuminate\Support\Facades\Gate;
+
+/** Centralized permission check: honors roles, direct grants, Gate. */
+private function userHasPermission($user, string $perm): bool
+{
+    if (!$user) return false;
+
+    // This covers Spatie roles/permissions, SeAT’s ACL wiring, etc.
+    if (method_exists($user, 'can') && $user->can($perm)) {
+        return true;
+    }
+
+    // Fallback to Gate just in case
+    try {
+        return Gate::forUser($user)->allows($perm);
+    } catch (\Throwable $e) {
+        return false;
+    }
+}
+
+/** Is a single node visible to the user? */
 private function entryVisible(array $e, $user): bool
 {
     // Single permission
     if (!empty($e['permission']) && is_string($e['permission'])) {
-        return $user ? Gate::forUser($user)->allows($e['permission']) : false;
+        return $this->userHasPermission($user, $e['permission']);
     }
 
-    // Any-of list
+    // Any-of list (if you use it)
     if (!empty($e['permissions']) && is_array($e['permissions'])) {
-        if (!$user) return false;
         foreach ($e['permissions'] as $perm) {
-            if (Gate::forUser($user)->allows($perm)) return true;
+            if ($this->userHasPermission($user, (string) $perm)) return true;
         }
         return false;
     }
 
-    // No permission => public
+    // No permission key => public
     return true;
 }
 
-/** Recursively prune items the current user cannot see. Groups disappear if empty. */
+/**
+ * Recursively prune by auth.
+ * Keep a parent if EITHER:
+ *  - the parent itself is visible, OR
+ *  - it has at least one visible child (we’ll strip its route to make it a pure group).
+ */
 private function pruneByAuth(array $nodes, $user): array
 {
     $out = [];
 
     foreach ($nodes as $key => $node) {
-        $children = $node['entries'] ?? [];
-        if (is_array($children) && !empty($children)) {
+        $children = is_array($node['entries'] ?? null) ? $node['entries'] : [];
+
+        // Prune children first
+        if (!empty($children)) {
             $children = $this->pruneByAuth($children, $user);
         }
 
         $node['entries'] = $children;
 
-        $selfVisible = $this->entryVisible($node, $user);
-        $isGroup     = array_key_exists('entries', $node);  // “section”/parent
-        $hasKids     = !empty($children);
+        $selfVisible   = $this->entryVisible($node, $user);
+        $hasVisibleKids = !empty($children);
 
-        // Keep rules:
-        // - Group parents only if user can see the parent AND it has visible children
-        // - Leaf items only if user can see them
-        if (($isGroup && $selfVisible && $hasKids) || (!$isGroup && $selfVisible)) {
-            // If parent itself isn't allowed but has kids (rare), strip its route to make it a pure group
-            if (!$selfVisible && isset($node['route'])) unset($node['route']);
+        if ($selfVisible || $hasVisibleKids) {
+            // If parent isn’t allowed but has visible kids, remove its route so it’s just a group header.
+            if (!$selfVisible && isset($node['route'])) {
+                unset($node['route']);
+            }
             $out[$key] = $node;
         }
     }
 
     return $out;
 }
+
 
 }
