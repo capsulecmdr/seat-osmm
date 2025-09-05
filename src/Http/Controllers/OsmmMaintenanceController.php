@@ -206,7 +206,7 @@ class OsmmMaintenanceController extends Controller
         $mention  = (string) osmm_setting('osmm_discord_mention', '');        // e.g. "<@&ROLE_ID>" or "@everyone"
         $threadId = (string) osmm_setting('osmm_discord_thread_id', '');      // if posting to a thread
 
-        $title = $enabled ? 'Maintenance ENABLED' : 'Maintenance DISABLED';
+        $title = $enabled ? $reason : 'Maintenance Complete';
         $content = trim(($mention ? $mention.' ' : '') . '**'.$title.'** at '.now('UTC')->toIso8601String().' UTC');
 
         $payload = [
@@ -220,11 +220,6 @@ class OsmmMaintenanceController extends Controller
                 'title'       => $title,
                 'description' => $description !== '' ? $description : '—',
                 'color'       => $enabled ? 3066993 : 8359053,
-                'timestamp'   => now('UTC')->toIso8601String(),
-                'fields'      => array_values(array_filter([
-                    $reason !== '' ? ['name' => 'Reason', 'value' => $reason, 'inline' => false] : null,
-                    ['name' => 'Status', 'value' => $enabled ? 'Enabled' : 'Disabled', 'inline' => true],
-                ])),
             ]],
         ];
 
