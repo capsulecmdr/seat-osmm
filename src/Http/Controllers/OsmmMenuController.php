@@ -443,11 +443,19 @@ class OsmmMenuController extends Controller
     // --- Collect admin entries (flatten) -----------------------------------
     $adminEntries = [];
 
+    $adminize = function (array $node) use ($normalizeNode): array {
+        $node = $normalizeNode($node);
+        if (empty($node['permission'])) {
+            $node['permission'] = 'global.superuser'; // fallback for admin items
+        }
+        return $node;
+    };
+
     // settings = 'configuration'
     $settingsKey = array_search('configuration', $segOfKey, true);
     if ($settingsKey !== false && !empty($nativeSorted[$settingsKey]['entries'])) {
         foreach ($nativeSorted[$settingsKey]['entries'] as $c) {
-            if (is_array($c)) $adminEntries[] = $normalizeNode($c);
+            if (is_array($c)) $adminEntries[] = $adminize($c);
         }
     }
 
@@ -455,7 +463,7 @@ class OsmmMenuController extends Controller
     $seatApiKey = array_search('api-admin', $segOfKey, true);
     if ($seatApiKey !== false) {
         $seatApi = $nativeSorted[$seatApiKey];
-        $adminEntries[] = $normalizeNode([
+        $adminEntries[] = $adminize([
             'name'       => $seatApi['name'] ?? 'SeAT API',
             'label'      => $seatApi['label'] ?? ($seatApi['name'] ?? 'SeAT API'),
             'icon'       => $seatApi['icon'] ?? 'fas fa-exchange-alt',
@@ -468,7 +476,7 @@ class OsmmMenuController extends Controller
     $notifKey = array_search('notifications', $segOfKey, true);
     if ($notifKey !== false && !empty($nativeSorted[$notifKey]['entries'])) {
         foreach ($nativeSorted[$notifKey]['entries'] as $c) {
-            if (is_array($c)) $adminEntries[] = $normalizeNode($c);
+            if (is_array($c)) $adminEntries[] = $adminize($c);
         }
     }
 
