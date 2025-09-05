@@ -207,7 +207,13 @@ class OsmmMaintenanceController extends Controller
         $threadId = (string) osmm_setting('osmm_discord_thread_id', '');      // if posting to a thread
 
         $title = $enabled ? $reason : 'Maintenance Complete';
-        $content = trim(($mention ? $mention.' ' : '') . '**'.$title.'** at '.now('UTC')->toIso8601String().' UTC');
+        $content = trim(($mention ? $mention.' ' : '') . '**'.$title.'**');
+
+        if($title == "Maintenance Complete"){
+            $title = "**Complete: " . $reason . "**";
+            $content = $title;
+            $description = "Server has returned to normal operations";
+        }
 
         $payload = [
             'username'   => $username,
