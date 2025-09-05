@@ -86,12 +86,9 @@ class OsmmMenuController extends Controller
     }
 
     /** API: merged menu as JSON for app consumption */
-    public function jsonMerged(Request $request)
+    public function jsonMerged()
     {
         ['merged' => $merged] = $this->buildMergedMenu();
-        if (!$request->boolean('raw')) {
-            $merged = $this->pruneByAuth($merged, auth()->user());
-        }
         return response()->json($merged);
     }
 
