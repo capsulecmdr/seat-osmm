@@ -219,7 +219,7 @@ class OsmmMaintenanceController extends Controller
             'embeds'     => [[
                 'title'       => $title,
                 'description' => $description !== '' ? $description : '—',
-                'color'       => $enabled ? 3066993 : 8359053,
+                'color'       => $enabled ? 16747520 : 3329330,
             ]],
         ];
 
