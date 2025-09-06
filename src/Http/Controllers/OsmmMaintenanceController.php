@@ -88,6 +88,8 @@ class OsmmMaintenanceController extends Controller
                 byUserId:  auth()->id(),
                 at:        now()
             ));
+
+            Log::warning("State Change for Maintenance Fired...");
             
             //$this->notifyDiscordMaintenance($nowEnabled, $reason, $description);
         } else {
