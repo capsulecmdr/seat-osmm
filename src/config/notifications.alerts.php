@@ -2,7 +2,7 @@
 
 return [
     'osmm.maintenance_toggled' => [
-        'label' => 'seat-osmm::notifications.maintenance_toggled',
+        'label' => 'osmm::notifications.maintenance_toggled',
         'handlers' => [
             'mail'    => \Capsulecmdr\SeatOsmm\Notifications\Mail\MaintenanceToggled::class,
             'slack'   => \Capsulecmdr\SeatOsmm\Notifications\Slack\MaintenanceToggled::class,
