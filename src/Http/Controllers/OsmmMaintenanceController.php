@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
+use CapsuleCmdr\SeatOsmm\Events\MaintenanceToggled;
 
 class OsmmMaintenanceController extends Controller
 {
@@ -76,7 +77,19 @@ class OsmmMaintenanceController extends Controller
 
         // Only notify on state change
         if ($nowEnabled !== $wasEnabled) {
-            $this->notifyDiscordMaintenance($nowEnabled, $reason, $description);
+            // Who flipped the switch?
+            $byName = auth()->user()->name ?? 'system';
+
+            // Fire your plugin event; SeAT’s listener will fan this out to subscribed channels.
+            event(new MaintenanceToggled(
+                enabled:   $nowEnabled,
+                reason:    $reason ?: ($nowEnabled ? 'Maintenance Enabled' : 'Maintenance Disabled'),
+                byName:    $byName,
+                byUserId:  auth()->id(),
+                at:        now()
+            ));
+            
+            //$this->notifyDiscordMaintenance($nowEnabled, $reason, $description);
         } else {
             Log::info('OSMM maint toggle: no state change, skipping webhook');
         }

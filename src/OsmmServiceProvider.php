@@ -16,6 +16,12 @@ use Illuminate\Contracts\Http\Kernel;
 class OsmmServiceProvider extends AbstractSeatPlugin
 {
 
+    protected $listen = [
+        \Capsulecmdr\SeatOsmm\Events\MaintenanceToggled::class => [
+            \Capsulecmdr\SeatOsmm\Listeners\SendMaintenanceToggledAlert::class,
+        ],
+    ];
+
     public function boot(): void
     {
         $this->add_routes();
@@ -133,7 +139,9 @@ class OsmmServiceProvider extends AbstractSeatPlugin
         //merge sidebar
         $this->mergeConfigFrom(__DIR__.'/config/sidebar.php','package.sidebar');
 
-        
+        //merge notification alerts
+        $this->mergeConfigFrom(__DIR__ . '/config/notifications.alerts.php','notifications.alerts');
+
         $this->add_translations();
 
         //register permissions
