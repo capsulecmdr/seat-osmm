@@ -237,7 +237,4 @@ class OsmmMaintenanceController extends Controller
         return $resp->successful();
     }
 
-
-
-
 }
