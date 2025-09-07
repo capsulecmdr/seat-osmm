@@ -17,12 +17,6 @@ use Illuminate\Support\Facades\Event;
 class OsmmServiceProvider extends AbstractSeatPlugin
 {
 
-    protected $listen = [
-        \CapsuleCmdr\SeatOsmm\Events\MaintenanceToggled::class => [
-            \CapsuleCmdr\SeatOsmm\Listeners\SendMaintenanceToggledAlert::class,
-        ],
-    ];
-
     public function boot(): void
     {
         $this->add_routes();

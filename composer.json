@@ -21,7 +21,8 @@
     "extra": {
         "laravel": {
             "providers": [
-                "CapsuleCmdr\\SeatOsmm\\OsmmServiceProvider"
+                "CapsuleCmdr\\SeatOsmm\\OsmmServiceProvider",
+                "CapsuleCmdr\\SeatOsmm\\Providers\\OsmmAlertServiceProvider"
             ]
         }
     }
