@@ -7,7 +7,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Seat\Notifications\Traits\NotificationDispatchTool;
 use Illuminate\Support\Facades\Log;
 
-class SendMaintenanceToggledAlert
+class SendMaintenanceToggledAlert implements ShouldQueue
 {
     use NotificationDispatchTool;
 
