@@ -19,6 +19,13 @@ class OsmmServiceProvider extends AbstractSeatPlugin
 
     public function boot(): void
     {
+
+
+        Event::listen(
+            \CapsuleCmdr\SeatOsmm\Events\MaintenanceToggled::class,
+            \CapsuleCmdr\SeatOsmm\Listeners\SendMaintenanceToggledAlert::class
+        );
+
         $this->add_routes();
         $this->add_views();
         
