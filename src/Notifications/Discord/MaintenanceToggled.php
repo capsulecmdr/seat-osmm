@@ -1,6 +1,6 @@
 <?php
 
-namespace Capsulecmdr\SeatOsmm\Notifications\Discord;
+namespace CapsuleCmdr\SeatOsmm\Notifications\Discord;
 
 use Seat\Notifications\Notifications\AbstractDiscordNotification;
 use Seat\Notifications\Services\Discord\Messages\DiscordMessage;

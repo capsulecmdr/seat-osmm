@@ -1,6 +1,6 @@
 <?php
 
-namespace Capsulecmdr\SeatOsmm\Listeners;
+namespace CapsuleCmdr\SeatOsmm\Listeners;
 
 use Capsulecmdr\SeatOsmm\Events\MaintenanceToggled as Event;
 use Illuminate\Contracts\Queue\ShouldQueue;

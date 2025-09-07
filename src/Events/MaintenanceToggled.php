@@ -1,6 +1,6 @@
 <?php
 
-namespace Capsulecmdr\SeatOsmm\Events;
+namespace CapsuleCmdr\SeatOsmm\Events;
 
 use Carbon\Carbon;
 use Illuminate\Foundation\Events\Dispatchable;
