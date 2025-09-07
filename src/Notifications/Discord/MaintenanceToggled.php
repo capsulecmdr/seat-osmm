@@ -29,12 +29,14 @@ class MaintenanceToggled extends AbstractDiscordNotification
             ->embed(function (DiscordEmbed $embed){
                 $embed->timestamp($this->at);
                 $embed->author($this->by);
-                $embed->title($this->reason);
-                $embed->description($this->description);
                 if($this->enabled == "ENABLED"){
                     $embed->color(16747520);
+                    $embed->title($this->reason);
+                    $embed->description($this->description);
                 }else{
                     $embed->color(3329330);
+                    $embed->title('**Complete:** ' . $this->reason);
+                    $embed->description('Return to normal operating proceedures');
                 }
                 
             })

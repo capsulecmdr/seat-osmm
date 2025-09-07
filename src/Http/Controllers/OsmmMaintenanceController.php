@@ -103,7 +103,7 @@ class OsmmMaintenanceController extends Controller
                     $route = $setting[$key];
                     $anon = (new AnonymousNotifiable)->route($integration->type, $route);
                     Notification::sendNow($anon,new $notification(
-                        true,                                // enabled
+                        "ENABLED",                                // enabled
                         $reason,            // reason (title)
                         $description,    // description
                         $byName,                             // by
