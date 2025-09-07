@@ -21,9 +21,9 @@ class SendMaintenanceToggledAlert implements ShouldQueue
     {
         Log::debug('[OSMM] Listener got event', ['enabled'=>$event->enabled, 'reason'=>$event->reason]);
         // Optional feature gate if you have a toggle in OSMM settings.
-        if (function_exists('osmm_setting') && !osmm_setting('osmm_alerts_enabled')) {
-            return;
-        }
+        // if (function_exists('osmm_setting') && !osmm_setting('osmm_alerts_enabled')) {
+        //     return;
+        // }
 
         $payload = [
             'enabled' => $event->enabled,
