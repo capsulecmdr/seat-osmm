@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Log;
 
 class SendMaintenanceToggledAlert implements ShouldQueue
 {
-    use NotificationDispatchTool;
+    use InteractsWithQueue, NotificationDispatchTool;
 
     /** Ensure a worker picks it up with your notifications worker */
     public string $queue = 'notifications';
@@ -34,6 +34,6 @@ class SendMaintenanceToggledAlert implements ShouldQueue
             'by'          => $event->byName,
             'by_id'       => $event->byUserId,
             'at'          => $event->at ?? now(),
-        ]);
+        ],[]);
     }
 }
