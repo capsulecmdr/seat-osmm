@@ -6,6 +6,7 @@ use CapsuleCmdr\SeatOsmm\Events\MaintenanceToggled as Event;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Queue\InteractsWithQueue;
 use Seat\Notifications\Traits\NotificationDispatchTool;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Listener that routes the event into SeAT's built-in notifications system.
@@ -18,6 +19,7 @@ class SendMaintenanceToggledAlert implements ShouldQueue
 
     public function handle(Event $event): void
     {
+        Log::debug('[OSMM] Listener got event', ['enabled'=>$event->enabled, 'reason'=>$event->reason]);
         // Optional feature gate if you have a toggle in OSMM settings.
         if (function_exists('osmm_setting') && !osmm_setting('osmm_alerts_enabled')) {
             return;
