@@ -24,6 +24,9 @@ class OsmmServiceProvider extends AbstractSeatPlugin
 
     public function boot(): void
     {
+
+        parent::boot();
+        
         $this->add_routes();
         $this->add_views();
         
