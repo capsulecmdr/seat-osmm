@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Http;
 use CapsuleCmdr\SeatOsmm\Events\MaintenanceToggled;
 use Seat\Notifications\Models\NotificationGroup;
 use Seat\Notifications\Traits\NotificationDispatchTool;
+use Illuminate\Notifications\AnonymousNotifiable;
 
 class OsmmMaintenanceController extends Controller
 {
