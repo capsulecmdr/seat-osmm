@@ -1,6 +1,6 @@
 <?php
 
-namespace Capsulecmdr\SeatOsmm\Notifications\Slack;
+namespace CapsuleCmdr\SeatOsmm\Notifications\Slack;
 
 use Illuminate\Notifications\Messages\SlackMessage;
 use Seat\Notifications\Notifications\AbstractSlackNotification;

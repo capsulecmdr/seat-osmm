@@ -1,6 +1,6 @@
 <?php
 
-namespace Capsulecmdr\SeatOsmm\Notifications\Mail;
+namespace CapsuleCmdr\SeatOsmm\Notifications\Mail;
 
 use Illuminate\Notifications\Messages\MailMessage;
 use Seat\Notifications\Notifications\AbstractMailNotification;
