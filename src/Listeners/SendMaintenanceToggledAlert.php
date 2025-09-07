@@ -27,7 +27,7 @@ class SendMaintenanceToggledAlert implements ShouldQueue
         //     return;
         // }
 
-        $this->dispatchNotification('osmm.maintenance_toggled', [
+        $this->dispatchNotifications('osmm.maintenance_toggled', [
             'enabled'     => $event->enabled,
             'reason'      => $event->reason,
             'description' => $event->description ?? '',
