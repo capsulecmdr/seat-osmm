@@ -24,8 +24,8 @@ class MaintenanceToggled extends AbstractDiscordNotification
         $status = $this->enabled ? 'ENABLED' : 'DISABLED';
 
         return $message
-            ->title('OSMM Maintenance')
-            ->description("Maintenance was **{$status}**")
+            ->field('title','OSMM Maintenance')
+            ->field('description',"Maintenance was **{$status}**")
             ->field('Reason', $this->reason ?: '—', true)
             ->field('By', $this->by ?: 'system', true)
             ->field('At', ($this->at ?? now())->toDateTimeString(), true);
