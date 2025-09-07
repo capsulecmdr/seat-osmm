@@ -6,6 +6,8 @@ use CapsuleCmdr\SeatOsmm\Events\MaintenanceToggled as Event;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Seat\Notifications\Traits\NotificationDispatchTool;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Queue\InteractsWithQueue;
+
 
 class SendMaintenanceToggledAlert implements ShouldQueue
 {
