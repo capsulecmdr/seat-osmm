@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Gate;
 use CapsuleCmdr\SeatOsmm\Http\Middleware\OsmmMaintenanceMiddleware;
 use Illuminate\Routing\Router;
 use Illuminate\Contracts\Http\Kernel;
+use Illuminate\Support\Facades\Event;
 
 class OsmmServiceProvider extends AbstractSeatPlugin
 {
@@ -24,9 +25,6 @@ class OsmmServiceProvider extends AbstractSeatPlugin
 
     public function boot(): void
     {
-
-        parent::boot();
-        
         $this->add_routes();
         $this->add_views();
         
