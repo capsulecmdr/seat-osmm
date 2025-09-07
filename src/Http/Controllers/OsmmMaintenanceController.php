@@ -94,7 +94,7 @@ class OsmmMaintenanceController extends Controller
             //loop through all notification groups and fire events
             foreach($groups as $group){
                 //loop through all integrations within the group
-                foreach(($groups->integrations) as $integration){
+                foreach(($group->integrations) as $integration){
                     $notification = config('notifications.alerts')['osmm.maintenance_toggled']['handlers']['discord'];
                     $setting = (array) $integration->settings;
                     $key = array_key_first($setting);
