@@ -11,36 +11,30 @@ use Seat\Notifications\Traits\NotificationDispatchTool;
 
 class SendMaintenanceToggledAlert implements ShouldQueue
 {
-    use InteractsWithQueue;
-    use NotificationDispatchTool;
+    use InteractsWithQueue, NotificationDispatchTool;
+
+    public string $queue = 'notifications';
 
     public function handle(Event $event): void
     {
-        Log::debug('[OSMM] Listener got event', [
-            'enabled' => $event->enabled,
-            'reason'  => $event->reason,
-        ]);
+        Log::warning('[OSMM] Listener got event', ['enabled' => $event->enabled, 'reason' => $event->reason]);
 
-        // 1) find groups that subscribed to your alert key
+        // 1) Pick all groups that subscribed to your alert key
         $groups = NotificationGroup::whereHas(
             'alerts',
             fn ($q) => $q->where('alert', 'osmm.maintenance_toggled')
         )->get();
 
-        if ($groups->isEmpty()) {
-            Log::warning('[OSMM] No notification groups subscribed to osmm.maintenance_toggled');
-            return;
-        }
-
-        // 2) dispatch via SeAT’s tool: (alert-key, groups, builder)
+        // 2) Dispatch using the trait’s signature: key, groups, callback(handler) => Notification
         $this->dispatchNotifications('osmm.maintenance_toggled', $groups, function (string $handler) use ($event) {
-            // $handler will be one of your formatters based on the integration type,
-            // e.g. CapsuleCmdr\SeatOsmm\Notifications\Discord\MaintenanceToggled
+            // Your formatter’s ctor signature:
+            // __construct(bool $enabled, ?string $reason = null, ?string $by = null, ?\Carbon\Carbon $at = null)
             return new $handler(
                 $event->enabled,
                 $event->reason,
+                $event->description,
                 $event->byName,
-                $event->at
+                $event->at ?? now()
             );
         });
     }
