@@ -102,7 +102,16 @@ class OsmmMaintenanceController extends Controller
                     $key = array_key_first($setting);
                     $route = $setting[$key];
                     $anon = (new AnonymousNotifiable)->route($integration->type, $route);
-                    Notification::sendNow($anon,new $notification(true,'Manual test via tinker',\Seat\Web\Models\User::find(2)));
+
+                    $notif = new $notification(
+                        true,                                // enabled
+                        $reason,            // reason (title)
+                        $description,    // description
+                        $byName,                             // by
+                        now()                                // at (Carbon)
+                    );
+
+                    Notification::sendNow($anon, $notification);
                 }
             }
 
