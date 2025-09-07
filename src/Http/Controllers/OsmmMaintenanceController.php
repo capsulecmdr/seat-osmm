@@ -112,14 +112,8 @@ class OsmmMaintenanceController extends Controller
                 }
             }
 
-            // $this->dispatchNotifications('osmm.maintenance_toggled', $groups, function (string $handler) use ($nowEnabled, $reason, $byName) {
-            //     return new $handler($nowEnabled, $reason, $by ?? (auth()->user()->name ?? 'system'), now());
-            // });
-
 
             Log::warning("State Change for Maintenance Fired...");
-            
-            //$this->notifyDiscordMaintenance($nowEnabled, $reason, $description);
         } else {
             Log::info('OSMM maint toggle: no state change, skipping webhook');
         }
