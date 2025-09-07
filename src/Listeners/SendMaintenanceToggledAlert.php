@@ -1,42 +1,41 @@
 <?php
-//comment there
+
 namespace CapsuleCmdr\SeatOsmm\Listeners;
 
 use CapsuleCmdr\SeatOsmm\Events\MaintenanceToggled as Event;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Seat\Notifications\Traits\NotificationDispatchTool;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Queue\InteractsWithQueue;
-use stdClass;
-
+use Illuminate\Support\Facades\Log;
+use Seat\Notifications\Models\NotificationGroup;
+use Seat\Notifications\Traits\NotificationDispatchTool;
 
 class SendMaintenanceToggledAlert implements ShouldQueue
 {
     use InteractsWithQueue, NotificationDispatchTool;
 
-    /** Ensure a worker picks it up with your notifications worker */
     public string $queue = 'notifications';
 
     public function handle(Event $event): void
     {
-        Log::warning('[OSMM] Listener got event', [
-            'enabled' => $event->enabled,
-            'reason'  => $event->reason,
-        ]);
+        Log::debug('[OSMM] Listener got event', ['enabled' => $event->enabled, 'reason' => $event->reason]);
 
-        // Default enabled if not set
-        // if (function_exists('osmm_setting') && (int) osmm_setting('osmm_alerts_enabled', 1) !== 1) {
-        //     Log::warning('[OSMM] Alerts disabled via osmm_alerts_enabled setting; skipping dispatch.');
-        //     return;
-        // }
+        // 1) Pick all groups that subscribed to your alert key
+        $groups = NotificationGroup::whereHas(
+            'alerts',
+            fn ($q) => $q->where('alert', 'osmm.maintenance_toggled')
+        )->get();
 
-        $this->dispatchNotifications('osmm.maintenance_toggled', [
-            'enabled'     => $event->enabled,
-            'reason'      => $event->reason,
-            'description' => $event->description ?? '',
-            'by'          => $event->byName,
-            'by_id'       => $event->byUserId,
-            'at'          => $event->at ?? now(),
-        ],new stdClass());
+        // 2) Dispatch using the trait’s signature: key, groups, callback(handler) => Notification
+        $this->dispatchNotifications('osmm.maintenance_toggled', $groups, function (string $handler) use ($event) {
+            // Your formatter’s ctor signature:
+            // __construct(bool $enabled, ?string $reason = null, ?string $by = null, ?\Carbon\Carbon $at = null)
+            return new $handler(
+                $event->enabled,
+                $event->reason,
+                $event->description,
+                $event->byName,
+                $event->at ?? now()
+            );
+        });
     }
 }
