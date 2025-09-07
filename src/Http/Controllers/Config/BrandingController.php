@@ -16,6 +16,7 @@ class BrandingController extends Controller
     {
         $values = OsmmSetting::query()
             ->whereIn('key', [
+                'osmm_use_enhanced_home',
                 'osmm_override_sidebar',
                 'osmm_override_footer',
                 'osmm_override_manifest',
@@ -28,6 +29,7 @@ class BrandingController extends Controller
             ->pluck('value', 'key');
 
         return view('seat-osmm::config.branding', [
+            'osmm_use_enhanced_home'   => (int) ($this->get('osmm_use_enhanced_home') ?? 0),
             'osmm_override_sidebar'       => (int)($values['osmm_override_sidebar'] ?? 0),
             'osmm_override_footer'        => (int)($values['osmm_override_footer'] ?? 0),
             'osmm_override_manifest'      => (int)($values['osmm_override_manifest'] ?? 0),
@@ -47,6 +49,7 @@ class BrandingController extends Controller
     {
         // Hidden inputs ensure 0 arrives when checkboxes are unchecked
         $data = $request->validate([
+            'osmm_use_enhanced_home'     => ['nullable','boolean'],
             'osmm_override_sidebar'       => ['required', 'boolean'],
             'osmm_override_footer'        => ['required', 'boolean'],
             'osmm_override_manifest'      => ['required', 'boolean'],
@@ -70,6 +73,7 @@ class BrandingController extends Controller
         $uid = Auth::id();
 
         // Store booleans as 1/0
+        OsmmSetting::put('osmm_use_enhanced_home',  $request->boolean('osmm_use_enhanced_home')  ? 1 : 0, 'text', $uid);
         OsmmSetting::put('osmm_override_sidebar',  $request->boolean('osmm_override_sidebar')  ? 1 : 0, 'text', $uid);
         OsmmSetting::put('osmm_override_footer',   $request->boolean('osmm_override_footer')   ? 1 : 0, 'text', $uid);
         OsmmSetting::put('osmm_override_manifest', $request->boolean('osmm_override_manifest') ? 1 : 0, 'text', $uid);

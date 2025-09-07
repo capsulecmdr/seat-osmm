@@ -18,6 +18,30 @@
 
           <div class="card-body">
 
+            {{-- Enhanced Home Page --}}
+            <div class="form-group">
+              <div class="custom-control custom-switch">
+                <input type="hidden" name="osmm_use_enhanced_home" value="0">
+                <input
+                  type="checkbox"
+                  class="custom-control-input"
+                  id="osmm_use_enhanced_home"
+                  name="osmm_use_enhanced_home"
+                  value="1"
+                  @checked(old('osmm_use_enhanced_home', (int)($osmm_use_enhanced_home ?? 0)) == 1)
+                >
+                <label class="custom-control-label" for="osmm_use_enhanced_home">
+                  Use <strong>Enhanced Home Page</strong>
+                </label>
+              </div>
+              <small class="form-text text-muted">
+                When enabled, OSMM serves the enhanced dashboard/home experience.
+              </small>
+            </div>
+
+            <hr>
+
+
             {{-- Sidebar override --}}
             <div class="form-group">
               <div class="custom-control custom-switch">
