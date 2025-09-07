@@ -2,7 +2,7 @@
 
 namespace CapsuleCmdr\SeatOsmm\Listeners;
 
-use Capsulecmdr\SeatOsmm\Events\MaintenanceToggled as Event;
+use CapsuleCmdr\SeatOsmm\Events\MaintenanceToggled as Event;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Queue\InteractsWithQueue;
 use Seat\Notifications\Traits\NotificationDispatchTool;

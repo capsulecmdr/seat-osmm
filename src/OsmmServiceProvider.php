@@ -17,8 +17,8 @@ class OsmmServiceProvider extends AbstractSeatPlugin
 {
 
     protected $listen = [
-        \Capsulecmdr\SeatOsmm\Events\MaintenanceToggled::class => [
-            \Capsulecmdr\SeatOsmm\Listeners\SendMaintenanceToggledAlert::class,
+        \CapsuleCmdr\SeatOsmm\Events\MaintenanceToggled::class => [
+            \CapsuleCmdr\SeatOsmm\Listeners\SendMaintenanceToggledAlert::class,
         ],
     ];
 
