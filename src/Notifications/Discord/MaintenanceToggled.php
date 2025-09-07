@@ -4,6 +4,8 @@ namespace CapsuleCmdr\SeatOsmm\Notifications\Discord;
 
 use Seat\Notifications\Notifications\AbstractDiscordNotification;
 use Seat\Notifications\Services\Discord\Messages\DiscordMessage;
+use Seat\Notifications\Services\Discord\Messages\DiscordEmbed;
+use Seat\Notifications\Services\Discord\Messages\DiscordEmbedField;
 
 class MaintenanceToggled extends AbstractDiscordNotification
 {
@@ -24,10 +26,11 @@ class MaintenanceToggled extends AbstractDiscordNotification
         $status = $this->enabled ? 'ENABLED' : 'DISABLED';
 
         return $message
-            ->field('title','OSMM Maintenance')
-            ->field('description',"Maintenance was **{$status}**")
-            ->field('Reason', $this->reason ?: '—', true)
-            ->field('By', $this->by ?: 'system', true)
-            ->field('At', ($this->at ?? now())->toDateTimeString(), true);
+            ->content('testing');
+            // ->field('title','OSMM Maintenance')
+            // ->field('description',"Maintenance was **{$status}**")
+            // ->field('Reason', $this->reason ?: '—', true)
+            // ->field('By', $this->by ?: 'system', true)
+            // ->field('At', ($this->at ?? now())->toDateTimeString(), true);
     }
 }
