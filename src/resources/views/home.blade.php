@@ -1,7 +1,21 @@
+@php
+  // Use your OSMM settings store, not SeAT's setting()
+  $eHomeFlag = (int) (osmm_setting('osmm_use_enhanced_home') ?? 0);
+@endphp
+
+
+@if ($footerFlag === 1)
+
+@else
+  @include('eveseat_web_home::includes.footer')
+@endif
+
+
+
 {{-- resources/views/home.blade.php --}}
 @extends('web::layouts.app')
 
-@section('page_title', 'Home')
+@section('page_title', 'eHome')
 
 @section('content')
   <style>

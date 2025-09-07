@@ -27,21 +27,25 @@ class OsmmServiceProvider extends AbstractSeatPlugin
         
         $this->addMigrations();
 
-        // ⏱ Delay route override until all other providers are booted
-        app()->booted(function () {
-            Route::get('/', [HomeOverrideController::class, 'index'])
-                ->middleware(['web', 'auth'])
-                ->name('seatcore::home');
+        if(osmm_setting('osmm_use_enhanced_home') === '1'){
+            // ⏱ Delay route override until all other providers are booted
+            app()->booted(function () {
+                Route::get('/', [HomeOverrideController::class, 'index'])
+                    ->middleware(['web', 'auth'])
+                    ->name('seatcore::home');
 
-            Route::get('/home', [HomeOverrideController::class, 'index'])
-                ->middleware(['web', 'auth'])
-                ->name('osmm.home'); // optional
-        });
+                Route::get('/home', [HomeOverrideController::class, 'index'])
+                    ->middleware(['web', 'auth'])
+                    ->name('osmm.home'); // optional
+            });
 
 
-        #overrides
-        $this->app['view']->prependNamespace('web', __DIR__ . '/resources/views/web');
-        $this->app['view']->addNamespace('eveseat_web', base_path('vendor/eveseat/web/src/resources/views'));
+            #overrides
+            $this->app['view']->prependNamespace('web', __DIR__ . '/resources/views/web');
+            $this->app['view']->addNamespace('eveseat_web', base_path('vendor/eveseat/web/src/resources/views'));
+        }
+
+        
 
         Gate::define('osmm.admin', function ($user) {
             // SeAT will map this via its permission system if you also expose it in config.
