@@ -26,7 +26,13 @@ class MaintenanceToggled extends AbstractDiscordNotification
         $status = $this->enabled ? 'ENABLED' : 'DISABLED';
 
         return $message
-            ->content('testing');
+            ->content('testing')
+            ->embed(function (DiscordEmbed $embed){
+                $embed->timestamp(carbon());
+                $embed->author('test title');
+            })
+
+            ->success();
             // ->field('title','OSMM Maintenance')
             // ->field('description',"Maintenance was **{$status}**")
             // ->field('Reason', $this->reason ?: '—', true)
