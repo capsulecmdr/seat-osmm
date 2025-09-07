@@ -82,7 +82,12 @@ class OsmmMaintenanceController extends Controller
 
             // Fire your plugin event; SeAT’s listener will fan this out to subscribed channels.
             event(new MaintenanceToggled(
-                $nowEnabled, $reason, $description
+                enabled:  $nowEnabled,
+                reason:   $reason,
+                description: $description,
+                byName:   $byName,
+                byUserId: auth()->id(),
+                at:       now()
             ));
 
             Log::warning("State Change for Maintenance Fired...");
