@@ -44,8 +44,6 @@ class OsmmMaintenanceMiddleware
             return $next($request);
         }
 
-        Log::info('OSMM Maintenance redirect', ['path' => $request->path(), 'uid' => optional($user)->id]);
-
         // Redirect everything else to the landing page
         return redirect('/maintenance');
     }

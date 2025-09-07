@@ -10,8 +10,6 @@ use CapsuleCmdr\SeatOsmm\Http\Controllers\Config\BrandingController;
 use CapsuleCmdr\SeatOsmm\Http\Controllers\OsmmMenuController;
 use CapsuleCmdr\SeatOsmm\Http\Controllers\OsmmMaintenanceController as C;
 
-Log::info('[OSMM] routes.php loaded');
-
 // All OSMM routes share /osmm prefix and web+auth middleware
 Route::middleware(['web', 'auth'])
     ->prefix('osmm')

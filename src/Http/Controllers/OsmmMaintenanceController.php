@@ -52,7 +52,6 @@ class OsmmMaintenanceController extends Controller
 
     public function toggleMaintenance(Request $r)
     {
-        Log::debug('Normal flow message');
         // Previous state before changes
         $wasEnabled = (int) (osmm_setting('osmm_maintenance_enabled', 0)) === 1;
 
@@ -72,13 +71,6 @@ class OsmmMaintenanceController extends Controller
         \CapsuleCmdr\SeatOsmm\Models\OsmmSetting::put('osmm_maintenance_enabled', $nowEnabled ? '1' : '0', 'text', 1);
         \CapsuleCmdr\SeatOsmm\Models\OsmmSetting::put('osmm_maintenance_reason', $reason, 'text', 1);
         \CapsuleCmdr\SeatOsmm\Models\OsmmSetting::put('osmm_maintenance_description', $description, 'text', 1);
-
-        Log::warning('OSMM maint toggle', [
-            'was' => $wasEnabled,
-            'now' => $nowEnabled,
-            'webhook_enabled' => (int) osmm_setting('osmm_discord_webhook_enabled', 0),
-            'webhook_url_set' => (string) osmm_setting('osmm_discord_webhook_url', '') !== '' ? 1 : 0,
-        ]);
 
         // Only notify on state change
         if ($nowEnabled !== $wasEnabled) {
@@ -113,9 +105,9 @@ class OsmmMaintenanceController extends Controller
             }
 
 
-            Log::warning("State Change for Maintenance Fired...");
+            
         } else {
-            Log::info('OSMM maint toggle: no state change, skipping webhook');
+            
         }
 
         return back()->with('status', 'Maintenance mode ' . ($nowEnabled ? 'enabled' : 'disabled') . '.');
@@ -181,97 +173,6 @@ class OsmmMaintenanceController extends Controller
     {
         $announcement->update(['status' => 'expired']);
         return back()->with('status', 'Announcement expired.');
-    }
-    protected function notifyDiscord(Ann $a): bool
-    {
-        $url = (string) osmm_setting('osmm_discord_webhook_url', '');
-        if ($url === '') {
-            Log::warning('OSMM Discord: missing webhook URL');
-            return false;
-        }
-
-        $username = osmm_setting('osmm_discord_webhook_username', 'Maintenance Bot') ?: 'Maintenance Bot';
-        $avatar   = osmm_setting('osmm_discord_webhook_avatar', '') ?: null;
-
-        // Minimal 'content' + rich embed (Discord accepts either/both)
-        $payload = [
-            'username'   => $username,
-            'avatar_url' => $avatar,
-            'content'    => '**' . $a->title . '**',   // so something posts even if embeds are blocked
-            'embeds'     => [[
-                'title'       => $a->title,
-                'description' => strip_tags($a->content),
-                'color'       => 15158332,
-                'timestamp'   => now('UTC')->toIso8601String(),
-                'fields'      => array_values(array_filter([
-                    $a->starts_at ? ['name' => 'Starts', 'value' => $a->starts_at->toDayDateTimeString().' UTC', 'inline' => true] : null,
-                    $a->ends_at   ? ['name' => 'Ends',   'value' => $a->ends_at->toDayDateTimeString().' UTC', 'inline' => true] : null,
-                    ['name' => 'Status', 'value' => ucfirst($a->status), 'inline' => true],
-                ])),
-            ]],
-        ];
-
-        try {
-            $resp = Http::timeout(10)
-                ->asJson()
-                ->post($url, $payload);
-
-            Log::info('OSMM Discord webhook', [
-                'status' => $resp->status(),
-                // Body can help with 401/404/429 messages
-                'body'   => str($resp->body())->limit(300)->toString(),
-            ]);
-
-            return $resp->successful();
-        } catch (\Throwable $e) {
-            Log::warning('OSMM Discord webhook exception: '.$e->getMessage());
-            return false;
-        }
-    }
-
-    protected function notifyDiscordMaintenance(bool $enabled, string $reason = '', string $description = ''): bool
-    {
-        if ((int) osmm_setting('osmm_discord_webhook_enabled', 0) !== 1) return false;
-
-        $url = (string) osmm_setting('osmm_discord_webhook_url', '');
-        if ($url === '') return false;
-
-        $username = osmm_setting('osmm_discord_webhook_username', 'Maintenance Bot') ?: 'Maintenance Bot';
-        $avatar   = osmm_setting('osmm_discord_webhook_avatar', '') ?: null;
-
-        // Optional: set these OSMM settings if you want pings/threads
-        $mention  = (string) osmm_setting('osmm_discord_mention', '');        // e.g. "<@&ROLE_ID>" or "@everyone"
-        $threadId = (string) osmm_setting('osmm_discord_thread_id', '');      // if posting to a thread
-
-        $title = $enabled ? $reason : 'Maintenance Complete';
-        $content = trim(($mention ? $mention.' ' : '') . '**'.$title.'**');
-
-        if($title == "Maintenance Complete"){
-            $title = "**Complete: " . $reason . "**";
-            $content = $title;
-            $description = "Server has returned to normal operations";
-        }
-
-        $payload = [
-            'username'   => $username,
-            'avatar_url' => $avatar,
-            'content'    => $content,  // ensures something shows even if embeds are hidden
-            'allowed_mentions' => [
-                'parse' => ['users','roles','everyone'], // safe with explicit mention tokens only
-            ],
-            'embeds'     => [[
-                'title'       => $title,
-                'description' => $description !== '' ? $description : '—',
-                'color'       => $enabled ? 16747520 : 3329330,
-            ]],
-        ];
-
-        $req = Http::timeout(10)->asJson();
-        if ($threadId !== '') $req = $req->withQueryParameters(['thread_id' => $threadId]);
-
-        $resp = $req->post($url, $payload);
-        \Log::info('OSMM Discord maintenance webhook', ['status' => $resp->status(), 'body' => str($resp->body())->limit(200)->toString()]);
-        return $resp->successful();
     }
 
 }
