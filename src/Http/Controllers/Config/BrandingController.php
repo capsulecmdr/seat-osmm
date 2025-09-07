@@ -29,7 +29,7 @@ class BrandingController extends Controller
             ->pluck('value', 'key');
 
         return view('seat-osmm::config.branding', [
-            'osmm_use_enhanced_home'   => (int) ($this->get('osmm_use_enhanced_home') ?? 0),
+            'osmm_use_enhanced_home'      => (int)($values['osmm_use_enhanced_home'] ?? 0),
             'osmm_override_sidebar'       => (int)($values['osmm_override_sidebar'] ?? 0),
             'osmm_override_footer'        => (int)($values['osmm_override_footer'] ?? 0),
             'osmm_override_manifest'      => (int)($values['osmm_override_manifest'] ?? 0),
