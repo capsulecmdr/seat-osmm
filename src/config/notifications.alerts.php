@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'osmm_maintenance_toggled' => [
+    'osmm.maintenance_toggled' => [
         'label' => 'osmm::notifications.maintenance_toggled',
         'handlers' => [
             'mail'    => \CapsuleCmdr\SeatOsmm\Notifications\Mail\MaintenanceToggled::class,
