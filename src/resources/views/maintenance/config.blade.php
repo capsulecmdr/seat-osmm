@@ -54,32 +54,6 @@
 
         </div>
       </div>
-
-      <div class="card mt-3">
-        <div class="card-header"><strong>Discord Webhook</strong></div>
-        <div class="card-body">
-          <form method="post" action="{{ route('osmm.maint.webhook') }}">
-            @csrf
-            <div class="form-group form-check">
-              <input type="checkbox" class="form-check-input" id="whEnabled" name="enabled" value="1" {{ $settings['webhook_enabled'] ? 'checked' : '' }}>
-              <label for="whEnabled" class="form-check-label">Enable Webhook</label>
-            </div>
-            <div class="form-group">
-              <label>Webhook URL</label>
-              <input type="url" class="form-control" name="url" value="{{ $settings['webhook_url'] }}">
-            </div>
-            <div class="form-group">
-              <label>Username (optional)</label>
-              <input type="text" class="form-control" name="username" value="{{ $settings['webhook_username'] }}">
-            </div>
-            <div class="form-group">
-              <label>Avatar URL (optional)</label>
-              <input type="url" class="form-control" name="avatar" value="{{ $settings['webhook_avatar'] }}">
-            </div>
-            <button class="btn btn-primary btn-sm">Save</button>
-          </form>
-        </div>
-      </div>
     </div>
 
     <div class="col-lg-8">
