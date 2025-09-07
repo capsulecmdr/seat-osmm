@@ -8,9 +8,12 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
 use CapsuleCmdr\SeatOsmm\Events\MaintenanceToggled;
+use Seat\Notifications\Models\NotificationGroup;
+use Seat\Notifications\Traits\NotificationDispatchTool;
 
 class OsmmMaintenanceController extends Controller
 {
+    use NotificationDispatchTool;
     public function landing()
     {
         // Show latest visible announcement (if any), otherwise generic message
@@ -80,15 +83,27 @@ class OsmmMaintenanceController extends Controller
             // Who flipped the switch?
             $byName = auth()->user()->name ?? 'system';
 
-            // Fire your plugin event; SeAT’s listener will fan this out to subscribed channels.
-            event(new MaintenanceToggled(
-                enabled:  $nowEnabled,
-                reason:   $reason,
-                description: $description,
-                byName:   $byName,
-                byUserId: auth()->id(),
-                at:       now()
-            ));
+            // // Fire your plugin event; SeAT’s listener will fan this out to subscribed channels.
+            // event(new MaintenanceToggled(
+            //     enabled:  $nowEnabled,
+            //     reason:   $reason,
+            //     description: $description,
+            //     byName:   $byName,
+            //     byUserId: auth()->id(),
+            //     at:       now()
+            // ));
+
+            $groups = NotificationGroup::whereHas(
+                'alerts',
+                fn ($q) => $q->where('alert', 'osmm.maintenance_toggled')
+            )->get();
+
+            if ($groups->isEmpty()) return;
+
+            $this->dispatchNotifications('osmm.maintenance_toggled', $groups, function (string $handler) use ($nowEnabled, $reason, $byName) {
+                return new $handler($nowEnabled, $reason, $by ?? (auth()->user()->name ?? 'system'), now());
+            });
+
 
             Log::warning("State Change for Maintenance Fired...");
             
