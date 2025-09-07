@@ -83,16 +83,7 @@ class OsmmMaintenanceController extends Controller
             // Who flipped the switch?
             $byName = auth()->user()->name ?? 'system';
 
-            // // Fire your plugin event; SeAT’s listener will fan this out to subscribed channels.
-            // event(new MaintenanceToggled(
-            //     enabled:  $nowEnabled,
-            //     reason:   $reason,
-            //     description: $description,
-            //     byName:   $byName,
-            //     byUserId: auth()->id(),
-            //     at:       now()
-            // ));
-
+            // get all the notification groups
             $groups = NotificationGroup::whereHas(
                 'alerts',
                 fn ($q) => $q->where('alert', 'osmm.maintenance_toggled')
@@ -100,9 +91,22 @@ class OsmmMaintenanceController extends Controller
 
             if ($groups->isEmpty()) return;
 
-            $this->dispatchNotifications('osmm.maintenance_toggled', $groups, function (string $handler) use ($nowEnabled, $reason, $byName) {
-                return new $handler($nowEnabled, $reason, $by ?? (auth()->user()->name ?? 'system'), now());
-            });
+            //loop through all notification groups and fire events
+            foreach($groups as $group){
+                //loop through all integrations within the group
+                foreach(($groups->integrations) as $integration){
+                    $notification = config('notifications.alerts')['osmm.maintenance_toggled']['handlers']['discord'];
+                    $setting = (array) $integration->settings;
+                    $key = array_key_first($setting);
+                    $route = $setting[$key];
+                    $anon = (new AnonymousNotifiable)->route($integration->type, $route);
+                    Notification::sendNow($anon,new $notification(true,'Manual test via tinker',\Seat\Web\Models\User::find(2)));
+                }
+            }
+
+            // $this->dispatchNotifications('osmm.maintenance_toggled', $groups, function (string $handler) use ($nowEnabled, $reason, $byName) {
+            //     return new $handler($nowEnabled, $reason, $by ?? (auth()->user()->name ?? 'system'), now());
+            // });
 
 
             Log::warning("State Change for Maintenance Fired...");
