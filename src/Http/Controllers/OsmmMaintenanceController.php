@@ -73,7 +73,7 @@ class OsmmMaintenanceController extends Controller
         \CapsuleCmdr\SeatOsmm\Models\OsmmSetting::put('osmm_maintenance_reason', $reason, 'text', 1);
         \CapsuleCmdr\SeatOsmm\Models\OsmmSetting::put('osmm_maintenance_description', $description, 'text', 1);
 
-        Log::info('OSMM maint toggle', [
+        Log::warning('OSMM maint toggle', [
             'was' => $wasEnabled,
             'now' => $nowEnabled,
             'webhook_enabled' => (int) osmm_setting('osmm_discord_webhook_enabled', 0),
@@ -103,7 +103,7 @@ class OsmmMaintenanceController extends Controller
                     $route = $setting[$key];
                     $anon = (new AnonymousNotifiable)->route($integration->type, $route);
                     Notification::sendNow($anon,new $notification(
-                        "ENABLED",                                // enabled
+                        $nowEnabled,                                // enabled
                         $reason,            // reason (title)
                         $description,    // description
                         $byName,                             // by

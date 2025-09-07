@@ -20,16 +20,18 @@ class MaintenanceToggled extends AbstractDiscordNotification
     // Tip: methods on DiscordMessage mirror an embed-style builder.
     protected function populateMessage(DiscordMessage $message, mixed $notifiable): DiscordMessage
     {
+        $status = $this->enabled ? 'ENABLED' : 'DISABLED';
+
         \Log::warning('[OSMM] Discord populateMessage hit', [
             'enabled' => $this->enabled, 'reason' => $this->reason, 'by' => $this->by
         ]);
-        $status = $this->enabled ? 'ENABLED' : 'DISABLED';
+        
 
         return $message
             ->embed(function (DiscordEmbed $embed){
                 $embed->timestamp($this->at);
                 $embed->author($this->by);
-                if($this->enabled == "ENABLED"){
+                if($this->enabled){
                     $embed->color(16747520);
                     $embed->title($this->reason);
                     $embed->description($this->description);
