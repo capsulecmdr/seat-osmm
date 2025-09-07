@@ -17,7 +17,7 @@ class SendMaintenanceToggledAlert implements ShouldQueue
 
     public function handle(Event $event): void
     {
-        Log::debug('[OSMM] Listener got event', ['enabled' => $event->enabled, 'reason' => $event->reason]);
+        Log::warning('[OSMM] Listener got event', ['enabled' => $event->enabled, 'reason' => $event->reason]);
 
         // 1) Pick all groups that subscribed to your alert key
         $groups = NotificationGroup::whereHas(
