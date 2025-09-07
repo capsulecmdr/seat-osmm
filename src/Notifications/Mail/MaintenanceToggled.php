@@ -10,6 +10,7 @@ class MaintenanceToggled extends AbstractMailNotification
     public function __construct(
         public bool $enabled,
         public ?string $reason = null,
+        public ?string $description = null,
         public ?string $by = null,
         public ?\Carbon\Carbon $at = null,
     ) {}

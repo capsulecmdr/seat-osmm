@@ -18,6 +18,7 @@ class MaintenanceToggled
     public function __construct(
         public bool $enabled,
         public ?string $reason = null,
+        public ?string $description = null,
         public ?string $byName = null,
         public ?int $byUserId = null,
         public ?Carbon $at = null,
