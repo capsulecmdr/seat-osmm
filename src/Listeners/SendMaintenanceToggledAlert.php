@@ -7,6 +7,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Seat\Notifications\Traits\NotificationDispatchTool;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Queue\InteractsWithQueue;
+use stdClass;
 
 
 class SendMaintenanceToggledAlert implements ShouldQueue
@@ -36,6 +37,6 @@ class SendMaintenanceToggledAlert implements ShouldQueue
             'by'          => $event->byName,
             'by_id'       => $event->byUserId,
             'at'          => $event->at ?? now(),
-        ],[]);
+        ],new stdClass());
     }
 }
