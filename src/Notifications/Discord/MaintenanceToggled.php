@@ -29,7 +29,10 @@ class MaintenanceToggled extends AbstractDiscordNotification
             ->content('testing')
             ->embed(function (DiscordEmbed $embed){
                 $embed->timestamp(carbon());
-                $embed->author('test title');
+                $embed->author('test author');
+                $embed->title('test title');
+                $embed->description('test description');
+                $embed->color(16747520);
             })
 
             ->success();
