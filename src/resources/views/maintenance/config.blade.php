@@ -120,11 +120,11 @@
               </div>
               <div class="form-group col-md-2">
                 <label>Starts At (UTC)</label>
-                <input type="datetime-local" name="starts_at" class="form-control">
+                <input type="datetime-local" name="starts_at" class="form-control" value="{{ old('starts_at', \Carbon\Carbon::now('UTC')->format('Y-m-d\TH:i')) }}">
               </div>
               <div class="form-group col-md-2">
                 <label>Ends At (UTC)</label>
-                <input type="datetime-local" name="ends_at" class="form-control">
+                <input type="datetime-local" name="ends_at" class="form-control" value="{{ old('ends_at', \Carbon\Carbon::now('UTC')->endOfDay()->format('Y-m-d\TH:i')) }}">
               </div>
             </div>
             <div class="form-group">
