@@ -2,7 +2,7 @@
   $banners = \CapsuleCmdr\SeatOsmm\Models\OsmmAnnouncement::active()->get();
 @endphp
 
-@if ($banner->isNotEmpty())
+@if ($banners->isNotEmpty())
   @foreach ($banners as $banner)
     <div class="alert alert-warning mb-0 rounded-0 dont-autohide" role="alert" style="position:sticky; top:0; z-index: 1050;">
       <div class="container d-flex justify-content-between align-items-center">
