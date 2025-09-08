@@ -51,10 +51,10 @@ class OsmmAnnouncement extends Model
                  ->orderByRaw("COALESCE(starts_at, created_at) DESC");
     }
 
-    public function scopeActive($query)
+    public function scopeActive($q)
     {
         $now = \Carbon\Carbon::now();
-        return $query->where('starts_at', '<=', $now)
+        return $q->where('starts_at', '<=', $now)
                     ->where('ends_at', '>=', $now);
     }
 }
