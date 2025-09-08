@@ -191,8 +191,8 @@ $noMargin = ""
       .alert {
         /* fade out right before collapse (optional) */
         animation:
-          alert-fade 0.5s ease 34.5s forwards,
-          alert-collapse 0s linear 35s forwards;
+          alert-fade 0.5s ease 10.5s forwards,
+          alert-collapse 0s linear 10s forwards;
       }
 
       @keyframes alert-fade {
