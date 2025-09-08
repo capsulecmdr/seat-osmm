@@ -87,6 +87,79 @@
       </div>
     </div>
 
+    <div class="card md-3">
+      <div class="card-header"><strong>Override Item</strong>
+        <small class="text-muted ml-2">Select any native item (parent or child) by its path</small>
+      </div>
+      <div class="card-body">
+        <form method="post" action="{{ route('osmm.menu.override.upsert') }}" id="form-override">
+          @csrf
+
+          <div class="form-row">
+            <div class="col-md-6 mb-3">
+              <label class="mb-0">Item</label>
+              <select name="item_key" id="ov-item-key" class="form-control form-control-sm" required>
+                {{-- populated by JS from CATALOG_FLAT --}}
+              </select>
+              <small class="form-text text-muted">This uses the stable item_key; override follows the item even if it moves.</small>
+            </div>
+            <div class="col-md-3 mb-3">
+              <label class="mb-0">Visibility</label>
+              <select name="visible" id="ov-visible" class="form-control form-control-sm">
+                <option value="">(no change)</option>
+                <option value="1">Show (force)</option>
+                <option value="0">Hide</option>
+              </select>
+              <small class="form-text text-muted">Force show clears permission at render time.</small>
+            </div>
+            <div class="col-md-3 mb-3">
+              <label class="mb-0">Order</label>
+              <input type="number" min="1" name="order_override" id="ov-order" class="form-control form-control-sm" placeholder="1">
+              <small class="form-text text-muted">1-based within the item’s current parent.</small>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="col-md-4 mb-3">
+              <label class="mb-0">Label override</label>
+              <input name="label_override" id="ov-label" class="form-control form-control-sm" placeholder="Text or translation key">
+              <small class="form-text text-muted">Set a literal label or i18n key.</small>
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="mb-0">Permission override</label>
+              <select name="permission_override" id="ov-permission" class="form-control form-control-sm">
+                <option value="">(none)</option>
+                @foreach(($allPermissions ?? []) as $opt)
+                  @php $val = is_array($opt) ? ($opt['value'] ?? $opt['label'] ?? '') : $opt; @endphp
+                  <option value="{{ $val }}">{{ $val }}</option>
+                @endforeach
+              </select>
+              <small class="form-text text-muted">Ignored if Visibility = Show.</small>
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="mb-0">Icon override</label>
+              <input name="icon_override" id="ov-icon" class="form-control form-control-sm" placeholder="fas fa-…">
+              <small class="form-text text-muted">Optional Font Awesome class.</small>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="col-md-6 d-flex align-items-end justify-content-end">
+              <button class="btn btn-primary btn-sm">Save Override</button>
+              <button type="button" class="btn btn-outline-danger btn-sm ml-2" id="ov-delete">Delete</button>
+            </div>
+          </div>
+        </form>
+
+        {{-- Hidden delete form --}}
+        <form id="form-override-delete" action="{{ route('osmm.menu.override.delete') }}" method="post" style="display:none;">
+          @csrf
+          @method('DELETE')
+          <input type="hidden" name="item_key" id="ov-del-item-key">
+        </form>
+      </div>
+    </div>
+
     <div class="card mb-3">
       <div class="card-header d-flex align-items-center">
         <strong>Overrides in Database</strong>
@@ -314,80 +387,7 @@
   </div>
 </div>
 <div class="row mt-4">
-  <div class="col-md-12">
-    <div class="card">
-      <div class="card-header"><strong>Override Item</strong>
-        <small class="text-muted ml-2">Select any native item (parent or child) by its path</small>
-      </div>
-      <div class="card-body">
-        <form method="post" action="{{ route('osmm.menu.override.upsert') }}" id="form-override">
-          @csrf
-
-          <div class="form-row">
-            <div class="col-md-6 mb-3">
-              <label class="mb-0">Item</label>
-              <select name="item_key" id="ov-item-key" class="form-control form-control-sm" required>
-                {{-- populated by JS from CATALOG_FLAT --}}
-              </select>
-              <small class="form-text text-muted">This uses the stable item_key; override follows the item even if it moves.</small>
-            </div>
-            <div class="col-md-3 mb-3">
-              <label class="mb-0">Visibility</label>
-              <select name="visible" id="ov-visible" class="form-control form-control-sm">
-                <option value="">(no change)</option>
-                <option value="1">Show (force)</option>
-                <option value="0">Hide</option>
-              </select>
-              <small class="form-text text-muted">Force show clears permission at render time.</small>
-            </div>
-            <div class="col-md-3 mb-3">
-              <label class="mb-0">Order</label>
-              <input type="number" min="1" name="order_override" id="ov-order" class="form-control form-control-sm" placeholder="1">
-              <small class="form-text text-muted">1-based within the item’s current parent.</small>
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="col-md-4 mb-3">
-              <label class="mb-0">Label override</label>
-              <input name="label_override" id="ov-label" class="form-control form-control-sm" placeholder="Text or translation key">
-              <small class="form-text text-muted">Set a literal label or i18n key.</small>
-            </div>
-            <div class="col-md-4 mb-3">
-              <label class="mb-0">Permission override</label>
-              <select name="permission_override" id="ov-permission" class="form-control form-control-sm">
-                <option value="">(none)</option>
-                @foreach(($allPermissions ?? []) as $opt)
-                  @php $val = is_array($opt) ? ($opt['value'] ?? $opt['label'] ?? '') : $opt; @endphp
-                  <option value="{{ $val }}">{{ $val }}</option>
-                @endforeach
-              </select>
-              <small class="form-text text-muted">Ignored if Visibility = Show.</small>
-            </div>
-            <div class="col-md-4 mb-3">
-              <label class="mb-0">Icon override</label>
-              <input name="icon_override" id="ov-icon" class="form-control form-control-sm" placeholder="fas fa-…">
-              <small class="form-text text-muted">Optional Font Awesome class.</small>
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="col-md-6 d-flex align-items-end justify-content-end">
-              <button class="btn btn-primary btn-sm">Save Override</button>
-              <button type="button" class="btn btn-outline-danger btn-sm ml-2" id="ov-delete">Delete</button>
-            </div>
-          </div>
-        </form>
-
-        {{-- Hidden delete form --}}
-        <form id="form-override-delete" action="{{ route('osmm.menu.override.delete') }}" method="post" style="display:none;">
-          @csrf
-          @method('DELETE')
-          <input type="hidden" name="item_key" id="ov-del-item-key">
-        </form>
-      </div>
-    </div>
-  </div>
+  
 </div>
 
 
