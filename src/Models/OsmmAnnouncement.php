@@ -50,4 +50,11 @@ class OsmmAnnouncement extends Model
                  ->whereIn('status', ['new','active'])
                  ->orderByRaw("COALESCE(starts_at, created_at) DESC");
     }
+
+    public function scopeActive($query)
+    {
+        $now = \Carbon\Carbon::now();
+        return $query->where('starts_at', '<=', $now)
+                    ->where('ends_at', '>=', $now);
+    }
 }

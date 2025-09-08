@@ -118,14 +118,6 @@
                 <label>Title</label>
                 <input type="text" name="title" class="form-control" required>
               </div>
-              <div class="form-group col-md-4">
-                <label>Status</label>
-                <select name="status" class="form-control">
-                  <option value="new">New</option>
-                  <option value="active">Active</option>
-                  <option value="expired">Expired</option>
-                </select>
-              </div>
             </div>
             <div class="form-group">
               <label>Content (HTML allowed)</label>
@@ -140,29 +132,6 @@
                 <label>Ends At (UTC)</label>
                 <input type="datetime-local" name="ends_at" class="form-control">
               </div>
-            </div>
-            <div class="form-row"><input type="hidden" name="show_banner" value="0">
-              <div class="form-group form-check">
-                <input
-                  type="checkbox"
-                  class="form-check-input"
-                  id="show_banner"
-                  name="show_banner"
-                  value="1"
-                  {{ old('show_banner', 1) ? 'checked' : '' }}>
-                <label class="form-check-label" for="show_banner">Show as banner</label>
-              </div>
-              <input type="hidden" name="send_to_discord" value="0">
-                <div class="form-group form-check">
-                  <input
-                    type="checkbox"
-                    class="form-check-input"
-                    id="send_to_discord"
-                    name="send_to_discord"
-                    value="0"
-                    {{ old('send_to_discord', 0) ? 'checked' : '' }}>
-                  <label class="form-check-label" for="send_to_discord">Send to Discord</label>
-                </div>
             </div>
             <button class="btn btn-success btn-sm">Save Announcement</button>
           </form>

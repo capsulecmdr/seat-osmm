@@ -1,7 +1,5 @@
 @php
-  $banner = \CapsuleCmdr\SeatOsmm\Models\OsmmAnnouncement::bannerable()->get()
-              ->tap(fn($c) => $c->each->refreshComputedStatus())
-              ->first(fn($a) => $a->is_visible);
+  $banner = \CapsuleCmdr\SeatOsmm\Models\OsmmAnnouncement::active()->get();
 @endphp
 
 @if ($banner)
