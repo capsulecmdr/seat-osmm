@@ -187,6 +187,36 @@ $noMargin = ""
         });
       })();
     </script>
+    <style>
+      .alert {
+        /* fade out right before collapse (optional) */
+        animation:
+          alert-fade 0.5s ease 34.5s forwards,
+          alert-collapse 0s linear 35s forwards;
+      }
+
+      @keyframes alert-fade {
+        to { opacity: 0; }
+      }
+
+      @keyframes alert-collapse {
+        to {
+          visibility: hidden;     /* not drawn */
+          opacity: 0;
+          height: 0;
+          margin: 0;
+          padding-top: 0;
+          padding-bottom: 0;
+          border: 0;
+          overflow: hidden;
+        }
+      }
+
+      /* Accessibility: honor reduced motion */
+      @media (prefers-reduced-motion: reduce) {
+        .alert.auto-hide { animation: alert-collapse 0s linear 35s forwards; }
+      }
+    </style>
   @endcan
 
   <!-- view specific scripts -->
