@@ -22,11 +22,11 @@ class AnnouncementCreated extends AbstractDiscordNotification
             ->embed(function (DiscordEmbed $embed){
                 $embed->timestamp($this->at);
                 $embed->author($this->by);
-                $embed->color(3329330);
+                $embed->color(16711935);
                 $embed->title('**Annoucement:** ' . $this->title);
                 $embed->description($this->content);                
             })
-            
+
             ->success();
     }
 }
