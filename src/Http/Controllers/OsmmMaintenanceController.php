@@ -12,6 +12,7 @@ use Seat\Notifications\Models\NotificationGroup;
 use Seat\Notifications\Traits\NotificationDispatchTool;
 use Illuminate\Notifications\AnonymousNotifiable;
 use Illuminate\Support\Facades\Notification;
+use CapsuleCmdr\SeatOsmm\Models\OsmmMaintenanceTemplate;
 
 class OsmmMaintenanceController extends Controller
 {
