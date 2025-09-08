@@ -90,8 +90,10 @@ class OsmmServiceProvider extends AbstractSeatPlugin
             ]);
         }
 
-         $router->aliasMiddleware('osmm.maintenance', OsmmMaintenanceMiddleware::class);
-         $router->pushMiddlewareToGroup('web', OsmmMaintenanceMiddleware::class);
+        $router->aliasMiddleware('osmm.maintenance', OsmmMaintenanceMiddleware::class);
+        app()->booted(function () use ($router) {
+            $router->pushMiddlewareToGroup('web', OsmmMaintenanceMiddleware::class);
+        });
 
         // Push as GLOBAL middleware so we know it runs
         // $kernel = $this->app->make(Kernel::class);
