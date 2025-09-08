@@ -44,6 +44,50 @@ class OsmmAnnouncement extends Model
         }
     }
 
+    public static function refreshAllComputedStatus(): array
+    {
+        $now = now('UTC');
+
+        // 1) Expire anything that has ended
+        $expired = static::query()
+            ->whereNotNull('ends_at')
+            ->where('ends_at', '<=', $now)
+            ->where('status', '!=', 'expired')
+            ->update([
+                'status'     => 'expired',
+                'updated_at' => now(),
+            ]);
+
+        // 2) Mark future items as 'scheduled' (optional but nice for clarity)
+        $scheduled = static::query()
+            ->whereNotNull('starts_at')
+            ->where('starts_at', '>', $now)
+            ->whereNotIn('status', ['scheduled', 'expired'])
+            ->update([
+                'status'     => 'scheduled',
+                'updated_at' => now(),
+            ]);
+
+        // 3) Activate anything that should be active now
+        //    (started, not yet ended, and currently new/scheduled)
+        $active = static::query()
+            ->where(function ($q) use ($now) {
+                $q->whereNull('starts_at')
+                ->orWhere('starts_at', '<=', $now);
+            })
+            ->where(function ($q) use ($now) {
+                $q->whereNull('ends_at')
+                ->orWhere('ends_at', '>', $now);
+            })
+            ->whereIn('status', ['new', 'scheduled'])
+            ->update([
+                'status'     => 'active',
+                'updated_at' => now(),
+            ]);
+
+        return compact('expired', 'scheduled', 'active');
+    }
+
     /** Scope: active/not-expired to banner */
     public function scopeBannerable($q) {
         return $q->where('show_banner', true)
