@@ -1711,6 +1711,33 @@ public function upsertOverride(Request $r)
     return back()->with('status','Override saved.');
 }
 
+public function deleteOverride(Request $request)
+{
+    // Prefer deleting by item_key, but also accept legacy id
+    $data = $request->validate([
+        'item_key' => 'nullable|string|max:255',
+        'id'       => 'nullable|integer',
+    ]);
+
+    if (empty($data['item_key']) && empty($data['id'])) {
+        return back()->withErrors(['item_key' => 'Provide item_key (preferred) or id.']);
+    }
+
+    $deleted = 0;
+
+    if (!empty($data['item_key'])) {
+        $deleted = \CapsuleCmdr\SeatOsmm\Models\OsmmMenuOverride::where('item_key', $data['item_key'])->delete();
+    } else {
+        if ($row = \CapsuleCmdr\SeatOsmm\Models\OsmmMenuOverride::find($data['id'])) {
+            $row->delete();
+            $deleted = 1;
+        }
+    }
+
+    Cache::forget(self::CACHE_MERGED);
+
+    return back()->with($deleted ? 'ok' : 'status', $deleted ? 'Override deleted.' : 'Nothing to delete.');
+}
 
 
 }

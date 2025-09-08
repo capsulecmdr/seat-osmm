@@ -156,7 +156,10 @@
           @csrf
           @method('DELETE')
           <input type="hidden" name="item_key" id="ov-del-item-key">
+          {{-- Optional legacy fallback --}}
+          {{-- <input type="hidden" name="id" id="ov-del-id"> --}}
         </form>
+
       </div>
     </div>
 
@@ -551,16 +554,27 @@
     if (help) help.textContent = isParent ? 'Editing parent override' : 'Editing child override';
 
     const delBtn = document.getElementById('edit-delete');
-    const delFm  = document.getElementById('override-delete-form');
+    const delFm  = document.getElementById('form-override-delete');
+
     if (delBtn && delFm) {
       delBtn.onclick = function () {
-        if (!data.id) return;
+        // payload from your overrides list detail panel:
+        // make sure it includes item_key or _osmm_item_key
+        const key = (window.osmmCurrentOverride?.item_key)
+                || (window.osmmCurrentOverride?._osmm_item_key)
+                || (typeof payload !== 'undefined' ? (payload.item_key || payload._osmm_item_key) : '');
+
+        if (!key) { alert('Missing item_key for this override.'); return; }
+
         if (confirm('Delete this override?')) {
-          document.getElementById('delete-id').value = data.id;
+          document.getElementById('ov-del-item-key').value = key;
+          // Optional legacy id support:
+          // document.getElementById('ov-del-id').value = window.osmmCurrentOverride?.id || '';
           delFm.submit();
         }
       };
     }
+
   }
 
   // center list clicks (list renders rows with data-osmm-override-row + data-item JSON)
@@ -569,6 +583,7 @@
     if (!row) return;
     try {
       const payload = JSON.parse(row.dataset.item || '{}');
+      window.osmmCurrentOverride = payload;
       renderDetailsTable('details-overrides', payload);
       setEditMode(payload);
     } catch(e){}
