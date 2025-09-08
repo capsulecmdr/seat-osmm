@@ -156,6 +156,10 @@ class OsmmServiceProvider extends AbstractSeatPlugin
         $this->registerPermissions(__DIR__ . '/config/Permissions/permissions.php','osmm');
 
         $this->app->bind(EsiTokenStorage::class, fn () => new SeatRelationTokenStorage());
+
+        $this->registerDatabaseSeeders(
+            \CapsuleCmdr\SeatOsmm\Database\Seeders\OsmmScheduleSeeder::class
+        );
     }
 
     private function addMigrations()
