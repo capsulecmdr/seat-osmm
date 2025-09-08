@@ -1,5 +1,5 @@
 @extends('web::layouts.app')
-@section('page_title', 'OSMM Menu Manager')
+@section('title', 'OSMM Menu Manager')
 
 @section('content')
 
