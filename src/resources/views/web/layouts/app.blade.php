@@ -57,7 +57,7 @@ $noMargin = ""
         $reason = osmm_setting('osmm_maintenance_reason');
         $description = osmm_setting('osmm_maintenance_description');
       @endphp
-      <div class="alert alert-danger mb-0 rounded-0 dont-autohide" role="alert" style="position:sticky; top:0; z-index: 1050;">
+      <div class="alert alert-danger mb-0 rounded-0 dont-autohide teste" role="alert" style="position:sticky; top:0; z-index: 1050;">
         <div class="container d-flex justify-content-between align-items-center">
           <div class="mr-3">
             <strong>{!! $reason !!}</strong>
