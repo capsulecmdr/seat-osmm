@@ -74,30 +74,30 @@
 </form>
 <script>
   (function() {
-  const selectEl = document.getElementById('maintTemplate');
-  const btn = document.getElementById('applyTemplateBtn');
-  const reason = document.getElementById('maintReason');
-  const desc = document.getElementById('maintDesc');
+    const selectEl = document.getElementById('maintTemplate');
+    const btn = document.getElementById('applyTemplateBtn');
+    const reason = document.getElementById('maintReason');
+    const desc = document.getElementById('maintDesc');
 
-  if (!selectEl || !btn || !reason || !desc) return;
+    if (!selectEl || !btn || !reason || !desc) return;
 
-  btn.addEventListener('click', function () {
-    const opt = selectEl.options[selectEl.selectedIndex];
-    if (!opt || !opt.value) return;
+    btn.addEventListener('click', function () {
+      const opt = selectEl.options[selectEl.selectedIndex];
+      if (!opt || !opt.value) return;
 
-    const r = opt.getAttribute('data-reason') ?? '';
-    const d = opt.getAttribute('data-description') ?? '';
+      const r = opt.getAttribute('data-reason') ?? '';
+      const d = opt.getAttribute('data-description') ?? '';
 
-    reason.value = r;
-    desc.value = d;
-    // Optional: flash the fields to show they changed
-    [reason, desc].forEach(el => {
-      el.classList.add('border','border-info');
-      setTimeout(() => el.classList.remove('border','border-info'), 1200);
+      reason.value = r;
+      desc.value = d;
+      // Optional: flash the fields to show they changed
+      [reason, desc].forEach(el => {
+        el.classList.add('border','border-info');
+        setTimeout(() => el.classList.remove('border','border-info'), 1200);
+      });
     });
-  });
-})();
-<script>
+  })();
+</script>
 
         </div>
       </div>
