@@ -2,9 +2,6 @@
 @section('title', 'OSMM Menu Manager')
 
 @section('content')
-@php
-  $native_raw = config('package.sidebar') ?? [];
-@endphp
 
 <div class="row">
   {{-- LEFT: Native sidebar --}}
@@ -17,9 +14,9 @@
       <div id="native-sidebar"
            class="card-body p-0"
            style="max-height:60vh; overflow:auto"
-           data-menu='@json($native_raw)'>
+           data-menu='@json(config("package.sidebar", []))'>
         @include('seat-osmm::menu.partials.sidebar', [
-          'menu' => $native_raw,
+          'menu' => config("package.sidebar", []),
           'can'  => $can ?? null
         ])
       </div>
@@ -236,7 +233,7 @@
         <small class="text-muted ml-2">native raw menu</small>
       </div>
       <div class="card-body p-0">
-        @include('seat-osmm::menu.partials.topbar', ['menu' => $native_raw, 'can' => $can ?? null])
+        @include('seat-osmm::menu.partials.topbar', ['menu' => config("package.sidebar", []), 'can' => $can ?? null])
       </div>
     </div>
   </div>
