@@ -5,7 +5,7 @@
 @endphp
 
 @if ($banner)
-  <div class="alert alert-warning mb-0 rounded-0" role="alert" style="position:sticky; top:0; z-index: 1050;">
+  <div class="alert alert-warning mb-0 rounded-0 dont-autohide" role="alert" style="position:sticky; top:0; z-index: 1050;">
     <div class="container d-flex justify-content-between align-items-center">
       <div class="mr-3">
         <strong>{{ $banner->title }}</strong>
