@@ -30,60 +30,98 @@ class OsmmMenuController extends Controller
 
     /** CONFIG PAGE: side-by-side tree view (native vs merged) + CRUD tools */
     public function index()
-    {
-        // Build full merged menu (cached), and also capture baseNative (pre-merged) for dropdowns/catalog.
-        ['baseNative' => $baseNative, 'merged' => $merged, 'maps' => $maps, 'dbRows' => $dbRows] = $this->buildMergedMenu();
+{
+    // Build native + merged (cached). This version of buildMergedMenu()
+    // should also return ['overrides' => [...]] keyed by item_key.
+    ['baseNative' => $baseNative, 'merged' => $merged, 'maps' => $maps, 'overrides' => $overrides] = $this->buildMergedMenu();
 
-        // Dropdown: parent options derived from baseNative
-        $parentOptions = collect($baseNative)->map(function ($v, $k) {
-            $seg      = $v['route_segment'] ?? $k;
-            $parentId = DB::table('osmm_menu_items')->whereNull('parent')->where('route_segment', $seg)->value('id');
-            return [
-                'key'       => $k,
-                'name'      => $v['name'] ?? $k,
-                'seg'       => $seg,
-                'label'     => ($v['name'] ?? $k)." [{$seg}]",
-                'parent_id' => $parentId,
-            ];
-        })->values()->all();
+    // Keep your catalog (used by details/sidebars, etc.)
+    $menuCatalog = $this->buildMenuCatalog($baseNative);
 
-        $routeSegments = collect($baseNative)->map(function ($v, $k) {
-            $seg = $v['route_segment'] ?? $k;
-            return ['value' => $seg, 'label' => ($v['name'] ?? $k) . " [{$seg}]"];
-        })->values()->all();
-
-        $menuCatalog = $this->buildMenuCatalog($baseNative);
-
-        $allPermissions = $this->collectPermissionOptionsFrom($this->getNativeConfig(), $dbRows);
-
-        $osmmMenuMode = 0; // default when not set
-        try {
-            if (function_exists('osmm_setting')) {
-                $osmmMenuMode = (int) osmm_setting('osmm_override_menu', 0);
-            } else {
-                // fallback direct read from model if helper not loaded
-                $osmmMenuMode = (int) (OsmmSetting::get('osmm_override_menu', 0));
+    // ---------- Permissions dropdown options ----------
+    // From native (parents + children)
+    $nativePerms = collect($baseNative)
+        ->flatMap(function ($p) {
+            $perms = [];
+            if (!empty($p['permission'])) $perms[] = $p['permission'];
+            foreach (($p['entries'] ?? []) as $c) {
+                if (is_array($c) && !empty($c['permission'])) $perms[] = $c['permission'];
+                // plugins sub-parents
+                if (is_array($c) && !empty($c['entries'])) {
+                    foreach ($c['entries'] as $gc) {
+                        if (is_array($gc) && !empty($gc['permission'])) $perms[] = $gc['permission'];
+                    }
+                }
             }
-        } catch (\Throwable $e) {
-            $osmmMenuMode = 0;
+            return $perms;
+        });
+
+    // From overrides table (permission_override)
+    $overridePerms = collect($overrides ?? [])->pluck('permission_override')->filter();
+
+    // From permissions table if present
+    $fromPermsTable = [];
+    try {
+        if (\Illuminate\Support\Facades\Schema::hasTable('permissions')) {
+            $fromPermsTable = \Illuminate\Support\Facades\DB::table('permissions')->pluck('title');
         }
+    } catch (\Throwable $e) { /* ignore */ }
 
-        $modeLabelMap = [0 => 'Off', 1 => 'Off', 2 => 'Sidebar', 3 => 'Topbar'];
+    $allPermissions = collect([$nativePerms, $overridePerms, $fromPermsTable])
+        ->flatten()->filter()->unique()->sort()->values()->all();
 
-        $can = fn ($perm) => empty($perm) || (\auth()->check() && \auth()->user()->can($perm));
-
-        return view('seat-osmm::menu.index', [
-            'native'         => $baseNative,
-            'merged'         => $merged,
-            'dbRows'         => $dbRows,
-            'parentOptions'  => $parentOptions,
-            'allPermissions' => $allPermissions,
-            'routeSegments'  => $routeSegments,
-            'can'            => $can,
-            'menuCatalog'    => $menuCatalog,
-            'osmmMenuMode' => $osmmMenuMode,
-        ]);
+    // ---------- OSMM menu mode ----------
+    $osmmMenuMode = 0; // default when not set
+    try {
+        if (function_exists('osmm_setting')) {
+            $osmmMenuMode = (int) osmm_setting('osmm_override_menu', 0);
+        } else {
+            $osmmMenuMode = (int) (OsmmSetting::get('osmm_override_menu', 0));
+        }
+    } catch (\Throwable $e) {
+        $osmmMenuMode = 0;
     }
+
+    // ---------- Auth gate helper ----------
+    $can = fn ($perm) => empty($perm) || (\auth()->check() && \auth()->user()->can($perm));
+
+    // ---------- Flat catalog for the single override form ----------
+    // (Relies on indexNativeMenu() having set _osmm_item_key on nodes.)
+    $catalogFlat = (function(array $native) {
+        $out = [];
+        $walk = function ($node, $path = []) use (&$walk, &$out) {
+            if (!is_array($node)) return;
+            $label = $node['label'] ?? $node['name'] ?? 'Item';
+            $path2 = array_merge($path, [__($label)]);
+            if (!empty($node['_osmm_item_key'])) {
+                $out[] = [
+                    'item_key' => $node['_osmm_item_key'],
+                    'path'     => implode(' › ', $path2),
+                ];
+            }
+            foreach (($node['entries'] ?? []) as $c) {
+                if (is_array($c)) $walk($c, $path2);
+            }
+        };
+        foreach ($native as $p) if (is_array($p)) $walk($p, []);
+        usort($out, fn($a,$b) => strnatcasecmp($a['path'], $b['path']));
+        return $out;
+    })($baseNative);
+
+    return view('seat-osmm::menu.index', [
+        'native'         => $baseNative,
+        'merged'         => $merged,
+        'can'            => $can,
+        'menuCatalog'    => $menuCatalog,
+        'allPermissions' => $allPermissions,
+        'osmmMenuMode'   => $osmmMenuMode,
+
+        // New for simplified UI
+        'overrides'      => $overrides,   // keyed by item_key
+        'catalogFlat'    => $catalogFlat, // [{item_key, path}, …]
+    ]);
+}
+
 
     /** API: merged menu as JSON for app consumption */
     public function jsonMerged(Request $request)
@@ -326,35 +364,95 @@ class OsmmMenuController extends Controller
      * @return array{baseNative: array, merged: array, maps: array, dbRows: \Illuminate\Support\Collection}
      */
     private function buildMergedMenu(): array
-    {
-        return Cache::remember(self::CACHE_MERGED, 60, function () {
-            $nativeSorted = $this->sortNativeConfig($this->getNativeConfig());
+{
+    return Cache::remember(self::CACHE_MERGED, 60, function () {
+        // 1) Load native, normalize, and keep your base composition
+        $nativeSorted = $this->sortNativeConfig($this->getNativeConfig());
+        ['menu' => $baseNative, 'maps' => $maps] = $this->buildBaseNative($nativeSorted);
 
-            ['menu' => $baseNative, 'maps' => $maps] = $this->buildBaseNative($nativeSorted);
+        // 2) Inject custom links at the top of Tools (your existing behavior)
+        $this->injectCustomLinks($baseNative);
 
-            // Inject custom links into Tools once
-            $this->injectCustomLinks($baseNative);
+        // 3) Build a flat index with stable keys for every node
+        //    (populates _osmm_item_key on nodes)
+        $index = $this->indexNativeMenu($baseNative);
 
-            // DB rows (cached separately)
-            $dbRows = $this->fetchMenuRows();
+        // 4) Load overrides keyed by item_key
+        //    You can implement this as:
+        //    $overrides = \CapsuleCmdr\SeatOsmm\Models\OsmmMenuOverride::query()->get()->keyBy('item_key')->toArray();
+        $overrides = $this->fetchOverrides(); // returns [item_key => [label_override, visible, order_override, ...]]
 
-            // Precompute parentId -> route_segment to avoid N+1
-            $parentSegById = $this->mapParentIdToSegment($dbRows);
+        // 5) Apply property overrides (label/permission/icon/route/visibility)
+        foreach ($overrides as $key => $ov) {
+            if (isset($index[$key])) {
+                $this->applyPropertyOverrides($index[$key], $ov);
+            }
+        }
 
-            // Overrides
-            $merged = $this->applyOverridesWithConsolidation($baseNative, $dbRows, $maps, $parentSegById);
+        // 6) Prune explicitly hidden items (those marked by applyPropertyOverrides)
+        $prune = function (&$node) use (&$prune): bool {
+            if (!is_array($node)) return false;
 
-            // Reorders
-            $merged = $this->applyReorders($merged, $baseNative, $dbRows, $maps, $parentSegById);
+            // If this node was hidden by an override, drop it
+            if (!empty($node['_osmm_hidden'])) return false;
 
-            return [
-                'baseNative' => $baseNative,
-                'merged'     => $merged,
-                'maps'       => $maps,
-                'dbRows'     => $dbRows,
-            ];
-        });
-    }
+            // Recurse into children
+            if (!empty($node['entries']) && is_array($node['entries'])) {
+                $new = [];
+                foreach ($node['entries'] as $child) {
+                    if (is_array($child) && $prune($child)) {
+                        $new[] = $child;
+                    }
+                }
+                $node['entries'] = $new;
+            }
+
+            return true;
+        };
+
+        foreach ($baseNative as $k => &$parent) {
+            if (is_array($parent) && !$prune($parent)) {
+                unset($baseNative[$k]);
+            }
+        }
+        unset($parent);
+
+        // 7) Apply child reorders within each current parent
+        $this->applyOrderOverrides($baseNative, $overrides);
+
+        // 8) Optional: reorder parents themselves if an override targets a parent item_key
+        $parentOrderMap = [];
+        foreach ($baseNative as $k => $p) {
+            $ik = $p['_osmm_item_key'] ?? $this->makeItemKey($p, $p['route_segment'] ?? null);
+            if ($ik && !empty($overrides[$ik]['order_override'])) {
+                $parentOrderMap[$k] = (int) $overrides[$ik]['order_override']; // 1-based
+            }
+        }
+        if (!empty($parentOrderMap)) {
+            $parentKeys = array_keys($baseNative);
+            $parentKeys = $this->reposition($parentKeys, $parentOrderMap);
+            $reordered = [];
+            foreach ($parentKeys as $k) {
+                if (array_key_exists($k, $baseNative)) {
+                    $reordered[$k] = $baseNative[$k];
+                }
+            }
+            $merged = $reordered;
+        } else {
+            $merged = $baseNative;
+        }
+
+        // Return shape kept for back-compat; dbRows unused with the new model
+        return [
+            'baseNative' => $baseNative,      // native-derived tree after normalization/injection
+            'merged'     => $merged,          // final menu after overrides + reorders
+            'maps'       => $maps,            // your admin/plugin segment maps
+            'dbRows'     => collect(),        // legacy key; safe empty collection
+            'overrides'  => $overrides,       // new: raw overrides keyed by item_key
+        ];
+    });
+}
+
 
     /** Load native config. */
     private function getNativeConfig(): array
@@ -1418,6 +1516,201 @@ private function pruneByAuth(array $nodes, $user): array
 
     return $out;
 }
+
+
+private function makeItemKey(array $node, ?string $parentSeg = null): ?string
+{
+    // Prefer route when available (most stable)
+    if (!empty($node['route']) && is_string($node['route'])) {
+        return strtolower(trim($node['route']));
+    }
+
+    // Plugins sub-parents have a subsegment tag; include it
+    if (!empty($node['_osmm_subsegment'])) {
+        return 'plugin:' . strtolower($node['_osmm_subsegment']);
+    }
+
+    // Fallback to segment/name
+    $seg  = $node['route_segment'] ?? $parentSeg ?? null;
+    $name = $node['name'] ?? null;
+    if (!$seg && !$name) return null;
+
+    $slug = fn($s) => Str::of((string)$s)->lower()->slug('_');
+    return $slug($seg ?: 'root') . '/' . $slug($name ?: ($node['label'] ?? 'item'));
+}
+
+/** Build a flat index of nodes with parent pointers for later reorders. */
+private function indexNativeMenu(array &$root): array
+{
+    $index = [];
+
+    $walk = function (&$node, ?string $parentSeg) use (&$walk, &$index) {
+        $key = $this->makeItemKey($node, $parentSeg);
+        if ($key) {
+            $index[$key] = &$node;
+            // store the computed key for debug/round-trips
+            $node['_osmm_item_key'] = $key;
+        }
+
+        $seg = $node['route_segment'] ?? $parentSeg;
+
+        if (!empty($node['entries']) && is_array($node['entries'])) {
+            foreach ($node['entries'] as &$child) {
+                if (is_array($child)) $walk($child, $seg);
+            }
+            unset($child);
+        }
+    };
+
+    foreach ($root as &$parent) {
+        if (is_array($parent)) $walk($parent, $parent['route_segment'] ?? null);
+    }
+    unset($parent);
+
+    return $index;
+}
+
+private function fetchOverrides(): array
+{
+    return \CapsuleCmdr\SeatOsmm\Models\OsmmMenuOverride::query()
+        ->get()
+        ->keyBy('item_key')
+        ->toArray();
+}
+
+private function applyPropertyOverrides(array &$node, array $ov): void
+{
+    if (!empty($ov['label_override']))      $node['label'] = $ov['label_override'];
+    if (!empty($ov['permission_override'])) $node['permission'] = $ov['permission_override'];
+    if (!empty($ov['icon_override']))       $node['icon'] = $ov['icon_override'];
+    if (!empty($ov['route_override']))      $node['route'] = $ov['route_override'];
+
+    if (array_key_exists('visible', $ov) && $ov['visible'] !== null) {
+        if ((int)$ov['visible'] === 0) {
+            $node['_osmm_hidden'] = true;     // mark for prune
+        } elseif ((int)$ov['visible'] === 1) {
+            // force show: clear permission requirement
+            $node['permission'] = null;
+        }
+    }
+}
+
+private function applyOrderOverrides(array &$root, array $overrides): void
+{
+    // Walk every parent and reorder its children by requests that match present keys
+    $reposition = function (&$list, array $requests) {
+        if (empty($list) || empty($requests)) return;
+        // index current positions by _osmm_item_key
+        $idxByKey = [];
+        foreach ($list as $i => $e) {
+            if (is_array($e) && !empty($e['_osmm_item_key'])) {
+                $idxByKey[$e['_osmm_item_key']] = $i;
+            }
+        }
+        // sort requests by order asc
+        usort($requests, fn($a,$b) => ($a['order_override'] ?? 0) <=> ($b['order_override'] ?? 0));
+
+        foreach ($requests as $r) {
+            $k = $r['item_key'];
+            $pos = max(1, (int)$r['order_override']) - 1;
+            if (!array_key_exists($k, $idxByKey)) continue;
+
+            $cur = $idxByKey[$k];
+            $item = $list[$cur];
+            array_splice($list, $cur, 1);
+            $insertAt = min($pos, count($list));
+            array_splice($list, $insertAt, 0, [$item]);
+
+            // rebuild index (safe, lists are short)
+            $idxByKey = [];
+            foreach ($list as $i => $e) {
+                if (is_array($e) && !empty($e['_osmm_item_key'])) {
+                    $idxByKey[$e['_osmm_item_key']] = $i;
+                }
+            }
+        }
+    };
+
+    $walkParents = function (&$node) use (&$walkParents, $overrides, $reposition) {
+        if (!empty($node['entries']) && is_array($node['entries'])) {
+            // gather child orders for keys present under this node
+            $childOrders = [];
+            foreach ($node['entries'] as $e) {
+                if (!is_array($e) || empty($e['_osmm_item_key'])) continue;
+                $k = $e['_osmm_item_key'];
+                if (!empty($overrides[$k]['order_override'])) {
+                    $childOrders[] = [
+                        'item_key' => $k,
+                        'order_override' => (int)$overrides[$k]['order_override'],
+                    ];
+                }
+            }
+            $reposition($node['entries'], $childOrders);
+
+            // descend
+            foreach ($node['entries'] as &$e) {
+                if (is_array($e)) $walkParents($e);
+            }
+            unset($e);
+        }
+    };
+
+    foreach ($root as &$parent) {
+        if (is_array($parent)) $walkParents($parent);
+    }
+    unset($parent);
+}
+
+public function jsonCatalog()
+{
+    ['baseNative' => $native] = $this->buildMergedMenu(); // or a fresh native-only builder if you prefer
+    $flat = [];
+
+    $walk = function ($node, $path = []) use (&$walk, &$flat) {
+        $label = $node['label'] ?? $node['name'] ?? 'Item';
+        $path2 = array_merge($path, [__($label)]);
+        if (!empty($node['_osmm_item_key'])) {
+            $flat[] = [
+                'item_key' => $node['_osmm_item_key'],
+                'path'     => implode(' › ', $path2),
+            ];
+        }
+        foreach (($node['entries'] ?? []) as $c) {
+            if (is_array($c)) $walk($c, $path2);
+        }
+    };
+
+    foreach ($native as $p) if (is_array($p)) $walk($p, []);
+    // sort by path
+    usort($flat, fn($a,$b) => strnatcasecmp($a['path'], $b['path']));
+
+    return response()->json($flat);
+}
+
+public function upsertOverride(Request $r)
+{
+    $data = $r->validate([
+        'item_key'            => 'required|string|max:255',
+        'label_override'      => 'nullable|string|max:190',
+        'permission_override' => 'nullable|string|max:190',
+        'icon_override'       => 'nullable|string|max:150',
+        'route_override'      => 'nullable|string|max:190',
+        'visible'             => 'nullable|in:0,1',
+        'order_override'      => 'nullable|integer|min:1',
+    ]);
+
+    // normalize empties to null
+    foreach ($data as $k => $v) if ($v === '') $data[$k] = null;
+
+    \CapsuleCmdr\SeatOsmm\Models\OsmmMenuOverride::updateOrCreate(
+        ['item_key' => $data['item_key']],
+        $data
+    );
+
+    Cache::forget(self::CACHE_MERGED);
+    return back()->with('status','Override saved.');
+}
+
 
 
 }

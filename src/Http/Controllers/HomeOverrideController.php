@@ -862,11 +862,4 @@ class HomeOverrideController extends Controller
 
     return $freshest ? \Carbon\Carbon::parse($freshest, 'UTC')->toIso8601String() : null;
 }
-
-
-
-
-
-    
-
 }
