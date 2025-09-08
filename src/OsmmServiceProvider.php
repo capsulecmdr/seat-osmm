@@ -84,6 +84,12 @@ class OsmmServiceProvider extends AbstractSeatPlugin
                 ->exists();
         });
 
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                \CapsuleCmdr\SeatOsmm\Console\Commands\RefreshAnnouncementStatuses::class,
+            ]);
+        }
+
         // Push as GLOBAL middleware so we know it runs
         // $kernel = $this->app->make(Kernel::class);
         // $kernel->pushMiddleware(OsmmMaintenanceMiddleware::class);
