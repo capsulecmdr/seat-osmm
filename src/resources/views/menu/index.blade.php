@@ -33,6 +33,60 @@
 
   {{-- CENTER: DB Overrides list + details + edit/update --}}
   <div class="col-md-4">
+
+    <div class="card mb-3">
+      <div class="card-header">
+        <strong>Menu Master Override</strong>
+        <small class="text-muted ml-2">Use the native SeAT menu or OSMM menu options.</small>
+      </div>
+
+      <div class="card-body">
+        <form id="form-osmm-settings" action="{{ route('osmm.menu.save-mode') }}" method="post" novalidate>
+          @csrf
+
+          @php
+            $modeNum = (int)($osmmMenuMode ?? 0);
+            $modeStrMap = [0 => 'off', 1 => 'off', 2 => 'sidebar', 3 => 'topbar'];
+            $modeStr = $modeStrMap[$modeNum] ?? 'off';
+          @endphp
+
+          <input type="hidden" name="osmm_menu_mode" id="osmm-menu-mode" value="{{ $modeNum }}">
+
+          <div class="form-group mb-3">
+            <label class="mb-2 d-flex justify-content-between align-items-center">
+              <span>Menu Override Level</span>
+              <span class="badge badge-pill badge-secondary" id="osmm-menu-mode-label">
+                {{$modeStr}}
+              </span>
+            </label>
+
+            <input
+              type="range"
+              class="custom-range"
+              id="osmm-menu-slider"
+              min="1" max="3" step="1"
+              value="{{ $modeNum }}"
+              data-initial="{{ $modeNum }}"
+              aria-describedby="osmm-menu-help">
+
+            <div class="d-flex justify-content-between small text-muted mt-1 px-1">
+              <span>Off</span>
+              <span>Sidebar</span>
+              <span>Topbar</span>
+            </div>
+
+            <small id="osmm-menu-help" class="form-text text-muted">
+              Choose where to surface the <em>OSMM Menu</em>.
+            </small>
+          </div>
+
+          <div class="d-flex justify-content-end">
+            <button type="submit" class="btn btn-outline-primary btn-sm">Save</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <div class="card mb-3">
       <div class="card-header d-flex align-items-center">
         <strong>Overrides in Database</strong>
@@ -250,58 +304,7 @@
 
   {{-- CENTER: SETTINGS --}}
   <div class="col-md-4">
-    <div class="card">
-      <div class="card-header">
-        <strong>Menu Master Override</strong>
-        <small class="text-muted ml-2">Use the native SeAT menu or OSMM menu options.</small>
-      </div>
-
-      <div class="card-body">
-        <form id="form-osmm-settings" action="{{ route('osmm.menu.save-mode') }}" method="post" novalidate>
-          @csrf
-
-          @php
-            $modeNum = (int)($osmmMenuMode ?? 0);
-            $modeStrMap = [0 => 'off', 1 => 'off', 2 => 'sidebar', 3 => 'topbar'];
-            $modeStr = $modeStrMap[$modeNum] ?? 'off';
-          @endphp
-
-          <input type="hidden" name="osmm_menu_mode" id="osmm-menu-mode" value="{{ $modeNum }}">
-
-          <div class="form-group mb-3">
-            <label class="mb-2 d-flex justify-content-between align-items-center">
-              <span>Menu Override Level</span>
-              <span class="badge badge-pill badge-secondary" id="osmm-menu-mode-label">
-                {{$modeStr}}
-              </span>
-            </label>
-
-            <input
-              type="range"
-              class="custom-range"
-              id="osmm-menu-slider"
-              min="1" max="3" step="1"
-              value="{{ $modeNum }}"
-              data-initial="{{ $modeNum }}"
-              aria-describedby="osmm-menu-help">
-
-            <div class="d-flex justify-content-between small text-muted mt-1 px-1">
-              <span>Off</span>
-              <span>Sidebar</span>
-              <span>Topbar</span>
-            </div>
-
-            <small id="osmm-menu-help" class="form-text text-muted">
-              Choose where to surface the <em>OSMM Menu</em>.
-            </small>
-          </div>
-
-          <div class="d-flex justify-content-end">
-            <button type="submit" class="btn btn-outline-primary btn-sm">Save</button>
-          </div>
-        </form>
-      </div>
-    </div>
+    
   </div>
 
 
