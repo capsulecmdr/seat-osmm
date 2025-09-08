@@ -27,6 +27,27 @@
         </label>
     </div>
 
+    {{-- Template quick-fill --}}
+    <div class="form-group">
+      <label for="maintTemplate">Apply template</label>
+      <div class="d-flex">
+        <select id="maintTemplate" class="form-control mr-2">
+          <option value="">— Choose a template —</option>
+          @foreach($templates as $tpl)
+            <option value="{{ $tpl->id }}"
+                    data-reason="{{ e($tpl->reason) }}"
+                    data-description="{{ e($tpl->description) }}">
+              {{ $tpl->name }}
+            </option>
+          @endforeach
+        </select>
+        <button type="button" id="applyTemplateBtn" class="btn btn-outline-secondary">
+          Apply
+        </button>
+      </div>
+      <small class="form-text text-muted">Choosing a template will overwrite the Reason & Description fields below (you can still edit them).</small>
+    </div>
+
     <div class="form-group">
         <label for="maintReason">Maintenance reason (short)</label>
         <input
@@ -51,6 +72,32 @@
 
     <button class="btn btn-primary btn-sm">Save</button>
 </form>
+<script>
+  (function() {
+  const selectEl = document.getElementById('maintTemplate');
+  const btn = document.getElementById('applyTemplateBtn');
+  const reason = document.getElementById('maintReason');
+  const desc = document.getElementById('maintDesc');
+
+  if (!selectEl || !btn || !reason || !desc) return;
+
+  btn.addEventListener('click', function () {
+    const opt = selectEl.options[selectEl.selectedIndex];
+    if (!opt || !opt.value) return;
+
+    const r = opt.getAttribute('data-reason') ?? '';
+    const d = opt.getAttribute('data-description') ?? '';
+
+    reason.value = r;
+    desc.value = d;
+    // Optional: flash the fields to show they changed
+    [reason, desc].forEach(el => {
+      el.classList.add('border','border-info');
+      setTimeout(() => el.classList.remove('border','border-info'), 1200);
+    });
+  });
+})();
+<script>
 
         </div>
       </div>

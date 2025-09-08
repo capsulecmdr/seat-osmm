@@ -47,7 +47,12 @@ class OsmmMaintenanceController extends Controller
             'webhook_avatar'        => (string) (osmm_setting('osmm_discord_webhook_avatar', '')),
         ];
 
-        return view('seat-osmm::maintenance.config', compact('announcements','settings'));
+        $templates = OsmmMaintenanceTemplate::query()
+        ->where('is_active', true)
+        ->orderBy('name')
+        ->get(['id','name','reason','description']);
+
+        return view('seat-osmm::maintenance.config', compact('announcements','settings','templates'));
     }
 
     public function toggleMaintenance(Request $r)
