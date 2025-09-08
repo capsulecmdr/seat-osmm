@@ -114,10 +114,6 @@
             @csrf
             <input type="hidden" name="id" id="ann-id">
             <div class="form-row">
-              <div class="form-group col-md-8">
-                <label>Title</label>
-                <input type="text" name="title" class="form-control" required>
-              </div>
               <div class="form-group col-md-2">
                 <label>Starts At (UTC)</label>
                 <input type="datetime-local" name="starts_at" class="form-control" value="{{ old('starts_at', \Carbon\Carbon::now('UTC')->format('Y-m-d\TH:i')) }}">
@@ -126,11 +122,15 @@
                 <label>Ends At (UTC)</label>
                 <input type="datetime-local" name="ends_at" class="form-control" value="{{ old('ends_at', \Carbon\Carbon::now('UTC')->endOfDay()->format('Y-m-d\TH:i')) }}">
               </div>
-            </div>
-            <div class="form-group">
-              <label>Content (HTML allowed)</label>
-              <textarea name="content" rows="4" class="form-control" required></textarea>
-            </div>
+              <div class="form-group col-md-4">
+                <label>Title</label>
+                <input type="text" name="title" class="form-control" required>
+              </div>
+              <div class="form-group col-md-4">
+                <label>Content (HTML allowed)</label>
+                <textarea name="content" rows="4" class="form-control" required></textarea>
+              </div>
+            </div>            
             <button class="btn btn-success btn-sm">Save Announcement</button>
           </form>
 
@@ -141,7 +141,7 @@
             <table class="table table-sm table-striped">
               <thead>
                 <tr>
-                  <th>Title</th><th>Status</th><th>Window</th><th>Banner</th><th>Actions</th>
+                  <th>Title</th><th>Status</th><th>Window</th><th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -154,7 +154,6 @@
                     &nbsp;→&nbsp;
                     @if($a->ends_at) {{ $a->ends_at->toDayDateTimeString() }} UTC @else — @endif
                   </td>
-                  <td>{{ $a->show_banner ? 'Yes' : 'No' }}</td>
                   <td>
                     <form method="post" action="{{ route('osmm.maint.announcement.expire',$a) }}" onsubmit="return confirm('Expire this announcement?');" class="d-inline">
                       @csrf
