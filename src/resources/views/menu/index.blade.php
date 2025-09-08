@@ -369,11 +369,6 @@
           </div>
 
           <div class="form-row">
-            <div class="col-md-6 mb-1">
-              <label class="mb-0">Route override</label>
-              <input name="route_override" id="ov-route" class="form-control form-control-sm" placeholder="seatcore::… (optional)">
-              <small class="form-text text-muted">Usually leave blank; route is already stable.</small>
-            </div>
             <div class="col-md-6 d-flex align-items-end justify-content-end">
               <button class="btn btn-primary btn-sm">Save Override</button>
               <button type="button" class="btn btn-outline-danger btn-sm ml-2" id="ov-delete">Delete</button>
