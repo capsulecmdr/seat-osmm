@@ -118,20 +118,18 @@
                 <label>Title</label>
                 <input type="text" name="title" class="form-control" required>
               </div>
+              <div class="form-group col-md-2">
+                <label>Starts At (UTC)</label>
+                <input type="datetime-local" name="starts_at" class="form-control">
+              </div>
+              <div class="form-group col-md-2">
+                <label>Ends At (UTC)</label>
+                <input type="datetime-local" name="ends_at" class="form-control">
+              </div>
             </div>
             <div class="form-group">
               <label>Content (HTML allowed)</label>
               <textarea name="content" rows="4" class="form-control" required></textarea>
-            </div>
-            <div class="form-row">
-              <div class="form-group col-md-6">
-                <label>Starts At (UTC)</label>
-                <input type="datetime-local" name="starts_at" class="form-control">
-              </div>
-              <div class="form-group col-md-6">
-                <label>Ends At (UTC)</label>
-                <input type="datetime-local" name="ends_at" class="form-control">
-              </div>
             </div>
             <button class="btn btn-success btn-sm">Save Announcement</button>
           </form>
