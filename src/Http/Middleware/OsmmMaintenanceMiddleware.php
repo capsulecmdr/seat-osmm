@@ -18,14 +18,14 @@ class OsmmMaintenanceMiddleware
 
         // Allow only static assets & robots so the landing page can load cleanly.
         // (Keep this list conservative.)
-        if ($request->is(
-            'vendor/capsulecmdr/seat-osmm/js/*',
-            'web/css/*', 'web/js/*', 'web/img/*',
-            'vendor/*', 'images/*', 'storage/*',
-            'favicon*', 'robots.txt'
-        )) {
-            return $next($request);
-        }
+        // if ($request->is(
+        //     'vendor/capsulecmdr/seat-osmm/js/*',
+        //     'web/css/*', 'web/js/*', 'web/img/*',
+        //     'vendor/*', 'images/*', 'storage/*',
+        //     'favicon*', 'robots.txt'
+        // )) {
+        //     return $next($request);
+        // }
 
         // Allow auth endpoints so people can still log in/out if needed.
         // if ($request->is('login*', 'logout*', 'password/*', 'auth/*', 'sso/*')) {
