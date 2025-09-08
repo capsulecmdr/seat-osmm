@@ -54,7 +54,12 @@ Route::get('/osmm/manifest.json', [BrandingController::class, 'manifest'])
         Route::get('/merged.json',  [OsmmMenuController::class, 'jsonMerged'])->name('merged');
         Route::get('/overrides.json',[OsmmMenuController::class, 'jsonOverrides'])->name('overrides');
 
+        Route::get('/catalog.json',  [OsmmMenuController::class, 'jsonCatalog'])->name('catalog');
+
         // CRUD
+        Route::post('/override/upsert', [OsmmMenuController::class, 'upsertOverride'])->name('override.upsert');
+        Route::delete('/override/delete', [OsmmMenuController::class, 'deleteOverride'])->name('override.delete');
+
         Route::post('/parent/upsert', [OsmmMenuController::class, 'upsertParent'])->name('parent.upsert');
         Route::post('/child/upsert',  [OsmmMenuController::class, 'upsertChild'])->name('child.upsert');
         Route::delete('/delete',      [OsmmMenuController::class, 'delete'])->name('delete');
