@@ -57,7 +57,7 @@ $noMargin = ""
         $reason = osmm_setting('osmm_maintenance_reason');
         $description = osmm_setting('osmm_maintenance_description');
       @endphp
-      <div class="alert alert-danger mb-0 rounded-0" role="alert" style="position:sticky; top:0; z-index: 1050;">
+      <div class="alert alert-danger mb-0 rounded-0 dont-autohide" role="alert" style="position:sticky; top:0; z-index: 1050;">
         <div class="container d-flex justify-content-between align-items-center">
           <div class="mr-3">
             <strong>{!! $reason !!}</strong>
@@ -188,7 +188,7 @@ $noMargin = ""
       })();
     </script>
     <style>
-      .alert {
+      .alert:not(.dont-autohide) {
         /* fade out right before collapse (optional) */
         animation:
           alert-fade 0.5s ease 10.5s forwards,
@@ -214,7 +214,7 @@ $noMargin = ""
 
       /* Accessibility: honor reduced motion */
       @media (prefers-reduced-motion: reduce) {
-        .alert.auto-hide { animation: alert-collapse 0s linear 35s forwards; }
+        .alert:not(.dont-autohide) { animation: alert-collapse 0s linear 35s forwards; }
       }
     </style>
   @endcan
