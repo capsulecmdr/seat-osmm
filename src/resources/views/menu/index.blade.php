@@ -2,7 +2,9 @@
 @section('title', 'OSMM Menu Manager')
 
 @section('content')
-@php($native_raw = config('package.sidebar') ?? [])
+@php
+  $native_raw = config('package.sidebar') ?? [];
+@endphp
 
 <div class="row">
   {{-- LEFT: Native sidebar --}}
