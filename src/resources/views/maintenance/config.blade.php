@@ -114,19 +114,24 @@
             @csrf
             <input type="hidden" name="id" id="ann-id">
             <div class="form-row">
-              <div class="form-group col-md-2">
-                <label>Starts At (UTC)</label>
+              <div class="form-group col-md-3">
+                <label>Starts At</label>
+                <small class="text-muted">Times are local Eve time</small>
                 <input type="datetime-local" name="starts_at" class="form-control" value="{{ old('starts_at', \Carbon\Carbon::now('UTC')->format('Y-m-d\TH:i')) }}">
               </div>
-              <div class="form-group col-md-2">
-                <label>Ends At (UTC)</label>
+              <div class="form-group col-md-3">
+                <label>Ends At</label>
+                <small class="text-muted">Times are local Eve time</small>
                 <input type="datetime-local" name="ends_at" class="form-control" value="{{ old('ends_at', \Carbon\Carbon::now('UTC')->endOfDay()->format('Y-m-d\TH:i')) }}">
               </div>
-              <div class="form-group col-md-4">
+              
+            </div>
+            <div class="form-row">
+              <div class="form-group col-md-6">
                 <label>Title</label>
                 <input type="text" name="title" class="form-control" required>
               </div>
-              <div class="form-group col-md-4">
+              <div class="form-group col-md-6">
                 <label>Content (HTML allowed)</label>
                 <textarea name="content" rows="4" class="form-control" required></textarea>
               </div>
