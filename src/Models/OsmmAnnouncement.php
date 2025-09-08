@@ -98,7 +98,13 @@ class OsmmAnnouncement extends Model
     public function scopeActive($q)
     {
         $now = \Carbon\Carbon::now();
-        return $q->where('starts_at', '<=', $now)
-                    ->where('ends_at', '>=', $now);
+
+        return $q->where('status', '!=', 'expired')
+                ->where(function ($query) use ($now) {
+                    $query->whereNull('starts_at')->orWhere('starts_at', '<=', $now);
+                })
+                ->where(function ($query) use ($now) {
+                    $query->whereNull('ends_at')->orWhere('ends_at', '>=', $now);
+                });
     }
 }
