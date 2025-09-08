@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Event;
 class OsmmServiceProvider extends AbstractSeatPlugin
 {
 
-    public function boot(): void
+    public function boot(Router $router): void
     {
 
         $this->add_routes();
@@ -89,6 +89,9 @@ class OsmmServiceProvider extends AbstractSeatPlugin
                 \CapsuleCmdr\SeatOsmm\Console\Commands\RefreshAnnouncementStatuses::class,
             ]);
         }
+
+         $router->aliasMiddleware('osmm.maintenance', OsmmMaintenanceMiddleware::class);
+         $router->pushMiddlewareToGroup('web', OsmmMaintenanceMiddleware::class);
 
         // Push as GLOBAL middleware so we know it runs
         // $kernel = $this->app->make(Kernel::class);
