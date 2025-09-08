@@ -17,4 +17,10 @@ return [
             'discord' => \CapsuleCmdr\SeatOsmm\Notifications\Discord\MaintenanceToggled::class,
         ],
     ],
+    'osmm.announcement_created' => [
+        'label' => 'osmm::notifications.announcement_created',
+        'handlers' => [
+            'discord' => \CapsuleCmdr\SeatOsmm\Notifications\Discord\AnnouncementCreated::class,
+        ],
+    ],
 ];

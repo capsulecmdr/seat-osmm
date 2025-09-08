@@ -14,6 +14,7 @@ return [
     */
 
     'maintenance_toggled' => 'OSMM: Maintenance toggled',
+    'announcement_created' => 'OSMM: Announcement created',
 
     'maintenance' => [
         'title'    => 'OSMM Maintenance',

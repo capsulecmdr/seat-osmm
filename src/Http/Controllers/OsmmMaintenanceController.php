@@ -105,9 +105,6 @@ class OsmmMaintenanceController extends Controller
                     ));
                 }
             }
-
-
-            
         } else {
             
         }
@@ -135,13 +132,50 @@ class OsmmMaintenanceController extends Controller
             ]
         );
 
+        $title = $data['title'];
+        $content = $data['content'];
+
+        if ($ann->wasRecentlyCreated) {
+        // Do something only on creation
+        // e.g. log, fire an event, send special Discord msg, etc.
+            $byName = auth()->user()->name ?? 'system';
+
+            // get all the notification groups
+            $groups = NotificationGroup::whereHas(
+                'alerts',
+                fn ($q) => $q->where('alert', 'osmm.announcement_created')
+            )->get();
+
+            if ($groups->isEmpty()) return;
+
+            //loop through all notification groups and fire events
+            foreach($groups as $group){
+                //loop through all integrations within the group
+                foreach(($group->integrations) as $integration){
+                    $notification = config('notifications.alerts')['osmm.announcement_created']['handlers']['discord'];
+                    $setting = (array) $integration->settings;
+                    $key = array_key_first($setting);
+                    $route = $setting[$key];
+                    $anon = (new AnonymousNotifiable)->route($integration->type, $route);
+                    Notification::sendNow($anon,new $notification(
+                        $title,
+                        $content,
+                        $byName,
+                        now()
+                    ));
+                }
+            }
+        } else {
+            // This was an update
+        }
+
         // Auto-sync status to schedule if desired
         $ann->refreshComputedStatus();
 
         // Optional Discord notify
-        if ($ann->send_to_discord && (int) osmm_setting('osmm_discord_webhook_enabled', 0) === 1) {
-            $this->notifyDiscord($ann);
-        }
+        // if ($ann->send_to_discord && (int) osmm_setting('osmm_discord_webhook_enabled', 0) === 1) {
+        //     $this->notifyDiscord($ann);
+        // }
 
         return back()->with('status', 'Announcement saved.');
     }
