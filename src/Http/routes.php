@@ -57,7 +57,7 @@ Route::get('/osmm/manifest.json', [BrandingController::class, 'manifest'])
         Route::get('/catalog.json',  [OsmmMenuController::class, 'jsonCatalog'])->name('catalog');
 
         // CRUD
-        Route::post('/override/upsert', [OsmmMenuController::class, 'upsertOverride'])->name('override.upsert');
+        Route::post('/override/upsert', [OsmmMenuController::class, 'upsertOverride'])->name('override.upsert'); //not loading?
         Route::delete('/override/delete', [OsmmMenuController::class, 'deleteOverride'])->name('override.delete');
 
         Route::post('/parent/upsert', [OsmmMenuController::class, 'upsertParent'])->name('parent.upsert');
