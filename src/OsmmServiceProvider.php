@@ -27,7 +27,7 @@ class OsmmServiceProvider extends AbstractSeatPlugin
         
         $this->addMigrations();
 
-        if(osmm_setting('osmm_use_enhanced_home') === '1' ?? 0){
+        if(osmm_setting('osmm_use_enhanced_home') === '1'){
             // ⏱ Delay route override until all other providers are booted
             app()->booted(function () {
                 Route::get('/', [HomeOverrideController::class, 'index'])
