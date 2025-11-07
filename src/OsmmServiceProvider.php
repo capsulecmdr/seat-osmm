@@ -102,7 +102,7 @@ class OsmmServiceProvider extends AbstractSeatPlugin
         // $kernel->pushMiddleware(OsmmMaintenanceMiddleware::class);
 
 
-        KillmailDetail::observe(CreatedKillmailObserver::class);
+        //KillmailDetail::observe(CreatedKillmailObserver::class);
 
     }
     private function addPublications(): void
