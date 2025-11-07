@@ -14,6 +14,7 @@ use Illuminate\Routing\Router;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Support\Facades\Event;
 use CapsuleCmdr\SeatOsmm\Observers\CreatedKillmailObserver;
+use Seat\Eveapi\Models\Killmails\KillmailDetail;
 
 class OsmmServiceProvider extends AbstractSeatPlugin
 {
