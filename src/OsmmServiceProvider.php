@@ -13,6 +13,7 @@ use CapsuleCmdr\SeatOsmm\Http\Middleware\OsmmMaintenanceMiddleware;
 use Illuminate\Routing\Router;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Support\Facades\Event;
+use CapsuleCmdr\SeatOsmm\Observers\CreatedKillmailObserver;
 
 class OsmmServiceProvider extends AbstractSeatPlugin
 {
@@ -98,6 +99,9 @@ class OsmmServiceProvider extends AbstractSeatPlugin
         // Push as GLOBAL middleware so we know it runs
         // $kernel = $this->app->make(Kernel::class);
         // $kernel->pushMiddleware(OsmmMaintenanceMiddleware::class);
+
+
+        KillmailDetail::observe(CreatedKillmailObserver::class);
 
     }
     private function addPublications(): void
